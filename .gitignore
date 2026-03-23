@@ -1,0 +1,52 @@
+# Nothing derived, downloaded, or secret belongs in git.
+
+# Python
+__pycache__/
+*.py[cod]
+/.venv/
+/build/
+/dist/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+/htmlcov/
+
+# Web
+node_modules/
+/web/dist/
+/web/.vite/
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Ingested and derived data
+/data/
+/tiles/
+
+# The same files are also globbed by extension, because committing one by
+# accident means a multi-GB object in history that cannot be removed without a rewrite.
+*.pmtiles
+*.pmtiles.tmp
+*.parquet
+*.osm.pbf
+*.geojsonl
+*.mbtiles
+
+# Postgres dumps. Backups go off-device, never into the tree.
+*.dump
+*.sql.gz
+
+# Vendored binaries
+/bin/
+
+# The design document
+SPEC.md
+
+# Working notes, mine
+NEEDTOKNOW.txt
