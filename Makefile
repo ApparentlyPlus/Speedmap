@@ -7,7 +7,7 @@ PSQL := psql "$${SPEEDMAP_DSN:-postgresql:///speedmap}"
 
 .PHONY: help
 help:
-	@grep -hE '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t22
+	@grep -hE '^[a-z-]+:.*#' $(MAKEFILE_LIST) | sed 's/:[^#]*# */\t/' | expand -t22
 
 .PHONY: setup
 setup: # create .venv and install all dependencies
@@ -40,5 +40,5 @@ check: lint typecheck test # everything a commit should pass
 
 .PHONY: db-check
 db-check: # confirm Postgres is reachable with the extensions the schema needs
-	@$(PSQL) -tAc "select version()" || { echo "no database, see README"; exit 1; }
+	@$(PSQL) -tAc "select version()" || { echo "no database at $${SPEEDMAP_DSN:-postgresql:///speedmap}"; exit 1; }
 	@$(PSQL) -tAc "select extname from pg_extension order by 1"

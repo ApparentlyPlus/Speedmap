@@ -9,7 +9,7 @@ The Python spellings of that mistake are:
 
 Deliberate uses are allowed, but must say why:
 
-backoff = configured_delay or 1.0  # allow fallback: tuning knob, not a fact
+    backoff = configured_delay or 1.0  # allow-fallback: tuning knob, not a fact
 """
 
 from __future__ import annotations
