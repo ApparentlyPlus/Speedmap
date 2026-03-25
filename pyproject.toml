@@ -54,7 +54,7 @@ select = [
     "B",         # bugbear
     "A",         # shadowed builtins
     "C4",        # comprehensions
-    "DTZ",       # naive datetimes -- every stored timestamp is timestamptz
+    "DTZ",       # naive datetimes, every stored timestamp is timestamptz
     "T20",       # no print() in library code
     "SIM",       # simplify
     "PTH",       # pathlib over os.path

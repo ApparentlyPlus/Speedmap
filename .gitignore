@@ -29,8 +29,7 @@ node_modules/
 /data/
 /tiles/
 
-# The same files are also globbed by extension, because committing one by
-# accident means a multi-GB object in history that cannot be removed without a rewrite.
+# Also globbed by extension: a multi-GB object in history needs a rewrite to remove
 *.pmtiles
 *.pmtiles.tmp
 *.parquet
