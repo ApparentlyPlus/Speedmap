@@ -26,8 +26,8 @@ LOCK_KEY = 8104729
 
 BOOTSTRAP = """
 create table if not exists schema_migration (
-    version    text primary key,
-    checksum   text not null,
+    version text primary key,
+    checksum text not null,
     applied_at timestamptz not null default now()
 )
 """
