@@ -36,6 +36,9 @@ build-backend = "setuptools.build_meta"
 
 # Flat layout: each worker directory is an importable package, so a systemd unit
 # can run `python -m ingest.register` without depending on the working directory.
+[tool.setuptools.package-data]
+"*" = ["*.sql"]
+
 [tool.setuptools.packages.find]
 exclude = ["tests*", "web*", "schema*", "data*", "tiles*", "bin*", ".venv*"]
 
@@ -66,6 +69,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "ingest/*" = ["T20"]
+"normalise/migrate.py" = ["T20"]
 "tools/*" = ["T20"]
 "tests/*" = ["T20"]
 

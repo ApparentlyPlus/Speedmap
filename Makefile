@@ -38,6 +38,14 @@ test: # pytest
 .PHONY: check
 check: lint typecheck test # everything a commit should pass
 
+.PHONY: migrate
+migrate: # apply pending migrations
+	$(PY) -m normalise.migrate
+
+.PHONY: migrate-status
+migrate-status: # list pending migrations
+	$(PY) -m normalise.migrate --status
+
 .PHONY: db-check
 db-check: # confirm Postgres is reachable with the extensions the schema needs
 	@$(PSQL) -tAc "select version()" || { echo "no database at $${SPEEDMAP_DSN:-postgresql:///speedmap}"; exit 1; }
