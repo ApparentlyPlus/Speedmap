@@ -114,3 +114,42 @@ def test_coverage_is_unique_per_source_place_provider_technology(
     tx.execute(insert)
     with pytest.raises(psycopg.errors.UniqueViolation):
         tx.execute(insert)
+
+
+def test_address_requires_a_position(tx: psycopg.Connection[TupleRow]) -> None:
+    """An address with no geometry cannot be mapped, so it is not an address."""
+    with pytest.raises(psycopg.errors.NotNullViolation):
+        tx.execute("insert into address (street, search_key) values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ')")
+
+
+def test_duplicate_address_without_a_postcode_is_rejected(
+    tx: psycopg.Connection[TupleRow],
+) -> None:
+    """Uniqueness is nulls not distinct: under default semantics these would not collide."""
+    insert = (
+        "insert into address (street, street_no, municipality, geom, search_key) "
+        "values ('ΑΧΑΡΝΩΝ', '12', 'ΑΘΗΝΑ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ 12')"
+    )
+    tx.execute(insert)
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        tx.execute(insert)
+
+
+def test_premises_and_connection_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
+    row = tx.execute(
+        "insert into address (street, geom, search_key) "
+        "values ('ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ') "
+        "returning premises, connected, vhcn"
+    ).fetchone()
+    assert row == (None, None, None)
+
+
+def test_search_key_is_trigram_indexed(db: psycopg.Connection[TupleRow]) -> None:
+    """Type-ahead is a similarity search, which needs gin_trgm_ops rather than btree."""
+    rows = db.execute("select indexdef from pg_indexes where tablename = 'address'").fetchall()
+    assert any("gin_trgm_ops" in definition for (definition,) in rows)
+
+
+def test_address_geometry_is_spatially_indexed(db: psycopg.Connection[TupleRow]) -> None:
+    rows = db.execute("select indexdef from pg_indexes where tablename = 'address'").fetchall()
+    assert any("gist" in definition and "geom" in definition for (definition,) in rows)
