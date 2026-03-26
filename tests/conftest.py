@@ -36,3 +36,11 @@ def db() -> Iterator[psycopg.Connection[TupleRow]]:
     with psycopg.connect(TEST_DSN) as conn:
         migrate(conn)
         yield conn
+
+
+@pytest.fixture
+def tx(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow]]:
+    """The session connection, rolled back after the test so writes do not leak."""
+    db.rollback()
+    yield db
+    db.rollback()
