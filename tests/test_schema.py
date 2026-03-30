@@ -153,3 +153,75 @@ def test_search_key_is_trigram_indexed(db: psycopg.Connection[TupleRow]) -> None
 def test_address_geometry_is_spatially_indexed(db: psycopg.Connection[TupleRow]) -> None:
     rows = db.execute("select indexdef from pg_indexes where tablename = 'address'").fetchall()
     assert any("gist" in definition and "geom" in definition for (definition,) in rows)
+
+
+def make_plan(conn: psycopg.Connection[TupleRow], external_key: str = "p1") -> int:
+    conn.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    row = conn.execute(
+        "insert into plan (provider_id, external_key, name, family) "
+        "values ((select id from provider where code = 'X'), %s, 'Fibre 100', 'fibre') "
+        "returning id",
+        (external_key,),
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+def test_plan_family_is_constrained(tx: psycopg.Connection[TupleRow]) -> None:
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    with pytest.raises(psycopg.errors.CheckViolation):
+        tx.execute(
+            "insert into plan (provider_id, external_key, name, family) "
+            "values ((select id from provider where code = 'X'), 'p', 'P', 'laser')"
+        )
+
+
+def test_hardware_requirement_is_constrained(tx: psycopg.Connection[TupleRow]) -> None:
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    with pytest.raises(psycopg.errors.CheckViolation):
+        tx.execute(
+            "insert into plan (provider_id, external_key, name, family, needs_hardware) "
+            "values ((select id from provider where code = 'X'), 'p', 'P', 'mobile', 'modem')"
+        )
+
+
+def test_plan_speeds_and_cap_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
+    """A null cap means unlimited, which is a value rather than a missing number."""
+    plan_id = make_plan(tx)
+    row = tx.execute(
+        "select down_mbps, up_mbps, data_cap_gb from plan where id = %s", (plan_id,)
+    ).fetchone()
+    assert row == (None, None, None)
+
+
+def test_one_price_per_plan_per_day(tx: psycopg.Connection[TupleRow]) -> None:
+    """Append-only: a second scrape on the same day is the same observation."""
+    plan_id = make_plan(tx)
+    insert = "insert into plan_price (plan_id, observed_on, monthly_eur) values (%s, %s, %s)"
+    tx.execute(insert, (plan_id, "2026-01-01", 30))
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        tx.execute(insert, (plan_id, "2026-01-01", 31))
+
+
+def test_plan_current_serves_the_newest_observation(tx: psycopg.Connection[TupleRow]) -> None:
+    plan_id = make_plan(tx)
+    insert = "insert into plan_price (plan_id, observed_on, monthly_eur) values (%s, %s, %s)"
+    for observed_on, monthly in [("2026-01-01", 30), ("2026-03-01", 25), ("2026-02-01", 28)]:
+        tx.execute(insert, (plan_id, observed_on, monthly))
+
+    row = tx.execute(
+        "select observed_on, monthly_eur from plan_current where plan_id = %s", (plan_id,)
+    ).fetchone()
+    assert row is not None
+    assert str(row[0]) == "2026-03-01"
+    assert int(row[1]) == 25
+
+
+def test_plan_current_keeps_one_row_per_plan(tx: psycopg.Connection[TupleRow]) -> None:
+    plan_id = make_plan(tx)
+    insert = "insert into plan_price (plan_id, observed_on, monthly_eur) values (%s, %s, %s)"
+    tx.execute(insert, (plan_id, "2026-01-01", 30))
+    tx.execute(insert, (plan_id, "2026-02-01", 28))
+
+    row = tx.execute("select count(*) from plan_current").fetchone()
+    assert row == (1,)
