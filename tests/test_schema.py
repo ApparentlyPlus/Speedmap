@@ -225,3 +225,86 @@ def test_plan_current_keeps_one_row_per_plan(tx: psycopg.Connection[TupleRow]) -
 
     row = tx.execute("select count(*) from plan_current").fetchone()
     assert row == (1,)
+
+
+def make_address(conn: psycopg.Connection[TupleRow]) -> int:
+    row = conn.execute(
+        "insert into address (street, geom, search_key) "
+        "values ('ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ') returning id"
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+def cache_row(address_id: int, technology: str = "FTTH", source: str = "register") -> str:
+    return (
+        "insert into availability (address_id, provider_id, technology, serviceable, "
+        "source, assertion, observed_at, expires_at) values "
+        f"({address_id}, (select id from provider where code = 'X'), '{technology}', "
+        f"true, '{source}', 'declared', now(), now() + interval '30 days')"
+    )
+
+
+def test_cache_source_is_constrained(tx: psycopg.Connection[TupleRow]) -> None:
+    """Only the three tiers are storable; an unlabelled answer has no trust level."""
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    address_id = make_address(tx)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        tx.execute(cache_row(address_id, source="guess"))
+
+
+def test_one_answer_per_address_provider_technology(tx: psycopg.Connection[TupleRow]) -> None:
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    address_id = make_address(tx)
+    tx.execute(cache_row(address_id))
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        tx.execute(cache_row(address_id))
+
+
+def test_one_provider_may_offer_several_technologies(tx: psycopg.Connection[TupleRow]) -> None:
+    """Technology is part of the key: fibre and copper at one address are two answers."""
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    address_id = make_address(tx)
+    tx.execute(cache_row(address_id, technology="FTTH"))
+    tx.execute(cache_row(address_id, technology="VDSL"))
+    row = tx.execute(
+        "select count(*) from availability where address_id = %s", (address_id,)
+    ).fetchone()
+    assert row == (2,)
+
+
+def test_serviceability_cannot_be_unknown(tx: psycopg.Connection[TupleRow]) -> None:
+    """A probe that failed is not written here at all, so the column is never null."""
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    address_id = make_address(tx)
+    with pytest.raises(psycopg.errors.NotNullViolation):
+        tx.execute(
+            "insert into availability (address_id, provider_id, technology, source, "
+            "assertion, observed_at, expires_at) values "
+            f"({address_id}, (select id from provider where code = 'X'), 'FTTH', "
+            "'register', 'declared', now(), now() + interval '30 days')"
+        )
+
+
+def test_raw_response_is_kept_for_replay(tx: psycopg.Connection[TupleRow]) -> None:
+    """A broken parser is re-run against history rather than re-scraped."""
+    tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
+    address_id = make_address(tx)
+    tx.execute(cache_row(address_id))
+    tx.execute(
+        "update availability set raw = %s where address_id = %s",
+        ('{"eligibilityResponse": []}', address_id),
+    )
+    row = tx.execute(
+        "select raw ->> 'eligibilityResponse' from availability where address_id = %s",
+        (address_id,),
+    ).fetchone()
+    assert row == ("[]",)
+
+
+def test_expiry_index_covers_only_serviceable_rows(db: psycopg.Connection[TupleRow]) -> None:
+    """The sweep re-probes live answers; unserviceable ones are not worth the index."""
+    rows = db.execute("select indexdef from pg_indexes where tablename = 'availability'").fetchall()
+    assert any(
+        "expires_at" in definition and "WHERE serviceable" in definition for (definition,) in rows
+    )
