@@ -44,3 +44,11 @@ def tx(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow
     db.rollback()
     yield db
     db.rollback()
+
+
+@pytest.fixture
+def seeded(tx: psycopg.Connection[TupleRow]) -> psycopg.Connection[TupleRow]:
+    """One provider and one source, enough to hang a coverage row off."""
+    tx.execute("insert into provider (code, display_name, kind) values ('TEST', 'Test', 'altnet')")
+    tx.execute("insert into source (name, url) values ('test', 'https://example.invalid')")
+    return tx
