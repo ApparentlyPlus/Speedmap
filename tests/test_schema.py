@@ -308,3 +308,63 @@ def test_expiry_index_covers_only_serviceable_rows(db: psycopg.Connection[TupleR
     assert any(
         "expires_at" in definition and "WHERE serviceable" in definition for (definition,) in rows
     )
+
+
+RAW_TABLES = [
+    "raw_coverpoint",
+    "raw_wiredservice",
+    "raw_coverage_ftth",
+    "raw_coverage_copper",
+    "raw_geo_coverage_copper",
+    "raw_provider",
+    "raw_lookup",
+]
+
+
+@pytest.mark.parametrize("table", RAW_TABLES)
+def test_raw_table_exists(db: psycopg.Connection[TupleRow], table: str) -> None:
+    row = db.execute("select to_regclass(%s)", (table,)).fetchone()
+    assert row is not None
+    assert row[0] == table
+
+
+def test_raw_geometries_keep_the_projection_they_arrived_in(
+    db: psycopg.Connection[TupleRow],
+) -> None:
+    """Copper is Greek Grid and fibre is WGS84; reprojecting on the way in loses the original."""
+    rows = db.execute(
+        "select f_table_name || '.' || f_geometry_column, srid from geometry_columns "
+        "where f_table_name like 'raw_%' order by 1"
+    ).fetchall()
+    assert dict(rows) == {
+        "raw_coverage_copper.geom": 2100,
+        "raw_coverage_ftth.geom": 4326,
+        "raw_coverpoint.point": 4326,
+        "raw_coverpoint.waitpoin": 0,
+        "raw_geo_coverage_copper.geom": 2100,
+    }
+
+
+def test_register_fetch_starts_empty(tx: psycopg.Connection[TupleRow]) -> None:
+    """Resume state: a dataset with no rows yet still has a row to resume from."""
+    row = tx.execute(
+        "insert into register_fetch (dataset) values ('coverpoint') "
+        "returning fetched, total, last_key"
+    ).fetchone()
+    assert row == (0, None, None)
+
+
+def test_raw_speeds_are_band_ids_not_megabits(tx: psycopg.Connection[TupleRow]) -> None:
+    """maxdown is a lookup id: 6 means the band '100-300 Mbps', not 6 Mbps."""
+    tx.execute(
+        "insert into raw_lookup (table_name, id, description) "
+        "values ('a4a_maxdown', 6, '100-300 Mbps')"
+    )
+    row = tx.execute(
+        "insert into raw_wiredservice (id, coverid, maxdown) values (1, 'x', 6) returning maxdown"
+    ).fetchone()
+    assert row == (6,)
+    described = tx.execute(
+        "select description from raw_lookup where table_name = 'a4a_maxdown' and id = 6"
+    ).fetchone()
+    assert described == ("100-300 Mbps",)
