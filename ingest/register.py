@@ -206,8 +206,7 @@ class RegisterClient:
         return parse_total(response.headers.get("content-range"))
 
     def page_cap(self, dataset: Dataset, *, probe: int = 2000) -> int:
-        """Measure the cap by asking for more than it will give.
-        """
+        """Measure the cap by asking for more than it will give."""
         rows = self.rows(dataset.path, {"select": dataset.key, "limit": probe})
         if len(rows) == probe:
             return probe
