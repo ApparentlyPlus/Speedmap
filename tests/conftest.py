@@ -40,7 +40,9 @@ def db() -> Iterator[psycopg.Connection[TupleRow]]:
 
 @pytest.fixture
 def tx(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow]]:
-    """The session connection, rolled back after the test so writes do not leak."""
+    """The session connection, rolled back after the test."""
+    # Rollback cannot undo work that committed itself; code that commits needs a fixture that truncates instead.
+    """
     db.rollback()
     yield db
     db.rollback()
