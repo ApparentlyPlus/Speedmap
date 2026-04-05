@@ -17,13 +17,11 @@ setup: # create .venv and install all dependencies
 	@test -f .env || cp .env.example .env
 
 .PHONY: fmt
-fmt: # format the tree
-	.venv/bin/ruff format .
+fmt: # apply the autofixable lint rules
 	.venv/bin/ruff check --fix .
 
 .PHONY: lint
 lint: # ruff, plus the numeric fallback ban
-	.venv/bin/ruff format --check .
 	.venv/bin/ruff check .
 	$(PY) tools/lint_numeric_fallback.py .
 

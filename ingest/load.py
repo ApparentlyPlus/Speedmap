@@ -119,7 +119,7 @@ def resume_key(conn: psycopg.Connection[TupleRow], dataset: str) -> str | None:
     return None if row is None else row[0]
 
 
-def record_progress(conn: psycopg.Connection[TupleRow], dataset: str, *,last_key: str,
+def record_progress(conn: psycopg.Connection[TupleRow], dataset: str, *, last_key: str,
     added: int, total: int | None,
 ) -> None:
     conn.execute(
