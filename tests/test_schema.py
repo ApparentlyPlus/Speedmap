@@ -4,6 +4,9 @@ Vocabulary and constraints of the reference tables.
 
 from __future__ import annotations
 
+from decimal import Decimal
+from itertools import pairwise
+
 import psycopg
 import pytest
 from psycopg.rows import TupleRow
@@ -24,6 +27,7 @@ def test_technology_vocabulary_is_seeded(db: psycopg.Connection[TupleRow]) -> No
         "SAT": "satellite",
         "VDSL": "copper",
         "VECT_VDSL": "copper",
+        "OTHER": "other",
     }
 
 
@@ -73,11 +77,11 @@ def test_coverage_area_has_its_own_sequence(db: psycopg.Connection[TupleRow]) ->
 
 def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) -> None:
     """LIKE does not copy foreign keys at all."""
-    row = db.execute(
-        "select count(*) from pg_constraint "
-        "where conrelid = 'coverage_area'::regclass and contype = 'f'"
-    ).fetchone()
-    assert row == (3,)
+    referenced = db.execute(
+        "select confrelid::regclass::text from pg_constraint "
+        "where conrelid = 'coverage_area'::regclass and contype = 'f' order by 1"
+    ).fetchall()
+    assert [r[0] for r in referenced] == ["provider", "source", "speed_band", "technology"]
 
 
 def test_coverage_geometries_differ_by_shape(db: psycopg.Connection[TupleRow]) -> None:
@@ -90,13 +94,13 @@ def test_coverage_geometries_differ_by_shape(db: psycopg.Connection[TupleRow]) -
 
 
 def test_coverage_speed_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
-    """Filed without a speed is a real state, not a missing one."""
+    """Filed without a speed is a real state, and the majority one: 73.3% of services."""
     tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     tx.execute("insert into source (name) values ('test')")
     row = tx.execute(
         "insert into coverage (source, source_ref, provider_id, technology, family, assertion) "
         "values ('test', 'a', (select id from provider where code = 'X'), "
-        "'FTTH', 'fibre', 'declared') returning max_down_mbps"
+        "'FTTH', 'fibre', 'declared') returning speed_band_id"
     ).fetchone()
     assert row == (None,)
 
@@ -368,3 +372,51 @@ def test_raw_speeds_are_band_ids_not_megabits(tx: psycopg.Connection[TupleRow]) 
         "select description from raw_lookup where table_name = 'a4a_maxdown' and id = 6"
     ).fetchone()
     assert described == ("100-300 Mbps",)
+
+
+def test_every_register_band_is_seeded(db: psycopg.Connection[TupleRow]) -> None:
+    rows = db.execute("select id, label from speed_band order by id").fetchall()
+    assert [r[0] for r in rows] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert rows[5][1] == "100-300 Mbps"
+
+
+def test_open_ended_bands_have_one_unknown_bound(db: psycopg.Connection[TupleRow]) -> None:
+    """Band 1 has no floor and band 8 no ceiling; inventing either would be a lie."""
+    rows = db.execute(
+        "select id, min_mbps, max_mbps from speed_band where id in (1, 8) order by id"
+    ).fetchall()
+    assert [(r[0], r[1], r[2]) for r in rows] == [
+        (1, None, Decimal("0.2")),
+        (8, Decimal(1000), None),
+    ]
+
+
+def test_bands_tile_the_range_without_gaps(db: psycopg.Connection[TupleRow]) -> None:
+    """Each band starts where the previous one ends, so no speed falls between two bands."""
+    rows = db.execute(
+        "select min_mbps, max_mbps from speed_band where id between 2 and 7 order by id"
+    ).fetchall()
+    for (_, upper), (lower, _) in pairwise(rows):
+        assert upper == lower
+
+
+def test_register_technology_ids_are_mapped(db: psycopg.Connection[TupleRow]) -> None:
+    rows = db.execute(
+        "select register_id, code from technology where register_id is not null order by register_id"
+    ).fetchall()
+    assert dict(rows) == {
+        1: "ADSL",
+        2: "VDSL",
+        3: "VECT_VDSL",
+        4: "FTTH",
+        5: "DOCSIS",
+        13: "OTHER",
+    }
+
+
+def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[TupleRow]) -> None:
+    """FWA and satellite are filed elsewhere, so a null register_id is correct here."""
+    rows = db.execute(
+        "select code from technology where register_id is null order by code"
+    ).fetchall()
+    assert [r[0] for r in rows] == ["FWA", "SAT"]
