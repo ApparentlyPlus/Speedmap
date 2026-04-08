@@ -78,10 +78,18 @@ def test_coverage_area_has_its_own_sequence(db: psycopg.Connection[TupleRow]) ->
 def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) -> None:
     """LIKE does not copy foreign keys at all."""
     referenced = db.execute(
-        "select confrelid::regclass::text from pg_constraint "
-        "where conrelid = 'coverage_area'::regclass and contype = 'f' order by 1"
+        "select a.attname, c.confrelid::regclass::text from pg_constraint c "
+        "join unnest(c.conkey) k on true "
+        "join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k "
+        "where c.conrelid = 'coverage_area'::regclass and c.contype = 'f' order by 1"
     ).fetchall()
-    assert [r[0] for r in referenced] == ["provider", "source", "speed_band", "technology"]
+    assert referenced == [
+        ("infra_provider_id", "provider"),
+        ("provider_id", "provider"),
+        ("source", "source"),
+        ("speed_band_id", "speed_band"),
+        ("technology", "technology"),
+    ]
 
 
 def test_coverage_geometries_differ_by_shape(db: psycopg.Connection[TupleRow]) -> None:
@@ -420,3 +428,55 @@ def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[
         "select code from technology where register_id is null order by code"
     ).fetchall()
     assert [r[0] for r in rows] == ["FWA", "SAT"]
+
+
+def test_every_register_provider_is_known(db: psycopg.Connection[TupleRow]) -> None:
+    rows = db.execute("select count(*), count(register_id) from provider").fetchone()
+    assert rows == (24, 24)
+
+
+def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -> None:
+    """Exactly the operators that appear as infrprov on the register's infrastructure points."""
+    rows = db.execute(
+        "select code from provider where builds_own_network order by code"
+    ).fetchall()
+    assert [r[0] for r in rows] == [
+        "FIBER2ALL",
+        "FIBERGRID",
+        "HCN",
+        "INALAN",
+        "NETFIBER",
+        "OTE",
+        "OTE_ULTRAFAST",
+        "UNITEDFIBER",
+    ]
+
+
+def test_a_wholesale_builder_need_not_sell(db: psycopg.Connection[TupleRow]) -> None:
+    """FIBERGRID passes 811,123 premises and files no service; Vodafone sells over its fibre."""
+    row = db.execute(
+        "select builds_own_network from provider where code = 'FIBERGRID'"
+    ).fetchone()
+    assert row == (True,)
+    row = db.execute("select builds_own_network from provider where code = 'VODAFONE'").fetchone()
+    assert row == (False,)
+
+
+def test_coverage_records_builder_and_seller_separately(
+    tx: psycopg.Connection[TupleRow],
+) -> None:
+    tx.execute("insert into source (name) values ('test')")
+    row = tx.execute(
+        "insert into coverage (source, source_ref, provider_id, infra_provider_id, "
+        "technology, family, assertion) values ('test', 'a', "
+        "(select id from provider where code = 'VODAFONE'), "
+        "(select id from provider where code = 'FIBERGRID'), 'FTTH', 'fibre', 'declared') "
+        "returning provider_id <> infra_provider_id"
+    ).fetchone()
+    assert row == (True,)
+
+
+def test_provider_codes_are_latin(db: psycopg.Connection[TupleRow]) -> None:
+    """Codes are keys used in URLs and tile fields; display_name carries the Greek."""
+    rows = db.execute("select code from provider where code !~ '^[A-Z0-9_]+$'").fetchall()
+    assert rows == []
