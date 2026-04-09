@@ -71,6 +71,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "ingest/*" = ["T20"]
 "normalise/migrate.py" = ["T20"]
+"normalise/build.py" = ["T20"]
 "tools/*" = ["T20"]
 "tests/*" = ["T20"]
 

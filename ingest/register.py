@@ -41,6 +41,12 @@ DATASETS: tuple[Dataset, ...] = (
         frozenset({"id", "name", "short_name"}),
     ),
     Dataset(
+        "dimos",
+        "dimos",
+        "gid",
+        frozenset({"gid", "kalcode4", "d1", "shape_area", "shape_len", "geom", "geom4326"}),
+    ),
+    Dataset(
         "coverpoint",
         "a3b_coverpointftthcoax",
         "coverid",
