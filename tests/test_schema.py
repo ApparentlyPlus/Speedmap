@@ -139,7 +139,7 @@ def test_duplicate_address_without_a_postcode_is_rejected(
 ) -> None:
     """Uniqueness is nulls not distinct: under default semantics these would not collide."""
     insert = (
-        "insert into address (street, street_no, municipality, geom, search_key) "
+        "insert into address (street, street_no, locality, geom, search_key) "
         "values ('ΑΧΑΡΝΩΝ', '12', 'ΑΘΗΝΑ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ 12')"
     )
     tx.execute(insert)
@@ -330,6 +330,7 @@ RAW_TABLES = [
     "raw_geo_coverage_copper",
     "raw_provider",
     "raw_lookup",
+    "raw_dimos",
 ]
 
 
@@ -351,6 +352,8 @@ def test_raw_geometries_keep_the_projection_they_arrived_in(
     assert dict(rows) == {
         "raw_coverage_copper.geom": 2100,
         "raw_coverage_ftth.geom": 4326,
+        "raw_dimos.geom": 2100,
+        "raw_dimos.geom4326": 4326,
         "raw_coverpoint.point": 4326,
         "raw_coverpoint.waitpoin": 0,
         "raw_geo_coverage_copper.geom": 2100,
@@ -480,3 +483,16 @@ def test_provider_codes_are_latin(db: psycopg.Connection[TupleRow]) -> None:
     """Codes are keys used in URLs and tile fields; display_name carries the Greek."""
     rows = db.execute("select code from provider where code !~ '^[A-Z0-9_]+$'").fetchall()
     assert rows == []
+
+
+def test_address_uniqueness_keys_on_the_resolved_municipality(
+    db: psycopg.Connection[TupleRow],
+) -> None:
+    """The filed locality text is inconsistent, so it must not be part of identity."""
+    row = db.execute(
+        "select pg_get_constraintdef(oid) from pg_constraint where conname = 'address_key'"
+    ).fetchone()
+    assert row is not None
+    assert "municipality_id" in row[0]
+    assert "NULLS NOT DISTINCT" in row[0]
+    assert "locality" not in row[0]

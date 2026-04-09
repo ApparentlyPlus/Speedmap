@@ -12,8 +12,8 @@ ADDRESS_SEPARATOR = "|"
 FIELD_SEPARATOR = ","
 FIELDS = 4
 
-# 93.6% of municipalities are written 'Δ. X'. It is the same type word as ΟΔΟΣ.
-MUNICIPALITY_PREFIX = "Δ."
+# The field is the locality, but 93.6% carry the municipality prefix 'Δ. '. Same type word as ΟΔΟΣ.
+LOCALITY_PREFIX = "Δ."
 
 POSTCODE_DIGITS = 5
 
@@ -23,7 +23,7 @@ class ParsedAddress:
     postcode: str | None
     street: str
     street_no: str | None
-    municipality: str | None
+    locality: str | None
     search_key: str
 
 
@@ -41,12 +41,12 @@ def postcode_of(field: str) -> str | None:
     return value if len(value) == POSTCODE_DIGITS and value.isdigit() else None
 
 
-def municipality_of(field: str) -> str | None:
+def locality_of(field: str) -> str | None:
     value = clean(field)
     if value is None:
         return None
-    if value.startswith(MUNICIPALITY_PREFIX):
-        value = value[len(MUNICIPALITY_PREFIX) :].strip()
+    if value.startswith(LOCALITY_PREFIX):
+        value = value[len(LOCALITY_PREFIX) :].strip()
     return clean(value)
 
 
@@ -60,16 +60,16 @@ def parse_part(part: str) -> ParsedAddress | None:
     if street is None:
         return None
 
-    municipality = municipality_of(fields[3])
+    locality = locality_of(fields[3])
     key = street_key(street)
-    if municipality is not None:
-        key = f"{key} {fold(municipality)}"
+    if locality is not None:
+        key = f"{key} {fold(locality)}"
 
     return ParsedAddress(
         postcode=postcode_of(fields[0]),
         street=street,
         street_no=clean(fields[2]),
-        municipality=municipality,
+        locality=locality,
         search_key=key,
     )
 

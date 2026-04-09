@@ -25,7 +25,7 @@ def test_the_four_fields_are_read() -> None:
     assert address.postcode == "56429"
     assert address.street == "Αμυγδαλιάς"
     assert address.street_no == "11"
-    assert address.municipality == "ΕΥΚΑΡΠΙΑ"
+    assert address.locality == "ΕΥΚΑΡΠΙΑ"
 
 
 def test_a_corner_building_yields_both_addresses() -> None:
@@ -38,12 +38,12 @@ def test_a_corner_building_yields_both_addresses() -> None:
     assert {a.street_no for a in addresses} == {"10"}
 
 
-def test_municipality_prefix_is_dropped() -> None:
-    assert one("30300,ΝΑΥΠΑΚΤΟΣ, ,Δ. ΝΑΥΠΑΚΤΟΥ").municipality == "ΝΑΥΠΑΚΤΟΥ"
+def test_locality_prefix_is_dropped() -> None:
+    assert one("30300,ΝΑΥΠΑΚΤΟΣ, ,Δ. ΝΑΥΠΑΚΤΟΥ").locality == "ΝΑΥΠΑΚΤΟΥ"
 
 
-def test_municipality_without_a_prefix_is_untouched() -> None:
-    assert one("54250,Ηγελόχου,14-16,ΘΕΣΣΑΛΟΝΙΚΗ").municipality == "ΘΕΣΣΑΛΟΝΙΚΗ"
+def test_locality_without_a_prefix_is_untouched() -> None:
+    assert one("54250,Ηγελόχου,14-16,ΘΕΣΣΑΛΟΝΙΚΗ").locality == "ΘΕΣΣΑΛΟΝΙΚΗ"
 
 
 # street numbers
@@ -83,7 +83,7 @@ def test_a_non_numeric_postcode_becomes_unknown() -> None:
 # search key
 
 
-def test_search_key_folds_street_and_municipality() -> None:
+def test_search_key_folds_street_and_locality() -> None:
     assert one("56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ").search_key == "ΑΜΥΓΔΑΛΙΑΣ ΕΥΚΑΡΠΙΑ"
 
 
