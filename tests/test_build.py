@@ -11,8 +11,9 @@ from psycopg.rows import TupleRow
 from normalise.build import Step, discover, run
 
 ADDRESS_STEP = "020_address"
+COVERAGE_STEP = "030_coverage"
 
-TOUCHED = "municipality, raw_dimos, address, raw_coverpoint"
+TOUCHED = "municipality, raw_dimos, address, raw_coverpoint, coverage, raw_wiredservice"
 
 # ΔΗΜΟΣ ΠΑΓΓΑΙΟΥ, simplified to a triangle. Only the projection and the copy are under test.
 POLYGON = (
@@ -220,3 +221,127 @@ def test_search_key_is_populated_for_type_ahead(buildable: psycopg.Connection[Tu
     build_addresses(buildable)
     row = buildable.execute("select search_key from address").fetchone()
     assert row == ("ΙΩΑΝΝΗ ΚΑΠΟΔΙΣΤΡΙΟΥ ΑΜΑΡΟΥΣΙΟΥ",)
+
+
+def coverage_step() -> list[Step]:
+    return [s for s in discover() if s.name == COVERAGE_STEP]
+
+
+def seed_service(
+    conn: psycopg.Connection[TupleRow],
+    service_id: int,
+    coverid: str,
+    *,
+    servprov: int = 19,
+    infrprov: int = 1,
+    technolo: int = 4,
+    maxdown: int | None = None,
+    servstar: str | None = "2026-01-01",
+) -> None:
+    conn.execute(
+        "insert into raw_wiredservice (id, coverid, servprov, infrprov, technolo, maxdown, servstar) "
+        "values (%s, %s, %s, %s, %s, %s, %s)",
+        (service_id, coverid, servprov, infrprov, technolo, maxdown, servstar),
+    )
+    conn.commit()
+
+
+def test_a_filed_service_becomes_coverage(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_service(buildable, 1, "c1", maxdown=8)
+    assert run(buildable, coverage_step())[COVERAGE_STEP] == 1
+    row = buildable.execute(
+        "select c.source, sp.code, ip.code, c.technology, c.family, sb.label, c.assertion::text "
+        "from coverage c join provider sp on sp.id = c.provider_id "
+        "join provider ip on ip.id = c.infra_provider_id "
+        "join speed_band sb on sb.id = c.speed_band_id"
+    ).fetchone()
+    assert row == ("register", "METADOSIS", "OTE", "FTTH", "fibre", ">= 1000 Mbps", "declared")
+
+
+def test_a_service_filed_without_a_speed_has_no_band(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """73.3% of filed services carry no band. Null is the answer, never a slow band."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_service(buildable, 1, "c1", maxdown=None)
+    run(buildable, coverage_step())
+    row = buildable.execute("select speed_band_id from coverage").fetchone()
+    assert row == (None,)
+
+
+def test_geometry_comes_from_the_infrastructure_point(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=24.05, lat=40.83)
+    seed_service(buildable, 1, "c1")
+    run(buildable, coverage_step())
+    row = buildable.execute(
+        "select round(st_x(geom::geometry)::numeric, 2) from coverage"
+    ).fetchone()
+    assert row is not None
+    assert float(row[0]) == 24.05
+
+
+def test_a_service_with_no_point_still_becomes_coverage(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Real: 8 in 3000 file a service against a coverid with no point. Unmappable, not unreal."""
+    seed_service(buildable, 1, "missing")
+    assert run(buildable, coverage_step())[COVERAGE_STEP] == 1
+    row = buildable.execute("select geom from coverage").fetchone()
+    assert row == (None,)
+
+
+def test_repeated_filings_collapse_to_the_most_recent(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """(coverid, servprov, technolo) is filed more than once; the latest servstar wins."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_service(buildable, 1, "c1", maxdown=5, servstar="2024-01-01")
+    seed_service(buildable, 2, "c1", maxdown=8, servstar="2026-01-01")
+    assert run(buildable, coverage_step())[COVERAGE_STEP] == 1
+    row = buildable.execute("select speed_band_id from coverage").fetchone()
+    assert row == (8,)
+
+
+def test_seller_and_builder_are_recorded_separately(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_service(buildable, 1, "c1", servprov=2, infrprov=13)
+    run(buildable, coverage_step())
+    row = buildable.execute(
+        "select sp.code, ip.code from coverage c "
+        "join provider sp on sp.id = c.provider_id "
+        "join provider ip on ip.id = c.infra_provider_id"
+    ).fetchone()
+    assert row == ("VODAFONE", "FIBERGRID")
+
+
+def test_family_always_agrees_with_technology(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    for n, technolo in enumerate([1, 2, 3, 4, 5, 13], start=1):
+        seed_service(buildable, n, "c1", technolo=technolo)
+    run(buildable, coverage_step())
+    rows = buildable.execute(
+        "select c.technology, c.family, t.family from coverage c "
+        "join technology t on t.code = c.technology"
+    ).fetchall()
+    assert len(rows) == 6
+    assert all(stored == expected for _, stored, expected in rows)
+
+
+def test_rebuilding_refreshes_rather_than_duplicating(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_service(buildable, 1, "c1", maxdown=5)
+    run(buildable, coverage_step())
+    buildable.execute("update raw_wiredservice set maxdown = 8 where id = 1")
+    buildable.commit()
+    run(buildable, coverage_step())
+    row = buildable.execute(
+        "select count(*), max(speed_band_id), max(last_seen) >= max(first_seen) from coverage"
+    ).fetchone()
+    assert row == (1, 8, True)
