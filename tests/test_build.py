@@ -12,8 +12,12 @@ from normalise.build import Step, discover, run
 
 ADDRESS_STEP = "020_address"
 COVERAGE_STEP = "030_coverage"
+AREA_STEP = "040_coverage_area"
 
-TOUCHED = "municipality, raw_dimos, address, raw_coverpoint, coverage, raw_wiredservice"
+TOUCHED = (
+    "municipality, raw_dimos, address, raw_coverpoint, coverage, coverage_area, "
+    "raw_wiredservice, raw_geo_coverage_copper"
+)
 
 # ΔΗΜΟΣ ΠΑΓΓΑΙΟΥ, simplified to a triangle. Only the projection and the copy are under test.
 POLYGON = (
@@ -320,16 +324,34 @@ def test_seller_and_builder_are_recorded_separately(
 
 
 def test_family_always_agrees_with_technology(buildable: psycopg.Connection[TupleRow]) -> None:
+    """Every register technology, routed to whichever table its geometry belongs in."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_cabinet(buildable, "c1")
     for n, technolo in enumerate([1, 2, 3, 4, 5, 13], start=1):
         seed_service(buildable, n, "c1", technolo=technolo)
-    run(buildable, coverage_step())
+    run(buildable, coverage_step() + area_step())
     rows = buildable.execute(
-        "select c.technology, c.family, t.family from coverage c "
-        "join technology t on t.code = c.technology"
+        "select c.technology, c.family, t.family from ("
+        "  select technology, family from coverage union all"
+        "  select technology, family from coverage_area"
+        ") c join technology t on t.code = c.technology"
     ).fetchall()
     assert len(rows) == 6
     assert all(stored == expected for _, stored, expected in rows)
+
+
+def test_copper_and_the_rest_are_routed_to_different_tables(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_cabinet(buildable, "c1")
+    for n, technolo in enumerate([1, 2, 3, 4, 5, 13], start=1):
+        seed_service(buildable, n, "c1", technolo=technolo)
+    run(buildable, coverage_step() + area_step())
+    points = buildable.execute("select technology from coverage order by technology").fetchall()
+    areas = buildable.execute("select technology from coverage_area order by technology").fetchall()
+    assert [r[0] for r in points] == ["DOCSIS", "FTTH", "OTHER"]
+    assert [r[0] for r in areas] == ["ADSL", "VDSL", "VECT_VDSL"]
 
 
 def test_rebuilding_refreshes_rather_than_duplicating(
@@ -345,3 +367,83 @@ def test_rebuilding_refreshes_rather_than_duplicating(
         "select count(*), max(speed_band_id), max(last_seen) >= max(first_seen) from coverage"
     ).fetchone()
     assert row == (1, 8, True)
+
+
+def area_step() -> list[Step]:
+    return [s for s in discover() if s.name == AREA_STEP]
+
+
+# A cabinet service area in Greek Grid, around Kavala. Only the reprojection is under test.
+CABINET = (
+    '{"type": "MultiPolygon", "coordinates": '
+    "[[[[500000.0, 4520000.0], [500500.0, 4520000.0], [500500.0, 4520500.0], [500000.0, 4520000.0]]]]}"
+)
+
+
+def seed_cabinet(conn: psycopg.Connection[TupleRow], coverid: str = "397-112") -> None:
+    conn.execute(
+        "insert into raw_geo_coverage_copper (coverid, geom) "
+        "values (%s, st_setsrid(st_geomfromgeojson(%s), 2100))",
+        (coverid, CABINET),
+    )
+    conn.commit()
+
+
+def test_copper_becomes_an_area_not_a_point(buildable: psycopg.Connection[TupleRow]) -> None:
+    """Copper service ids match the polygon tables and never the point table."""
+    seed_cabinet(buildable)
+    seed_service(buildable, 1, "397-112", technolo=3, maxdown=6)
+    assert run(buildable, area_step())[AREA_STEP] == 1
+    row = buildable.execute(
+        "select technology, family, speed_band_id from coverage_area"
+    ).fetchone()
+    assert row == ("VECT_VDSL", "copper", 6)
+
+
+def test_copper_is_kept_out_of_the_point_table(buildable: psycopg.Connection[TupleRow]) -> None:
+    """Otherwise a cabinet arrives in coverage with no geometry and is silently unmappable."""
+    seed_cabinet(buildable)
+    seed_service(buildable, 1, "397-112", technolo=3)
+    run(buildable, coverage_step())
+    row = buildable.execute("select count(*) from coverage").fetchone()
+    assert row == (0,)
+
+
+def test_fibre_is_kept_out_of_the_area_table(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_service(buildable, 1, "c1", technolo=4)
+    assert run(buildable, area_step())[AREA_STEP] == 0
+
+
+def test_the_cabinet_polygon_is_reprojected(buildable: psycopg.Connection[TupleRow]) -> None:
+    """Greek Grid metres into WGS84 degrees: unreprojected, this lands in the Atlantic."""
+    seed_cabinet(buildable)
+    seed_service(buildable, 1, "397-112", technolo=3)
+    run(buildable, area_step())
+    row = buildable.execute(
+        "select round(st_x(st_centroid(geom::geometry))::numeric, 1), "
+        "round(st_y(st_centroid(geom::geometry))::numeric, 1) from coverage_area"
+    ).fetchone()
+    assert row is not None
+    lon, lat = float(row[0]), float(row[1])
+    assert 19.0 < lon < 30.0
+    assert 34.0 < lat < 42.0
+
+
+def test_the_area_stays_a_polygon(buildable: psycopg.Connection[TupleRow]) -> None:
+    """A 400m cabinet flattened to its centroid loses every street it serves."""
+    seed_cabinet(buildable)
+    seed_service(buildable, 1, "397-112", technolo=3)
+    run(buildable, area_step())
+    row = buildable.execute(
+        "select st_geometrytype(geom::geometry), st_area(geom) > 0 from coverage_area"
+    ).fetchone()
+    assert row == ("ST_MultiPolygon", True)
+
+
+def test_a_cabinet_with_no_polygon_yields_nothing(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Unlike a point service, an area with no geometry is not a usable row."""
+    seed_service(buildable, 1, "no-such-cabinet", technolo=3)
+    assert run(buildable, area_step())[AREA_STEP] == 0
