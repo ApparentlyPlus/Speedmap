@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,30 +16,42 @@ import psycopg
 from psycopg.rows import TupleRow
 
 from db.connect import connect
+from normalise.address_index import build_address_index
 
 STEPS = Path(__file__).parent / "steps"
+
+
+# Steps that need real parsing live in Python; everything else is a .sql file.
+PYTHON_STEPS: dict[str, Callable[[psycopg.Connection[TupleRow]], int]] = {
+    "020_address": build_address_index,
+}
 
 
 @dataclass(frozen=True)
 class Step:
     name: str
-    path: Path
+    run: Callable[[psycopg.Connection[TupleRow]], int]
 
-    def sql(self) -> str:
-        return self.path.read_text(encoding="utf-8")
+
+def sql_step(path: Path) -> Step:
+    def apply(conn: psycopg.Connection[TupleRow]) -> int:
+        return conn.execute(path.read_text(encoding="utf-8")).rowcount
+
+    return Step(path.stem, apply)
 
 
 def discover() -> list[Step]:
-    return [Step(p.stem, p) for p in sorted(STEPS.glob("*.sql"))]
+    steps = [sql_step(p) for p in STEPS.glob("*.sql")]
+    steps += [Step(name, fn) for name, fn in PYTHON_STEPS.items()]
+    return sorted(steps, key=lambda s: s.name)
 
 
 def run(conn: psycopg.Connection[TupleRow], steps: list[Step]) -> dict[str, int]:
     written: dict[str, int] = {}
     for step in steps:
-        cursor = conn.execute(step.sql())
-        written[step.name] = cursor.rowcount
+        written[step.name] = step.run(conn)
         conn.commit()
-        print(f"  {step.name}: {cursor.rowcount} rows")
+        print(f"  {step.name}: {written[step.name]} rows")
     return written
 
 
