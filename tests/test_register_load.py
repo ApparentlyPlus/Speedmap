@@ -187,3 +187,76 @@ def test_projected_geometry_keeps_its_srid(loadable: psycopg.Connection[TupleRow
 def test_a_reprojected_register_stops_the_load(loadable: psycopg.Connection[TupleRow]) -> None:
     with pytest.raises(GeometryCrsError):
         load(loadable, loader(copper_rows(srid=4326)), COPPER)
+
+
+def progress(conn: psycopg.Connection[TupleRow], dataset: str = "provider") -> tuple[int, int, bool]:
+    row = conn.execute(
+        "select fetched, run_fetched, run_started_at is not null "
+        "from register_fetch where dataset = %s",
+        (dataset,),
+    ).fetchone()
+    assert row is not None
+    return int(row[0]), int(row[1]), bool(row[2])
+
+
+def test_a_run_records_when_it_started(loadable: psycopg.Connection[TupleRow]) -> None:
+    """created_at is when the dataset was first seen; run_started_at is this run."""
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    row = loadable.execute(
+        "select created_at <= run_started_at from register_fetch where dataset = 'provider'"
+    ).fetchone()
+    assert row == (True,)
+
+
+def test_a_second_run_resets_only_the_run_counter(
+    loadable: psycopg.Connection[TupleRow],
+) -> None:
+    """fetched is the cumulative position; run_fetched is the only one a rate can divide."""
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    assert progress(loadable) == (3, 3, True)
+
+    loadable.execute("update register_fetch set last_key = null where dataset = 'provider'")
+    loadable.commit()
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    fetched, run_fetched, started = progress(loadable)
+    assert fetched == 6
+    assert run_fetched == 3
+    assert started
+
+
+def test_the_run_clock_moves_forward_on_each_run(
+    loadable: psycopg.Connection[TupleRow],
+) -> None:
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    first = loadable.execute(
+        "select run_started_at from register_fetch where dataset = 'provider'"
+    ).fetchone()
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    second = loadable.execute(
+        "select run_started_at from register_fetch where dataset = 'provider'"
+    ).fetchone()
+    assert first is not None and second is not None
+    assert second[0] >= first[0]
+
+
+def test_progress_view_reports_completion(loadable: psycopg.Connection[TupleRow]) -> None:
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    row = loadable.execute(
+        "select fetched, total, pct from register_progress where dataset = 'provider'"
+    ).fetchone()
+    assert row is not None
+    assert row[0] == 3
+    assert row[1] == 3
+    assert float(row[2]) == 100.0
+
+
+def test_progress_view_survives_a_dataset_that_never_ran(
+    loadable: psycopg.Connection[TupleRow],
+) -> None:
+    """Division by a null clock or an empty run must not error the whole view."""
+    loadable.execute("insert into register_fetch (dataset) values ('never')")
+    loadable.commit()
+    row = loadable.execute(
+        "select pct, rows_per_min, eta from register_progress where dataset = 'never'"
+    ).fetchone()
+    assert row == (None, None, None)

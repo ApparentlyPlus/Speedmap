@@ -110,9 +110,12 @@ def write_page(conn: psycopg.Connection[TupleRow], target: Target, rows: Iterabl
     return len(batch)
 
 
-def resume_key(conn: psycopg.Connection[TupleRow], dataset: str) -> str | None:
+def begin_run(conn: psycopg.Connection[TupleRow], dataset: str) -> str | None:
+    """Mark a run as starting and return the key to resume after."""
     conn.execute(
-        "insert into register_fetch (dataset) values (%s) on conflict do nothing", (dataset,)
+        "insert into register_fetch (dataset, run_started_at) values (%s, now()) "
+        "on conflict (dataset) do update set run_started_at = now(), run_fetched = 0",
+        (dataset,),
     )
     row = conn.execute(
         "select last_key from register_fetch where dataset = %s", (dataset,)
@@ -125,8 +128,9 @@ def record_progress(conn: psycopg.Connection[TupleRow], dataset: str, *, last_ke
 ) -> None:
     conn.execute(
         "update register_fetch set last_key = %s, fetched = fetched + %s, "
-        "total = coalesce(%s, total), updated_at = now() where dataset = %s",
-        (last_key, added, total, dataset),
+        "run_fetched = run_fetched + %s, total = coalesce(%s, total), "
+        "updated_at = now() where dataset = %s",
+        (last_key, added, added, total, dataset),
     )
 
 
@@ -136,7 +140,7 @@ def load(conn: psycopg.Connection[TupleRow], client: RegisterClient, dataset: Da
     target = TARGETS[dataset.name]
     total = client.count(dataset)
     cap = client.page_cap(dataset)
-    after = resume_key(conn, dataset.name)
+    after = begin_run(conn, dataset.name)
     conn.commit()
 
     loaded = 0

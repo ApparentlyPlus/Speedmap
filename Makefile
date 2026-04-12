@@ -48,6 +48,10 @@ migrate-status: # list pending migrations
 build: # rebuild the derived tables from raw_*
 	$(PY) -m normalise.build
 
+.PHONY: progress
+progress: # how far the register load has got
+	@$(PSQL) -c "select * from register_progress order by dataset"
+
 .PHONY: db-check
 db-check: # confirm Postgres is reachable with the extensions the schema needs
 	@$(PSQL) -tAc "select version()" || { echo "no database at $${SPEEDMAP_DSN:-postgresql:///speedmap}"; exit 1; }
