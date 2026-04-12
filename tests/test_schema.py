@@ -496,3 +496,17 @@ def test_address_uniqueness_keys_on_the_resolved_municipality(
     assert "municipality_id" in row[0]
     assert "NULLS NOT DISTINCT" in row[0]
     assert "locality" not in row[0]
+
+
+def test_search_key_has_a_prefix_index(db: psycopg.Connection[TupleRow]) -> None:
+    """Type-ahead is a prefix search; similarity ordering scans tens of thousands of rows."""
+    rows = db.execute("select indexdef from pg_indexes where tablename = 'address'").fetchall()
+    assert any("text_pattern_ops" in definition for (definition,) in rows)
+
+
+def test_prefix_search_uses_the_index(db: psycopg.Connection[TupleRow]) -> None:
+    """text_pattern_ops matters: under a non-C collation a plain btree would not be used."""
+    plan = db.execute(
+        "explain select id from address where search_key like 'ΑΧΑΡΝ%' limit 8"
+    ).fetchall()
+    assert any("address_search_key_prefix" in line for (line,) in plan)
