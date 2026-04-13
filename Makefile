@@ -17,13 +17,11 @@ setup: # create .venv and install all dependencies
 	@test -f .env || cp .env.example .env
 
 .PHONY: fmt
-fmt: # format the tree
-	.venv/bin/ruff format .
+fmt: # apply the autofixable lint rules
 	.venv/bin/ruff check --fix .
 
 .PHONY: lint
 lint: # ruff, plus the numeric fallback ban
-	.venv/bin/ruff format --check .
 	.venv/bin/ruff check .
 	$(PY) tools/lint_numeric_fallback.py .
 
@@ -45,6 +43,14 @@ migrate: # apply pending migrations
 .PHONY: migrate-status
 migrate-status: # list pending migrations
 	$(PY) -m normalise.migrate --status
+
+.PHONY: build
+build: # rebuild the derived tables from raw_*
+	$(PY) -m normalise.build
+
+.PHONY: progress
+progress: # how far the register load has got
+	@$(PSQL) -c "select * from register_progress order by dataset"
 
 .PHONY: db-check
 db-check: # confirm Postgres is reachable with the extensions the schema needs

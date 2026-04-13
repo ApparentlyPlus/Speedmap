@@ -64,12 +64,14 @@ select = [
     "RUF",
 ]
 ignore = [
-    "E501",  # line length is formatter's job
+    "E501",  # long lines are a judgement call, not a rule
+    "RUF001", "RUF002", "RUF003",  # Greek is the domain language, not ambiguous Unicode
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "ingest/*" = ["T20"]
 "normalise/migrate.py" = ["T20"]
+"normalise/build.py" = ["T20"]
 "tools/*" = ["T20"]
 "tests/*" = ["T20"]
 
