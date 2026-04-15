@@ -447,3 +447,41 @@ def test_a_cabinet_with_no_polygon_yields_nothing(
     """Unlike a point service, an area with no geometry is not a usable row."""
     seed_service(buildable, 1, "no-such-cabinet", technolo=3)
     assert run(buildable, area_step())[AREA_STEP] == 0
+
+
+def test_municipality_has_a_planar_twin(db: psycopg.Connection[TupleRow]) -> None:
+    """Generated from geom, so the two can never disagree about where a municipality is."""
+    row = db.execute(
+        "select is_generated from information_schema.columns "
+        "where table_name = 'municipality' and column_name = 'geom_2d'"
+    ).fetchone()
+    assert row == ("ALWAYS",)
+
+
+def test_the_planar_twin_is_indexed(db: psycopg.Connection[TupleRow]) -> None:
+    """Without the index the planar join is slower than the spheroid one it replaced."""
+    rows = db.execute("select indexdef from pg_indexes where tablename = 'municipality'").fetchall()
+    assert any("geom_2d" in definition and "gist" in definition for (definition,) in rows)
+
+
+def test_planar_and_spheroid_agree_on_containment(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """The reason the swap is safe: identical answers on 200,000 real points, and here too."""
+    seed_dimos(buildable)
+    run(buildable, municipality_step())
+    row = buildable.execute(
+        "select st_contains(geom_2d, st_setsrid(st_point(24.05, 40.83), 4326)), "
+        "st_intersects(geom, st_point(24.05, 40.83)::geography) from municipality"
+    ).fetchone()
+    assert row == (True, True)
+
+
+def test_a_point_outside_agrees_too(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_dimos(buildable)
+    run(buildable, municipality_step())
+    row = buildable.execute(
+        "select st_contains(geom_2d, st_setsrid(st_point(25.0, 37.0), 4326)), "
+        "st_intersects(geom, st_point(25.0, 37.0)::geography) from municipality"
+    ).fetchone()
+    assert row == (False, False)
