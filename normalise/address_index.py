@@ -51,7 +51,7 @@ select distinct on (s.postcode, s.street, s.street_no, m.id)
     s.premises, s.connected, s.vhcn,
     st_point(s.lon, s.lat)::geography, m.id
 from stage_address s
-left join municipality m on st_intersects(m.geom, st_point(s.lon, s.lat)::geography)
+left join municipality m on st_contains(m.geom_2d, st_setsrid(st_point(s.lon, s.lat), 4326))
 order by s.postcode, s.street, s.street_no, m.id, s.premises desc nulls last
 on conflict (postcode, street, street_no, municipality_id) do update set
     locality = excluded.locality,
