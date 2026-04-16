@@ -485,3 +485,63 @@ def test_a_point_outside_agrees_too(buildable: psycopg.Connection[TupleRow]) -> 
         "st_intersects(geom, st_point(25.0, 37.0)::geography) from municipality"
     ).fetchone()
     assert row == (False, False)
+
+
+def links(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, str]]:
+    rows = conn.execute(
+        "select a.street, ap.coverid from address_point ap "
+        "join address a on a.id = ap.address_id order by a.street, ap.coverid"
+    ).fetchall()
+    return [(str(street), str(coverid)) for street, coverid in rows]
+
+
+def test_an_address_is_linked_to_its_point(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    assert links(buildable) == [("Αμυγδαλιάς", "c1")]
+
+
+def test_a_corner_point_links_to_both_of_its_addresses(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    seed_point(buildable, "c1", "26332,ΠΑΡΟΔΟΣ ΑΝΑΓΝΩΣΤΟΥ,10,Δ. ΠΑΤΡΕΩΝ|26332,ΑΝΑΓΝΩΣΤΟΥ,10,Δ. ΠΑΤΡΕΩΝ")
+    build_addresses(buildable)
+    assert links(buildable) == [("ΑΝΑΓΝΩΣΤΟΥ", "c1"), ("ΠΑΡΟΔΟΣ ΑΝΑΓΝΩΣΤΟΥ", "c1")]
+
+
+def test_two_builders_at_one_address_both_link(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """404,423 addresses are filed by two builders. Losing one loses an operator's footprint."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    seed_point(buildable, "c2", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    assert links(buildable) == [("Αμυγδαλιάς", "c1"), ("Αμυγδαλιάς", "c2")]
+    row = buildable.execute("select count(*) from address").fetchone()
+    assert row == (1,)
+
+
+def test_a_point_with_no_street_is_linked_to_nothing(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """5.19% of the register's points have no street name, holding 3.50% of all premises.
+    They keep their geometry and their coverage; they are simply not searchable."""
+    seed_point(buildable, "c1", "24400, , ,Δ. ΓΑΡΓΑΛΙΑΝΩΝ")
+    assert build_addresses(buildable) == 0
+    assert links(buildable) == []
+
+
+def test_rebuilding_does_not_duplicate_links(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    run(buildable, address_step())
+    row = buildable.execute("select count(*) from address_point").fetchone()
+    assert row == (1,)
+
+
+def test_deleting_an_address_takes_its_links(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    buildable.execute("delete from address")
+    row = buildable.execute("select count(*) from address_point").fetchone()
+    assert row == (0,)
