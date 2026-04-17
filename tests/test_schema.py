@@ -131,7 +131,7 @@ def test_coverage_is_unique_per_source_place_provider_technology(
 def test_address_requires_a_position(tx: psycopg.Connection[TupleRow]) -> None:
     """An address with no geometry cannot be mapped, so it is not an address."""
     with pytest.raises(psycopg.errors.NotNullViolation):
-        tx.execute("insert into address (street, search_key) values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ')")
+        tx.execute("insert into address (street, street_fold, search_key) values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ')")
 
 
 def test_duplicate_address_without_a_postcode_is_rejected(
@@ -139,8 +139,8 @@ def test_duplicate_address_without_a_postcode_is_rejected(
 ) -> None:
     """Uniqueness is nulls not distinct: under default semantics these would not collide."""
     insert = (
-        "insert into address (street, street_no, locality, geom, search_key) "
-        "values ('ΑΧΑΡΝΩΝ', '12', 'ΑΘΗΝΑ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ 12')"
+        "insert into address (street, street_fold, street_no, locality, geom, search_key) "
+        "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', '12', 'ΑΘΗΝΑ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ 12')"
     )
     tx.execute(insert)
     with pytest.raises(psycopg.errors.UniqueViolation):
@@ -149,8 +149,8 @@ def test_duplicate_address_without_a_postcode_is_rejected(
 
 def test_premises_and_connection_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
     row = tx.execute(
-        "insert into address (street, geom, search_key) "
-        "values ('ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ') "
+        "insert into address (street, street_fold, geom, search_key) "
+        "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ') "
         "returning premises, connected, vhcn"
     ).fetchone()
     assert row == (None, None, None)
@@ -241,8 +241,8 @@ def test_plan_current_keeps_one_row_per_plan(tx: psycopg.Connection[TupleRow]) -
 
 def make_address(conn: psycopg.Connection[TupleRow]) -> int:
     row = conn.execute(
-        "insert into address (street, geom, search_key) "
-        "values ('ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ') returning id"
+        "insert into address (street, street_fold, geom, search_key) "
+        "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ') returning id"
     ).fetchone()
     assert row is not None
     return int(row[0])

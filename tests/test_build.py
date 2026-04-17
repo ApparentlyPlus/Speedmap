@@ -650,3 +650,47 @@ def test_rebuilding_offers_is_idempotent(buildable: psycopg.Connection[TupleRow]
     run(buildable, offer_step())
     row = buildable.execute("select count(*) from address_coverage").fetchone()
     assert row == (1,)
+
+
+def test_case_and_accent_variants_are_one_address(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """59,899 duplicates existed because street was keyed verbatim: ΑΧΑΡΝΩΝ vs Αχαρνών."""
+    seed_point(buildable, "c1", "10446,ΑΧΑΡΝΩΝ,128,ΑΘΗΝΑ")
+    seed_point(buildable, "c2", "10446,Αχαρνών,128,Δ. ΑΘΗΝΑΙΩΝ")
+    assert build_addresses(buildable) == 1
+    row = buildable.execute("select street_fold from address").fetchone()
+    assert row == ("ΑΧΑΡΝΩΝ",)
+
+
+def test_both_variants_still_link_to_their_points(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Collapsing the address must not drop either builder's footprint."""
+    seed_point(buildable, "c1", "10446,ΑΧΑΡΝΩΝ,128,ΑΘΗΝΑ")
+    seed_point(buildable, "c2", "10446,Αχαρνών,128,Δ. ΑΘΗΝΑΙΩΝ")
+    build_addresses(buildable)
+    assert [c for _, c in links(buildable)] == ["c1", "c2"]
+
+
+def test_a_type_word_does_not_make_a_second_address(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """ΛΕΩΦ. ΑΛΕΞΑΝΔΡΑΣ 5 and ΑΛΕΞΑΝΔΡΑΣ 5 are one place; the type word is not identity."""
+    seed_point(buildable, "c1", "11473,ΛΕΩΦΟΡΟΣ ΑΛΕΞΑΝΔΡΑΣ,5,ΑΘΗΝΑ")
+    seed_point(buildable, "c2", "11473,ΑΛΕΞΑΝΔΡΑΣ,5,ΑΘΗΝΑ")
+    assert build_addresses(buildable) == 1
+    row = buildable.execute("select street_fold from address").fetchone()
+    assert row == ("ΑΛΕΞΑΝΔΡΑΣ",)
+
+
+def test_the_displayed_spelling_is_deterministic(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Which spelling survives must not depend on row order, or rebuilds churn the data."""
+    seed_point(buildable, "c1", "10446,ΑΧΑΡΝΩΝ,128,ΑΘΗΝΑ")
+    seed_point(buildable, "c2", "10446,Αχαρνών,128,ΑΘΗΝΑ")
+    build_addresses(buildable)
+    first = buildable.execute("select street from address").fetchone()
+    run(buildable, address_step())
+    assert buildable.execute("select street from address").fetchone() == first
