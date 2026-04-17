@@ -13,10 +13,11 @@ from normalise.build import Step, discover, run
 ADDRESS_STEP = "020_address"
 COVERAGE_STEP = "030_coverage"
 AREA_STEP = "040_coverage_area"
+OFFER_STEP = "050_address_coverage"
 
 TOUCHED = (
     "municipality, raw_dimos, address, raw_coverpoint, coverage, coverage_area, "
-    "raw_wiredservice, raw_geo_coverage_copper"
+    "raw_wiredservice, raw_geo_coverage_copper, address_coverage"
 )
 
 # ΔΗΜΟΣ ΠΑΓΓΑΙΟΥ, simplified to a triangle. Only the projection and the copy are under test.
@@ -545,3 +546,107 @@ def test_deleting_an_address_takes_its_links(buildable: psycopg.Connection[Tuple
     buildable.execute("delete from address")
     row = buildable.execute("select count(*) from address_point").fetchone()
     assert row == (0,)
+
+
+def offer_step() -> list[Step]:
+    return [s for s in discover() if s.name == OFFER_STEP]
+
+
+def offers(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, str, str]]:
+    rows = conn.execute(
+        "select p.code, ac.technology, ac.matched_by from address_coverage ac "
+        "join provider p on p.id = ac.provider_id order by p.code, ac.technology"
+    ).fetchall()
+    return [(str(a), str(b), str(c)) for a, b, c in rows]
+
+
+# seed_cabinet is Greek Grid; this is its centroid once reprojected to 4326.
+INSIDE = (24.0057, 40.8351)
+OUTSIDE = (25.0, 37.0)
+
+
+def build_offers(conn: psycopg.Connection[TupleRow]) -> int:
+    run(conn, coverage_step() + area_step())
+    return run(conn, offer_step())[OFFER_STEP]
+
+
+def test_a_point_service_becomes_an_offer(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_service(buildable, 1, "c1", technolo=4)
+    assert build_offers(buildable) == 1
+    assert offers(buildable) == [("METADOSIS", "FTTH", "point")]
+
+
+def test_an_address_inside_a_cabinet_gets_its_copper(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Copper is filed per cabinet, so every address in the area is served by it."""
+    lon, lat = INSIDE
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=lon, lat=lat)
+    build_addresses(buildable)
+    seed_cabinet(buildable, "cab1")
+    seed_service(buildable, 1, "cab1", technolo=3)
+    assert build_offers(buildable) == 1
+    assert offers(buildable) == [("METADOSIS", "VECT_VDSL", "area")]
+
+
+def test_an_address_outside_the_cabinet_gets_nothing(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    lon, lat = OUTSIDE
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=lon, lat=lat)
+    build_addresses(buildable)
+    seed_cabinet(buildable, "cab1")
+    seed_service(buildable, 1, "cab1", technolo=3)
+    assert build_offers(buildable) == 0
+
+
+def test_a_point_match_beats_an_area_match(buildable: psycopg.Connection[TupleRow]) -> None:
+    """A filing against this building is stronger evidence than falling inside a cabinet."""
+    lon, lat = INSIDE
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=lon, lat=lat)
+    build_addresses(buildable)
+    seed_cabinet(buildable, "c1")
+    seed_service(buildable, 1, "c1", technolo=3)
+    seed_service(buildable, 2, "c1", technolo=4)
+    build_offers(buildable)
+    matched = buildable.execute(
+        "select technology, matched_by from address_coverage order by technology"
+    ).fetchall()
+    assert [(str(t), str(m)) for t, m in matched] == [("FTTH", "point"), ("VECT_VDSL", "area")]
+
+
+def test_several_operators_at_one_address(buildable: psycopg.Connection[TupleRow]) -> None:
+    """59.57% of addresses have three operators; collapsing them would hide competition."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_service(buildable, 1, "c1", servprov=19, technolo=4)
+    seed_service(buildable, 2, "c1", servprov=2, technolo=4)
+    seed_service(buildable, 3, "c1", servprov=15, technolo=4)
+    assert build_offers(buildable) == 3
+    assert offers(buildable) == [
+        ("METADOSIS", "FTTH", "point"),
+        ("NOVA", "FTTH", "point"),
+        ("VODAFONE", "FTTH", "point"),
+    ]
+
+
+def test_an_offer_may_have_no_speed(buildable: psycopg.Connection[TupleRow]) -> None:
+    """72.8% of fibre offers carry no band. Absent must survive the whole pipeline."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_service(buildable, 1, "c1", technolo=4, maxdown=None)
+    build_offers(buildable)
+    row = buildable.execute("select speed_band_id from address_coverage").fetchone()
+    assert row == (None,)
+
+
+def test_rebuilding_offers_is_idempotent(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_service(buildable, 1, "c1", technolo=4)
+    build_offers(buildable)
+    run(buildable, offer_step())
+    row = buildable.execute("select count(*) from address_coverage").fetchone()
+    assert row == (1,)
