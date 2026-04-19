@@ -22,6 +22,7 @@ POSTCODE_DIGITS = 5
 class ParsedAddress:
     postcode: str | None
     street: str
+    street_fold: str
     street_no: str | None
     locality: str | None
     search_key: str
@@ -61,13 +62,15 @@ def parse_part(part: str) -> ParsedAddress | None:
         return None
 
     locality = locality_of(fields[3])
-    key = street_key(street)
+    folded = street_key(street)
+    key = folded
     if locality is not None:
         key = f"{key} {fold(locality)}"
 
     return ParsedAddress(
         postcode=postcode_of(fields[0]),
         street=street,
+        street_fold=folded,
         street_no=clean(fields[2]),
         locality=locality,
         search_key=key,

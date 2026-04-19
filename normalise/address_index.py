@@ -13,9 +13,11 @@ from normalise.address import parse
 # One point can carry several addresses and several points can share one address, so the
 # rows are staged first and deduplicated in SQL rather than in Python memory.
 STAGE = """
-create temp table stage_address (
+create temp table stage_raw (
+    coverid text,
     postcode text,
     street text,
+    street_fold text,
     street_no text,
     locality text,
     search_key text,
@@ -26,6 +28,17 @@ create temp table stage_address (
     lat double precision
 ) on commit drop
 """
+
+# Resolve the municipality once, into the staging table, rather than inside both the merge
+# and the link. Written as a select rather than an update: one pass, no dead tuples.
+RESOLVE = """
+create temp table stage_address on commit drop as
+select s.*, m.id as municipality_id
+from stage_raw s
+left join municipality m on st_contains(m.geom_2d, st_setsrid(st_point(s.lon, s.lat), 4326))
+"""
+
+INDEX = "create index on stage_address (postcode, street_fold, street_no, municipality_id)"
 
 # Read in keyset chunks rather than through a server-side cursor: a COPY and a FETCH
 # cannot interleave on one connection, and the second one blocks forever.
@@ -43,17 +56,17 @@ CHUNK = 50_000
 # Ordering by premises keeps the best-attested version of a repeated address.
 MERGE = """
 insert into address (
-    postcode, street, street_no, locality, search_key,
+    postcode, street, street_fold, street_no, locality, search_key,
     premises, connected, vhcn, geom, municipality_id
 )
-select distinct on (s.postcode, s.street, s.street_no, m.id)
-    s.postcode, s.street, s.street_no, s.locality, s.search_key,
+select distinct on (s.postcode, s.street_fold, s.street_no, s.municipality_id)
+    s.postcode, s.street, s.street_fold, s.street_no, s.locality, s.search_key,
     s.premises, s.connected, s.vhcn,
-    st_point(s.lon, s.lat)::geography, m.id
+    st_point(s.lon, s.lat)::geography, s.municipality_id
 from stage_address s
-left join municipality m on st_intersects(m.geom, st_point(s.lon, s.lat)::geography)
-order by s.postcode, s.street, s.street_no, m.id, s.premises desc nulls last
-on conflict (postcode, street, street_no, municipality_id) do update set
+order by s.postcode, s.street_fold, s.street_no, s.municipality_id, s.premises desc nulls last, s.street
+on conflict (postcode, street_fold, street_no, municipality_id) do update set
+    street = excluded.street,
     locality = excluded.locality,
     search_key = excluded.search_key,
     premises = excluded.premises,
@@ -66,7 +79,7 @@ on conflict (postcode, street, street_no, municipality_id) do update set
 SourceRow = tuple[str, str, int | None, int | None, int | None, float, float]
 
 StageRow = tuple[
-    str | None, str, str | None, str | None, str,
+    str, str | None, str, str, str | None, str | None, str,
     int | None, bool | None, bool | None, float, float,
 ]
 
@@ -76,19 +89,35 @@ def flag(value: int | None) -> bool | None:
     return None if value is None else bool(value)
 
 
+# is not distinct from, because postcode, street_no and municipality_id are all nullable
+# and the address key treats nulls as equal.
+LINK = """
+insert into address_point (address_id, coverid)
+select distinct a.id, s.coverid
+from stage_address s
+join address a
+  on a.street_fold = s.street_fold
+ and a.postcode is not distinct from s.postcode
+ and a.street_no is not distinct from s.street_no
+ and a.municipality_id is not distinct from s.municipality_id
+on conflict do nothing
+"""
+
 COPY_INTO = (
-    "copy stage_address (postcode, street, street_no, locality, search_key, "
+    "copy stage_raw (coverid, postcode, street, street_fold, street_no, locality, search_key, "
     "premises, connected, vhcn, lon, lat) from stdin"
 )
 
 
 def staged(chunk: list[SourceRow]) -> Iterator[StageRow]:
     """Every address on every point in this chunk. One point may carry several."""
-    for _, raw, premises, connstat, vhcn, lon, lat in chunk:
+    for coverid, raw, premises, connstat, vhcn, lon, lat in chunk:
         for address in parse(raw):
             yield (
+                coverid,
                 address.postcode,
                 address.street,
+                address.street_fold,
                 address.street_no,
                 address.locality,
                 address.search_key,
@@ -111,4 +140,9 @@ def build_address_index(conn: psycopg.Connection[TupleRow]) -> int:
             for row in staged(chunk):
                 copy.write_row(row)
         cursor = chunk[-1][0]
-    return conn.execute(MERGE).rowcount
+
+    conn.execute(RESOLVE)
+    conn.execute(INDEX)
+    written = conn.execute(MERGE).rowcount
+    conn.execute(LINK)
+    return written
