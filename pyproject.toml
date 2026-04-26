@@ -90,4 +90,5 @@ enable_error_code = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 filterwarnings = ["error"]

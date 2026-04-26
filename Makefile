@@ -48,6 +48,10 @@ migrate-status: # list pending migrations
 build: # rebuild the derived tables from raw_*
 	$(PY) -m normalise.build
 
+.PHONY: api
+api: # run the read-only API on :8000
+	.venv/bin/uvicorn api.main:app --reload
+
 .PHONY: progress
 progress: # how far the register load has got
 	@$(PSQL) -c "select * from register_progress order by dataset"
