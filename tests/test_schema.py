@@ -331,6 +331,7 @@ RAW_TABLES = [
     "raw_provider",
     "raw_lookup",
     "raw_dimos",
+    "raw_osm_street",
 ]
 
 
@@ -353,6 +354,7 @@ def test_raw_geometries_keep_the_projection_they_arrived_in(
         "raw_coverage_copper.geom": 2100,
         "raw_coverage_ftth.geom": 4326,
         "raw_dimos.geom": 2100,
+        "raw_osm_street.geom": 4326,
         "raw_dimos.geom4326": 4326,
         "raw_coverpoint.point": 4326,
         "raw_coverpoint.waitpoin": 0,
