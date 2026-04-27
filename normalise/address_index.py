@@ -21,6 +21,7 @@ create temp table stage_raw (
     street_no text,
     locality text,
     search_key text,
+    latin_key text,
     premises int,
     connected boolean,
     vhcn boolean,
@@ -56,11 +57,11 @@ CHUNK = 50_000
 # Ordering by premises keeps the best-attested version of a repeated address.
 MERGE = """
 insert into address (
-    postcode, street, street_fold, street_no, locality, search_key,
+    postcode, street, street_fold, street_no, locality, search_key, latin_key,
     premises, connected, vhcn, geom, municipality_id
 )
 select distinct on (s.postcode, s.street_fold, s.street_no, s.municipality_id)
-    s.postcode, s.street, s.street_fold, s.street_no, s.locality, s.search_key,
+    s.postcode, s.street, s.street_fold, s.street_no, s.locality, s.search_key, s.latin_key,
     s.premises, s.connected, s.vhcn,
     st_point(s.lon, s.lat)::geography, s.municipality_id
 from stage_address s
@@ -69,6 +70,7 @@ on conflict (postcode, street_fold, street_no, municipality_id) do update set
     street = excluded.street,
     locality = excluded.locality,
     search_key = excluded.search_key,
+    latin_key = excluded.latin_key,
     premises = excluded.premises,
     connected = excluded.connected,
     vhcn = excluded.vhcn,
@@ -79,7 +81,7 @@ on conflict (postcode, street_fold, street_no, municipality_id) do update set
 SourceRow = tuple[str, str, int | None, int | None, int | None, float, float]
 
 StageRow = tuple[
-    str, str | None, str, str, str | None, str | None, str,
+    str, str | None, str, str, str | None, str | None, str, str,
     int | None, bool | None, bool | None, float, float,
 ]
 
@@ -104,7 +106,7 @@ on conflict do nothing
 """
 
 COPY_INTO = (
-    "copy stage_raw (coverid, postcode, street, street_fold, street_no, locality, search_key, "
+    "copy stage_raw (coverid, postcode, street, street_fold, street_no, locality, search_key, latin_key, "
     "premises, connected, vhcn, lon, lat) from stdin"
 )
 
@@ -121,6 +123,7 @@ def staged(chunk: list[SourceRow]) -> Iterator[StageRow]:
                 address.street_no,
                 address.locality,
                 address.search_key,
+                address.latin_key,
                 premises,
                 flag(connstat),
                 flag(vhcn),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from normalise.greeklish import from_greek
 from normalise.text import fold, street_key
 
 # 'postcode,STREET,NUMBER,MUNICIPALITY', and one point may carry several of them.
@@ -26,6 +27,7 @@ class ParsedAddress:
     street_no: str | None
     locality: str | None
     search_key: str
+    latin_key: str
 
 
 def clean(field: str) -> str | None:
@@ -74,6 +76,7 @@ def parse_part(part: str) -> ParsedAddress | None:
         street_no=clean(fields[2]),
         locality=locality,
         search_key=key,
+        latin_key=from_greek(key),
     )
 
 
