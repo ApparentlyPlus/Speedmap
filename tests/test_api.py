@@ -12,6 +12,7 @@ from psycopg.rows import TupleRow
 from psycopg_pool import ConnectionPool
 
 from api import main
+from normalise.greeklish import from_greek
 from tests.conftest import TEST_DSN
 
 
@@ -42,8 +43,9 @@ def seeded_address(db: psycopg.Connection[TupleRow]) -> Iterator[None]:
     for street, fold, number, locality, key, premises in SAMPLE:
         db.execute(
             "insert into address (street, street_fold, street_no, locality, search_key, "
-            "premises, geom) values (%s, %s, %s, %s, %s, %s, 'SRID=4326;POINT(23.7 37.9)')",
-            (street, fold, number, locality, key, premises),
+            "latin_key, premises, geom) values "
+            "(%s, %s, %s, %s, %s, %s, %s, 'SRID=4326;POINT(23.7 37.9)')",
+            (street, fold, number, locality, key, from_greek(key), premises),
         )
     db.commit()
     yield
