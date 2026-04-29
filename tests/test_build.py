@@ -694,3 +694,23 @@ def test_the_displayed_spelling_is_deterministic(
     first = buildable.execute("select street from address").fetchone()
     run(buildable, address_step())
     assert buildable.execute("select street from address").fetchone() == first
+
+
+def test_a_latin_key_is_written_for_addresses(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Greeklish searches the Latin form of the same key, so both must come from one source."""
+    seed_point(buildable, "c1", "56429,Αχαρνών,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    row = buildable.execute("select search_key, latin_key from address").fetchone()
+    assert row == ("ΑΧΑΡΝΩΝ ΕΥΚΑΡΠΙΑ", "AXARNON EFKARPIA")
+
+
+def test_the_latin_key_covers_the_locality_too(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """Typing the town in Greeklish must narrow the same way typing it in Greek does."""
+    seed_point(buildable, "c1", "15123,ΛΕΩΦΟΡΟΣ ΙΩΑΝΝΗ ΚΑΠΟΔΙΣΤΡΙΟΥ,18,Δ. ΑΜΑΡΟΥΣΙΟΥ")
+    build_addresses(buildable)
+    row = buildable.execute("select latin_key from address").fetchone()
+    assert row == ("IOANNI KAPODISTRIU AMARUSIU",)
