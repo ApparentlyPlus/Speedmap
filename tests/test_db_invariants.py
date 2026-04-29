@@ -16,13 +16,13 @@ from psycopg.rows import TupleRow
 INVARIANTS = {p.stem: p for p in sorted((Path(__file__).parent / "invariants").glob("*.sql"))}
 
 FOLDED_ADDRESS = (
-    "insert into address (street, street_fold, geom, search_key) "
-    "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ')"
+    "insert into address (street, street_fold, geom, search_key, latin_key) "
+    "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ', 'AXARNON')"
 )
 
 UNFOLDED_ADDRESS = (
-    "insert into address (street, street_fold, geom, search_key) "
-    "values ('Αχαρνών', 'ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'αχαρνών')"
+    "insert into address (street, street_fold, geom, search_key, latin_key) "
+    "values ('Αχαρνών', 'ΑΧΑΡΝΩΝ', 'SRID=4326;POINT(23.7 37.9)', 'αχαρνών', 'AXARNON')"
 )
 
 MISLABELLED_COVERAGE = (

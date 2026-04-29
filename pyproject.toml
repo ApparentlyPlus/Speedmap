@@ -20,6 +20,7 @@ dependencies = [
 pipeline = [
     "shapely>=2.0",
     "duckdb>=1.1",
+    "osmium>=4.0",
 ]
 dev = [
     "pytest>=8.3",
