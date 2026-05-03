@@ -198,3 +198,32 @@ def test_client_error_is_not_retried() -> None:
     with pytest.raises(httpx.HTTPStatusError):
         client.rows("toy", {"limit": 1})
     assert len(attempts) == 1
+
+
+def test_a_dataset_filter_reaches_every_request() -> None:
+    """The wireless grid is 53.3M rows and only fixed wireless can replace a landline."""
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=[], headers={"content-range": "*/0"})
+
+    filtered = Dataset("toy", "toy", "id", frozenset({"id", "v"}), where={"or": "(a.eq.1)"})
+    client = client_for(httpx.MockTransport(handler))
+    client.count(filtered)
+    client.page_cap(filtered, probe=10)
+    list(client.pages(filtered, cap=10))
+    assert seen, "no requests were made"
+    assert all(params.get("or") == "(a.eq.1)" for params in seen)
+
+
+def test_a_dataset_without_a_filter_sends_none() -> None:
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json=[], headers={"content-range": "*/0"})
+
+    client = client_for(httpx.MockTransport(handler))
+    client.count(TOY)
+    assert all("or" not in params for params in seen)

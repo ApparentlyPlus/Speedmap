@@ -333,6 +333,8 @@ RAW_TABLES = [
     "raw_lookup",
     "raw_dimos",
     "raw_osm_street",
+    "raw_wireless_cell",
+    "raw_wireless_grid",
 ]
 
 
@@ -356,6 +358,7 @@ def test_raw_geometries_keep_the_projection_they_arrived_in(
         "raw_coverage_ftth.geom": 4326,
         "raw_dimos.geom": 2100,
         "raw_osm_street.geom": 4326,
+        "raw_wireless_cell.geom": 2100,
         "raw_dimos.geom4326": 4326,
         "raw_coverpoint.point": 4326,
         "raw_coverpoint.waitpoin": 0,
@@ -513,3 +516,9 @@ def test_prefix_search_uses_the_index(db: psycopg.Connection[TupleRow]) -> None:
         "explain select id from address where search_key like 'ΑΧΑΡΝ%' limit 8"
     ).fetchall()
     assert any("address_search_key_prefix" in line for (line,) in plan)
+
+
+def test_wireless_tables_exist(db: psycopg.Connection[TupleRow]) -> None:
+    for table in ("raw_wireless_cell", "raw_wireless_grid"):
+        row = db.execute("select to_regclass(%s)", (table,)).fetchone()
+        assert row == (table,)
