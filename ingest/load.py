@@ -39,6 +39,8 @@ class Target:
 TARGETS: dict[str, Target] = {
     "provider": Target("raw_provider", ("id",)),
     "dimos": Target("raw_dimos", ("gid",), {"geom": 2100, "geom4326": 4326}),
+    "wireless_cell": Target("raw_wireless_cell", ("uniqueid",), {"geom": 2100}),
+    "wireless": Target("raw_wireless_grid", ("id",)),
     "coverpoint": Target("raw_coverpoint", ("coverid",), {"point": 4326, "waitpoin": 4326}),
     "wiredservice": Target("raw_wiredservice", ("id",)),
     "coverage_ftth": Target("raw_coverage_ftth", ("id",), {"geom": 4326}),

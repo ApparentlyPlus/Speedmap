@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -31,6 +31,7 @@ class Dataset:
     path: str
     key: str
     columns: frozenset[str]
+    where: Mapping[str, str] = field(default_factory=dict)
 
 
 DATASETS: tuple[Dataset, ...] = (
@@ -39,6 +40,27 @@ DATASETS: tuple[Dataset, ...] = (
         "provider",
         "id",
         frozenset({"id", "name", "short_name"}),
+    ),
+    Dataset(
+        "wireless_cell",
+        "wireless1000",
+        "uniqueid",
+        frozenset({"uniqueid", "servprov_ids", "maxdown_ids", "dimos_id", "geom"}),
+    ),
+    Dataset(
+        "wireless",
+        "a4b_wirelessservicegrid",
+        "id",
+        frozenset(
+            {
+                "servprov", "infrprov", "gridid", "tech3g", "tech4gm", "tech5gm",
+                "tech4gf", "tech5gf", "techoth", "foretech", "maxdown", "maxup",
+                "vhcn", "id",
+            }
+        ),
+        # No server-side filter: tech4gf and tech5gf are unindexed upstream, so filtering
+        # costs 6.2s a page against 0.46s unfiltered and is slower overall despite fetching
+        # a quarter of the rows. Mobile and fixed are separated at normalise time instead.
     ),
     Dataset(
         "dimos",
@@ -206,14 +228,14 @@ class RegisterClient:
         """Exact row count. PostgREST only counts when asked, and not every view answers."""
         response = self._get(
             dataset.path,
-            {"select": dataset.key, "limit": 1},
+            {"select": dataset.key, "limit": 1, **dataset.where},
             headers={"prefer": "count=exact"},
         )
         return parse_total(response.headers.get("content-range"))
 
     def page_cap(self, dataset: Dataset, *, probe: int = 2000) -> int:
         """Measure the cap by asking for more than it will give."""
-        rows = self.rows(dataset.path, {"select": dataset.key, "limit": probe})
+        rows = self.rows(dataset.path, {"select": dataset.key, "limit": probe, **dataset.where})
         if len(rows) == probe:
             return probe
         total = self.count(dataset)
@@ -229,6 +251,7 @@ class RegisterClient:
                 "select": "*",
                 "order": f"{dataset.key}.asc",
                 "limit": cap,
+                **dataset.where,
             }
             if cursor is not None:
                 params[dataset.key] = f"gt.{cursor}"
