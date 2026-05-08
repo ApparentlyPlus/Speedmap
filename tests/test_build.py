@@ -17,7 +17,7 @@ OFFER_STEP = "050_address_coverage"
 
 TOUCHED = (
     "municipality, raw_dimos, address, raw_coverpoint, coverage, coverage_area, "
-    "raw_wiredservice, raw_geo_coverage_copper, address_coverage"
+    "raw_wiredservice, raw_geo_coverage_copper, address_coverage, raw_wireless_grid"
 )
 
 # ΔΗΜΟΣ ΠΑΓΓΑΙΟΥ, simplified to a triangle. Only the projection and the copy are under test.
@@ -714,3 +714,116 @@ def test_the_latin_key_covers_the_locality_too(
     build_addresses(buildable)
     row = buildable.execute("select latin_key from address").fetchone()
     assert row == ("IOANNI KAPODISTRIU AMARUSIU",)
+
+
+WIRELESS_STEP = "070_wireless"
+
+# The cell the default seed_point lands in. Pinned as a literal, so changing the projection
+# the grid is read in fails here rather than silently moving every address.
+CELL = "5040|45196"
+
+
+def wireless_step() -> list[Step]:
+    return [s for s in discover() if s.name == WIRELESS_STEP]
+
+
+def seed_cell(
+    conn: psycopg.Connection[TupleRow],
+    gridid: str = CELL,
+    *,
+    row_id: int = 1,
+    servprov: int = 1,
+    tech4gm: int = 0,
+    tech5gm: int = 0,
+    tech4gf: int = 0,
+    tech5gf: int = 0,
+    maxdown: int = 7,
+) -> None:
+    conn.execute(
+        "insert into raw_wireless_grid "
+        "(id, gridid, servprov, tech4gm, tech5gm, tech4gf, tech5gf, maxdown) "
+        "values (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (row_id, gridid, servprov, tech4gm, tech5gm, tech4gf, tech5gf, maxdown),
+    )
+    conn.commit()
+
+
+def cells(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, str, int | None]]:
+    rows = conn.execute(
+        "select technology, matched_by, speed_band_id from address_coverage "
+        "where matched_by = 'cell' order by technology"
+    ).fetchall()
+    return [(str(t), str(m), b) for t, m, b in rows]
+
+
+def build_cells(conn: psycopg.Connection[TupleRow]) -> int:
+    return run(conn, wireless_step())[WIRELESS_STEP]
+
+
+def test_a_fixed_wireless_cell_becomes_an_offer(buildable: psycopg.Connection[TupleRow]) -> None:
+    """An address finds its cell by arithmetic, so the grid needs no geometry of its own."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech5gf=1)
+    assert build_cells(buildable) == 1
+    assert cells(buildable) == [("FWA_5G", "cell", 7)]
+
+
+def test_an_address_in_another_cell_gets_nothing(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, "5041|45196", tech5gf=1)
+    assert build_cells(buildable) == 0
+
+
+def test_a_mobile_cell_is_not_a_landline(buildable: psycopg.Connection[TupleRow]) -> None:
+    """Mobile coverage cannot replace a fixed line, and 40.5M of the 53.3M rows are only that."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech4gm=1, tech5gm=1)
+    assert build_cells(buildable) == 0
+
+
+def test_a_planned_cell_is_not_yet_an_offer(buildable: psycopg.Connection[TupleRow]) -> None:
+    """A flag of 2 means planned within two years. Truthiness would sell it as available."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech5gf=2)
+    assert build_cells(buildable) == 0
+
+
+def test_the_offer_is_named_for_the_best_generation(
+    buildable: psycopg.Connection[TupleRow],
+) -> None:
+    """One band is filed per cell, so splitting the row would credit 4G with the 5G figure."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech4gf=1, tech5gf=1)
+    assert build_cells(buildable) == 1
+    assert cells(buildable) == [("FWA_5G", "cell", 7)]
+
+
+def test_a_cell_without_5g_stays_4g(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech4gf=1, maxdown=4)
+    assert build_cells(buildable) == 1
+    assert cells(buildable) == [("FWA_4G", "cell", 4)]
+
+
+def test_an_uncovered_band_is_not_a_speed(buildable: psycopg.Connection[TupleRow]) -> None:
+    """The wireless band list adds a zero for not covered, which speed_band has no row for."""
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech5gf=1, maxdown=0)
+    assert build_cells(buildable) == 1
+    assert cells(buildable) == [("FWA_5G", "cell", None)]
+
+
+def test_the_wireless_step_is_re_runnable(buildable: psycopg.Connection[TupleRow]) -> None:
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    build_addresses(buildable)
+    seed_cell(buildable, tech5gf=1)
+    build_cells(buildable)
+    build_cells(buildable)
+    assert cells(buildable) == [("FWA_5G", "cell", 7)]
