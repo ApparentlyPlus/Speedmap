@@ -337,6 +337,7 @@ RAW_TABLES = [
     "raw_osm_street",
     "raw_wireless_cell",
     "raw_wireless_grid",
+    "raw_cosmote",
 ]
 
 
