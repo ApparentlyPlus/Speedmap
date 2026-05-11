@@ -136,3 +136,44 @@ def test_the_step_is_re_runnable(matched: psycopg.Connection[TupleRow]) -> None:
     matched.commit()
     build_cosmote_index(matched)
     assert answers(matched) == [("FTTH", 1000.0)]
+
+
+def scanned(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, int]]:
+    rows = conn.execute(
+        "select street_fold, scanned_to from cosmote_scan order by street_fold"
+    ).fetchall()
+    return [(str(f), int(n)) for f, n in rows]
+
+
+def test_the_ceiling_is_the_last_number_the_scan_reached(
+    matched: psycopg.Connection[TupleRow],
+) -> None:
+    """The scan walked upward and stopped; above the ceiling nothing was ever asked."""
+    seed(matched, [
+        checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11, "FBR_1G"),
+        checked_at(2, "ΑΜΥΓΔΑΛΙΑΣ", 14, "FBR_1G"),
+    ], "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    assert scanned(matched) == [("ΑΜΥΓΔΑΛΙΑΣ", 14)]
+
+
+def test_an_unmatched_row_still_raises_the_ceiling(
+    matched: psycopg.Connection[TupleRow],
+) -> None:
+    """The scan reached that number whether or not we hold the address it names."""
+    seed(matched, [
+        checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11, "FBR_1G"),
+        checked_at(2, "ΑΜΥΓΔΑΛΙΑΣ", 99, "FBR_1G"),
+    ], "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+    assert scanned(matched) == [("ΑΜΥΓΔΑΛΙΑΣ", 99)]
+
+
+def test_a_number_above_the_ceiling_is_unknown_not_refused(
+    matched: psycopg.Connection[TupleRow],
+) -> None:
+    """Τζελίλη 40 exists and is served; the scan stopped at 1 and never asked."""
+    seed(matched, [checked_at(1, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 1, "ADSL_24M")],
+         "56429,Αχιλλέα Τζελίλη,1,ΛΑΓΚΑΔΑΣ")
+    row = matched.execute(
+        "select 40 > scanned_to from cosmote_scan where street_fold = 'ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ'"
+    ).fetchone()
+    assert row == (True,)
