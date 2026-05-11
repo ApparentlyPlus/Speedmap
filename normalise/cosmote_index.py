@@ -34,6 +34,27 @@ order by c.id
 limit %s
 """
 
+SCAN_STAGE = """
+create temp table stage_cosmote_scan (
+    municipality_id int,
+    street_fold text,
+    scanned_to int
+) on commit drop
+"""
+
+# The ceiling is the last number the scrape recorded, which is up to five short of the last
+# it actually asked: the numbers between were refused and so were never written down. Reading
+# it this way calls those five unknown and asks again, rather than reporting no service on a
+# guess about how the scan terminated.
+SCAN_MERGE = """
+insert into cosmote_scan (municipality_id, street_fold, scanned_to)
+select municipality_id, street_fold, max(scanned_to)
+from stage_cosmote_scan
+group by municipality_id, street_fold
+on conflict (municipality_id, street_fold) do update set
+    scanned_to = excluded.scanned_to
+"""
+
 STAGE = """
 create temp table stage_cosmote (
     address_id bigint,
@@ -87,6 +108,7 @@ def rows(
     conn: psycopg.Connection[TupleRow],
     index: dict[tuple[int, str, str], int],
     catalogue: dict[str, tuple[float, str]],
+    ceiling: dict[tuple[int, str], int],
     after: int,
 ) -> tuple[list[tuple[object, ...]], int | None]:
     """One chunk, matched. Returns the staged rows and the key to resume from."""
@@ -96,7 +118,12 @@ def rows(
 
     staged: list[tuple[object, ...]] = []
     for _, municipality_id, street, street_no, plans, observed_at in read:
-        address_id = index.get((municipality_id, street_key(street), str(street_no)))
+        folded = street_key(street)
+        # Every row raises the street's ceiling, matched or not: the scan reached it either way.
+        ceiling[(municipality_id, folded)] = max(
+            ceiling.get((municipality_id, folded), street_no), street_no
+        )
+        address_id = index.get((municipality_id, folded, str(street_no)))
         if address_id is None:
             continue
         best = best_plan(plans, catalogue)
@@ -118,12 +145,14 @@ def build_cosmote_index(conn: psycopg.Connection[TupleRow]) -> int:
     }
 
     conn.execute(STAGE)
+    conn.execute(SCAN_STAGE)
+    ceiling: dict[tuple[int, str], int] = {}
     written = 0
     after = 0
     while True:
         # The chunk is read in full before the copy opens: a select and a copy cannot
         # share one connection, and interleaving them deadlocks on ClientRead.
-        staged, resume = rows(conn, index, catalogue, after)
+        staged, resume = rows(conn, index, catalogue, ceiling, after)
         if resume is None:
             break
         if staged:
@@ -135,6 +164,14 @@ def build_cosmote_index(conn: psycopg.Connection[TupleRow]) -> int:
                     copy.write_row(row)
             written += len(staged)
         after = resume
+
+    if ceiling:
+        with conn.cursor().copy(
+            "copy stage_cosmote_scan (municipality_id, street_fold, scanned_to) from stdin"
+        ) as copy:
+            for (municipality_id, folded), scanned_to in ceiling.items():
+                copy.write_row((municipality_id, folded, scanned_to))
+        conn.execute(SCAN_MERGE)
 
     conn.execute(MERGE, {"ttl": TTL_DAYS})
     return written
