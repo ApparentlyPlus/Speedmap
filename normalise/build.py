@@ -17,6 +17,7 @@ from psycopg.rows import TupleRow
 
 from db.connect import connect
 from normalise.address_index import build_address_index
+from normalise.cosmote import build_cosmote
 from normalise.street_index import build_street_index
 
 STEPS = Path(__file__).parent / "steps"
@@ -26,6 +27,7 @@ STEPS = Path(__file__).parent / "steps"
 PYTHON_STEPS: dict[str, Callable[[psycopg.Connection[TupleRow]], int]] = {
     "020_address": build_address_index,
     "060_street": build_street_index,
+    "080_cosmote": build_cosmote,
 }
 
 
