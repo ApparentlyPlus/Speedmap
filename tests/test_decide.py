@@ -88,3 +88,13 @@ def test_inference_beats_a_refusal_from_an_unfinished_scan() -> None:
 
 def test_inference_is_not_a_reason_to_ask() -> None:
     assert INFERRED not in ASK
+
+
+def test_fibre_on_the_street_needs_no_asking() -> None:
+    """The register files 712,026 fibre rows with no band at all, so speed alone misses them."""
+    assert verdict(None, now=NOW, street_fibre=True) == INFERRED
+    assert verdict(None, now=NOW, street_fibre=True, street_best_mbps=None) == INFERRED
+
+
+def test_copper_on_the_street_is_still_asked() -> None:
+    assert verdict(None, now=NOW, street_fibre=False, street_best_mbps=Decimal(100)) == UNKNOWN
