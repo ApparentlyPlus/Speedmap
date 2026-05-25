@@ -110,6 +110,22 @@ create temp table stage_cosmote_scan (
 ) on commit drop
 """
 
+STAGE_RESOLVED = """
+create temp table stage_cosmote_resolved (
+    id bigint, municipality_id int, street_fold text
+) on commit drop
+"""
+
+# Kept so a probe can be told the operator's own spelling of this street.
+RESOLVE = """
+update raw_cosmote c
+set municipality_id = r.municipality_id, street_fold = r.street_fold
+from stage_cosmote_resolved r
+where r.id = c.id
+  and (c.municipality_id is distinct from r.municipality_id
+    or c.street_fold is distinct from r.street_fold)
+"""
+
 # The ceiling is the last number the scrape recorded, up to five short of the last it
 # actually asked: the numbers between were refused and so were never written down. Reading
 # it this way calls those five unknown and asks again, rather than reporting no service on
@@ -218,6 +234,7 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
 
     conn.execute(STAGE_ANSWER)
     conn.execute(STAGE_SCAN)
+    conn.execute(STAGE_RESOLVED)
     ceiling: dict[tuple[int, str], int] = {}
     written = 0
     after = 0
@@ -226,11 +243,13 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
         if not read:
             break
         staged: list[tuple[object, ...]] = []
-        for _, municipality_id, street, street_no, plans, observed_at in read:
+        resolved: list[tuple[object, ...]] = []
+        for row_id, municipality_id, street, street_no, plans, observed_at in read:
             folded = street_key(street)
             # Every row raises the ceiling, matched or not: the scan reached it either way.
             reached = ceiling.get((municipality_id, folded), street_no)
             ceiling[(municipality_id, folded)] = max(reached, street_no)
+            resolved.append((row_id, municipality_id, folded))
             address_id = index.get((municipality_id, folded, str(street_no)))
             if address_id is None:
                 continue
@@ -241,6 +260,12 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
             staged.append((address_id, technology, mbps, observed_at, plans))
         # The chunk is read in full before the copy opens: a select and a copy cannot share
         # one connection, and interleaving them deadlocks on ClientRead.
+        if resolved:
+            with conn.cursor().copy(
+                "copy stage_cosmote_resolved (id, municipality_id, street_fold) from stdin"
+            ) as copy:
+                for row in resolved:
+                    copy.write_row(row)
         if staged:
             with conn.cursor().copy(
                 "copy stage_cosmote (address_id, technology, max_down_mbps, observed_at, "
@@ -259,6 +284,7 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
                 copy.write_row((municipality_id, folded, scanned_to))
         conn.execute(MARK_SCANNED)
 
+    conn.execute(RESOLVE)
     conn.execute(CACHE, {"ttl": TTL_DAYS})
     return written
 

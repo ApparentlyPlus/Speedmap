@@ -46,11 +46,16 @@ class Probed:
 
     Not serviceable is an answer and is cached like any other. A checker that failed is not
     this: it raises, and nothing is written, because a failure is not a refusal.
+
+    Nor is an inconclusive answer. One operator replies that an address needs looking into
+    by hand, which is neither yes nor no, and writing it down as either would be a lie the
+    cache then repeats for six months.
     """
 
     serviceable: bool
     offers: tuple[Offer, ...] = ()
     raw: dict[str, object] | None = None
+    conclusive: bool = True
 
 
 class Adapter(Protocol):
