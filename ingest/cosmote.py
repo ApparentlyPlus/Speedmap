@@ -23,7 +23,7 @@ from db.connect import connect
 SCRAPE = Path("data/cosmote.db")
 
 READ = """
-select id, nomos, dimos, area, name, number, plans, timestamp,
+select id, nomos, dimos, area, type, name, number, plans, timestamp,
        lat, lon, geocode_precision, kaek
 from coverage
 where plans is not null and plans <> ''
@@ -36,6 +36,7 @@ class Checked:
     nomos: str
     dimos: str
     area: str | None
+    street_type: str | None
     street: str
     street_no: int
     plans: str
@@ -56,9 +57,10 @@ def checked(path: Path) -> Iterator[Checked]:
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
         for row in connection.execute(READ):
-            (rid, nomos, dimos, area, street, number, plans, stamp, lat, lon, prec, kaek) = row
+            (rid, nomos, dimos, area, kind, street, number, plans, stamp,
+             lat, lon, prec, kaek) = row
             yield Checked(
-                rid, nomos, dimos, area, street, number, plans, stamp,
+                rid, nomos, dimos, area, kind, street, number, plans, stamp,
                 point_wkt(lat, lon), prec, kaek,
             )
     finally:
@@ -70,13 +72,14 @@ def write(conn: psycopg.Connection[TupleRow], found: Iterator[Checked]) -> int:
     conn.execute("truncate raw_cosmote")
     written = 0
     with conn.cursor().copy(
-        "copy raw_cosmote (id, nomos, dimos, area, street, street_no, plans, observed_at, "
-        "geom, geocode_precision, kaek) from stdin"
+        "copy raw_cosmote (id, nomos, dimos, area, street_type, street, street_no, plans, "
+        "observed_at, geom, geocode_precision, kaek) from stdin"
     ) as copy:
         for row in found:
             copy.write_row((
-                row.id, row.nomos, row.dimos, row.area, row.street, row.street_no,
-                row.plans, row.observed_at, row.wkt, row.geocode_precision, row.kaek,
+                row.id, row.nomos, row.dimos, row.area, row.street_type, row.street,
+                row.street_no, row.plans, row.observed_at, row.wkt,
+                row.geocode_precision, row.kaek,
             ))
             written += 1
     return written

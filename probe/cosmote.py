@@ -31,11 +31,13 @@ AVAILABILITY = "/eshop/jsp/ajax/avdslavailabilityAjaxV2.jsp"
 INCONCLUSIVE = "διερεύνηση"
 
 # Speed names the medium, as it does in their own plan codes: vectored copper stops short
-# of 200 Mbps, and a hundred over copper is vectored by definition.
-RUNGS = ((200, "FTTH"), (100, "VECT_VDSL"), (50, "VDSL"), (0, "ADSL"))
+# of 200 Mbps, and a hundred over copper is vectored by definition. The floor for VDSL is 25
+# rather than 50 because ADSL cannot pass 24, which the technology table records as its
+# ceiling: their 30 Mbps rung is a VDSL line sold short, not a fast ADSL one.
+RUNGS = ((200, "FTTH"), (100, "VECT_VDSL"), (25, "VDSL"), (0, "ADSL"))
 
 NAMING = """
-select nomos, dimos, area, street
+select nomos, dimos, area, street, street_type
 from raw_cosmote
 where municipality_id = %s and street_fold = %s
 limit 1
@@ -54,6 +56,7 @@ class Naming:
     dimos: str
     area: str | None
     street: str
+    street_type: str | None
 
 
 def naming(
@@ -63,8 +66,13 @@ def naming(
     row = conn.execute(NAMING, (municipality_id, street_fold)).fetchone()
     if row is None:
         return None
-    return Naming(nomos=str(row[0]), dimos=str(row[1]),
-                  area=None if row[2] is None else str(row[2]), street=str(row[3]))
+    return Naming(
+        nomos=str(row[0]),
+        dimos=str(row[1]),
+        area=None if row[2] is None else str(row[2]),
+        street=str(row[3]),
+        street_type=None if row[4] is None else str(row[4]),
+    )
 
 
 def technology_of(mbps: int) -> str:
@@ -121,6 +129,15 @@ class SpeedTable(HTMLParser):
             self.rung = None
 
 
+def line(rows: list[list[str]], label: str) -> list[str] | None:
+    """The row for one direction. The first four-cell row is the header, not a measurement:
+    its cells read Μέγιστη, Συνήθης, Ελάχιστη, which parse as no speed at all."""
+    for row in rows:
+        if len(row) >= 4 and row[0].upper().startswith(label):
+            return row
+    return None
+
+
 def offers(html: str) -> tuple[Offer, ...]:
     """Every rung the estimate table quotes, fastest first within each technology."""
     table = SpeedTable()
@@ -128,9 +145,10 @@ def offers(html: str) -> tuple[Offer, ...]:
 
     best: dict[str, Offer] = {}
     for rung, rows in sorted(table.rows.items()):
-        download = next((r for r in rows if len(r) >= 4), None)
+        download = line(rows, "DOWNLOAD")
         if download is None:
             continue
+        upload = line(rows, "UPLOAD")
         technology = technology_of(rung)
         held = best.get(technology)
         if held is not None and held.max_down_mbps is not None and held.max_down_mbps >= rung:
@@ -139,6 +157,7 @@ def offers(html: str) -> tuple[Offer, ...]:
             technology=technology,
             max_down_mbps=mbps(download[1]),
             avg_down_mbps=mbps(download[2]),
+            avg_up_mbps=None if upload is None else mbps(upload[2]),
         )
     return tuple(best[code] for code in sorted(best))
 
@@ -178,13 +197,23 @@ class Cosmote:
         self.client = client
         return client
 
+    def addressed(self, named: Naming) -> str:
+        """Their spelling of a street, which carries its type in brackets.
+
+        Without it the answer is that the address needs looking into by hand, whatever else
+        the request gets right. Case and accent do not matter to them; the brackets do.
+        """
+        if named.street_type is None:
+            return named.street
+        return f"{named.street} ({named.street_type})"
+
     def form(self, target: Target, named: Naming) -> dict[str, str]:
         return {
             "mTelno": "",
             "mState": f"Ν. {named.nomos}",
             "mPrefecture": f"Δ. {named.dimos}",
             "mArea": named.area if named.area is not None else named.dimos,
-            "mAddress": named.street,
+            "mAddress": self.addressed(named),
             "mNumber": target.street_no,
             "searchcriteria": "address",
             "ct": "res",
