@@ -36,7 +36,7 @@ def checked_at(
     lon: float = INSIDE[0], lat: float = INSIDE[1],
 ) -> Checked:
     return Checked(
-        rid, "ΚΑΒΑΛΑΣ", "ΠΑΓΓΑΙΟΥ", "ΠΑΓΓΑΙΟ", street, number, plans,
+        rid, "ΚΑΒΑΛΑΣ", "ΠΑΓΓΑΙΟΥ", "ΠΑΓΓΑΙΟ", "ΟΔΟΣ", street, number, plans,
         "2026-08-06 05:51:55", f"POINT({lon} {lat})", precision, kaek,
     )
 
