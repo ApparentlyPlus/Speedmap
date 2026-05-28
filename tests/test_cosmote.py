@@ -14,7 +14,7 @@ from ingest.cosmote import Checked, checked, point_wkt, write
 
 # Αχιλλέα Τζελίλη in Lagkadas, the street the register does not name.
 TZELILI = Checked(
-    1, "ΘΕΣΣΑΛΟΝΙΚΗΣ", "ΛΑΓΚΑΔΑ", "ΛΑΓΚΑΔΑΣ", "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40,
+    1, "ΘΕΣΣΑΛΟΝΙΚΗΣ", "ΛΑΓΚΑΔΑ", "ΛΑΓΚΑΔΑΣ", "ΟΔΟΣ", "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40,
     "FBR_100M,FBR_50M,ADSL_24M", "2026-08-06 05:51:55",
     "POINT(23.0716 40.7471)", "rooftop", "19022ΕΚ00105",
 )
@@ -74,7 +74,7 @@ def test_loading_replaces_rather_than_accumulates(
     """A scrape is a snapshot: an address the operator stopped serving must disappear."""
     write(scrape, iter([TZELILI]))
     other = Checked(
-        2, "ΑΤΤΙΚΗΣ", "ΑΘΗΝΑΙΩΝ", "ΑΘΗΝΑ", "ΑΧΑΡΝΩΝ", 1, "FBR_1G",
+        2, "ΑΤΤΙΚΗΣ", "ΑΘΗΝΑΙΩΝ", "ΑΘΗΝΑ", "ΟΔΟΣ", "ΑΧΑΡΝΩΝ", 1, "FBR_1G",
         "2026-07-01 10:00:00", "POINT(23.73 37.99)", "rooftop", None,
     )
     assert write(scrape, iter([other])) == 1
