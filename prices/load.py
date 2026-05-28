@@ -12,7 +12,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 
 from db.connect import connect
-from prices import nova, vodafone
+from prices import nova, published, vodafone
 from prices.catalogue import Tariff, write
 
 SOURCES: dict[str, Callable[[], list[Tariff]]] = {
@@ -38,6 +38,13 @@ def main(argv: list[str] | None = None) -> int:
             written = write(conn, provider, tariffs, args.on)
             conn.commit()
             print(f"  {provider}: {written} plans priced")
+
+        # Recorded by hand against a page or a rate card, and dated by when it was read
+        # rather than by today: a figure from June is not evidence about September.
+        for provider, (tariffs, observed_on) in published.load().items():
+            written = write(conn, provider, tariffs, observed_on)
+            conn.commit()
+            print(f"  {provider}: {written} plans published {observed_on}")
     return 1 if failed == len(SOURCES) else 0
 
 

@@ -135,3 +135,45 @@ def test_an_unknown_setup_fee_stays_unknown(catalogue: psycopg.Connection[TupleR
     write(catalogue, "OTE", [tariff], TODAY)
     row = catalogue.execute("select setup_eur, hardware_eur from plan_price").fetchone()
     assert row == (None, None)
+
+
+def test_every_published_tariff_names_a_known_technology() -> None:
+    """A typo in the file would otherwise reach the ranker as a plan on no line at all."""
+    from prices.published import load
+
+    for provider, (tariffs, _) in load().items():
+        assert tariffs, provider
+        for tariff in tariffs:
+            assert tariff.technology is not None
+            assert tariff.family in {"fibre", "coax", "copper", "wireless", "satellite"}
+
+
+def test_a_published_tariff_is_dated_by_when_it_was_read() -> None:
+    """A rate card read in June is not evidence about September."""
+    from prices.published import load
+
+    for provider, (_, observed_on) in load().items():
+        assert observed_on.year >= 2026, provider
+
+
+def test_a_stated_free_fee_is_zero_and_a_silent_one_is_unknown() -> None:
+    """Inalan says installation is free; HCN says nothing, and nothing is not free."""
+    from prices.published import load
+
+    inalan = {t.external_key: t for t in load()["INALAN"][0]}
+    hcn = {t.external_key: t for t in load()["HCN"][0]}
+    assert inalan["INALAN_1G"].setup_eur == Decimal(0)
+    assert hcn["HCN_SONIC"].setup_eur is None
+
+
+def test_the_published_technologies_exist_in_the_database(
+    catalogue: psycopg.Connection[TupleRow],
+) -> None:
+    from prices.published import load
+
+    known = {
+        str(code) for (code,) in catalogue.execute("select code from technology").fetchall()
+    }
+    for tariffs, _ in load().values():
+        for tariff in tariffs:
+            assert tariff.technology in known

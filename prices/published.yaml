@@ -1,0 +1,100 @@
+# Tariffs from providers that publish no machine-readable catalogue. Each entry says where
+# it was read and when, so a wrong figure is traceable to a page rather than to nobody.
+#
+# monthly_eur is what the plan costs once any introductory period ends. promo_monthly_eur
+# with promo_months is an introductory price open to any new customer.
+#
+# Discounts that depend on who you are are deliberately absent: first in your building, a
+# student, already on their electricity. They are real, but not available to the person
+# doing the comparing, and a ranking built on them would be a ranking of nobody's prices.
+#
+# A fee written as 0 is an assertion that there is none, made because the provider says so.
+# A fee left out is unknown, and the ranker refuses to blend it rather than assume zero.
+
+INALAN:
+  source: https://inalan.gr/paketa
+  observed_on: 2026-09-10
+  # Symmetric throughout: they build and sell their own fibre.
+  plans:
+    - key: INALAN_300
+      name: 300Mbps Phone Unlimited
+      technology: FTTH
+      down_mbps: 300
+      up_mbps: 300
+      monthly_eur: 28
+      setup_eur: 0
+      hardware_eur: 0
+    - key: INALAN_1G
+      name: 1Gbps Phone Unlimited Plus
+      technology: FTTH
+      down_mbps: 1000
+      up_mbps: 1000
+      monthly_eur: 34
+      setup_eur: 0
+      hardware_eur: 0
+
+DEI:
+  source: https://www.dei.gr/media/xswntpli/deh-fiber-pricelist_2026-with-voice-add-on-21x29-7cm-20260618-final.pdf
+  observed_on: 2026-09-10
+  # Their own rate card, VAT included, dated 18 June 2026. The market sells these far
+  # cheaper and their order portal quotes only after an address check, so the retail price
+  # is not recorded here: see the note in the loader.
+  plans:
+    - key: DEI_FIBER_500
+      name: ΔΕΗ Fiber 500Mbps
+      technology: FTTH
+      down_mbps: 500
+      up_mbps: 250
+      monthly_eur: 50
+      setup_eur: 30
+      hardware_eur: 0
+      contract_months: 24
+    - key: DEI_FIBER_1G
+      name: ΔΕΗ Fiber 1Gbps
+      technology: FTTH
+      down_mbps: 1000
+      up_mbps: 500
+      monthly_eur: 60
+      setup_eur: 30
+      hardware_eur: 0
+      contract_months: 24
+    - key: DEI_FIBER_2_5G
+      name: ΔΕΗ Fiber 2.5Gbps
+      technology: FTTH
+      down_mbps: 2500
+      up_mbps: 1250
+      monthly_eur: 80
+      setup_eur: 30
+      hardware_eur: 0
+      contract_months: 24
+
+HCN:
+  source: https://www.hcn.gr/el/
+  observed_on: 2026-09-10
+  # Their page prices every tier "from", so these are floors rather than the whole story,
+  # and no setup fee is stated anywhere: it is left unknown rather than called zero.
+  plans:
+    - key: HCN_LIGHT_PLUS
+      name: Light+
+      technology: FTTH
+      down_mbps: 30
+      up_mbps: 3
+      monthly_eur: 16
+    - key: HCN_FLOW_PLUS
+      name: Flow+
+      technology: FTTH
+      down_mbps: 500
+      up_mbps: 500
+      monthly_eur: 23
+    - key: HCN_STELLAR
+      name: Stellar
+      technology: FTTH
+      down_mbps: 750
+      up_mbps: 750
+      monthly_eur: 29
+    - key: HCN_SONIC
+      name: Sonic
+      technology: FTTH
+      down_mbps: 1000
+      up_mbps: 1000
+      monthly_eur: 23
