@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         # Recorded by hand against a page or a rate card, and dated by when it was read
         # rather than by today: a figure from June is not evidence about September.
         for provider, (tariffs, observed_on) in published.load().items():
-            written = write(conn, provider, tariffs, observed_on)
+            written = write(conn, provider, tariffs, observed_on, source="published")
             conn.commit()
             print(f"  {provider}: {written} plans published {observed_on}")
     return 1 if failed == len(SOURCES) else 0

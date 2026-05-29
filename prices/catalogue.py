@@ -32,13 +32,14 @@ returning id
 PRICE = """
 insert into plan_price (
     plan_id, observed_on, monthly_eur, setup_eur, hardware_eur,
-    contract_months, promo_months, promo_monthly_eur
+    contract_months, promo_months, promo_monthly_eur, source
 )
 values (
     %(plan)s, %(on)s, %(monthly)s, %(setup)s, %(hardware)s,
-    %(contract)s, %(promo_months)s, %(promo_monthly)s
+    %(contract)s, %(promo_months)s, %(promo_monthly)s, %(source)s
 )
 on conflict (plan_id, observed_on) do update set
+    source = excluded.source,
     monthly_eur = excluded.monthly_eur,
     setup_eur = excluded.setup_eur,
     hardware_eur = excluded.hardware_eur,
@@ -76,8 +77,13 @@ def write(
     provider: str,
     tariffs: list[Tariff],
     observed_on: date,
+    source: str = "catalogue",
 ) -> int:
-    """Record today's catalogue. Rerunning on the same day corrects it rather than doubling."""
+    """Record today's catalogue. Rerunning on the same day corrects it rather than doubling.
+
+    A catalogue price is what the provider's own ordering system quotes. A published one is
+    read off a rate card or a plan page, and the two can differ by three times over.
+    """
     written = 0
     for tariff in tariffs:
         row = conn.execute(PLAN, {
@@ -101,6 +107,7 @@ def write(
             "contract": tariff.contract_months,
             "promo_months": tariff.promo_months,
             "promo_monthly": tariff.promo_monthly_eur,
+            "source": source,
         })
         written += 1
     return written
