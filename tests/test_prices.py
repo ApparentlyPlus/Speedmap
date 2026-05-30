@@ -177,3 +177,35 @@ def test_the_published_technologies_exist_in_the_database(
     for tariffs, _ in load().values():
         for tariff in tariffs:
             assert tariff.technology in known
+
+
+def test_the_current_price_view_carries_every_column(
+    catalogue: psycopg.Connection[TupleRow],
+) -> None:
+    """It was written with a star once, and a star is resolved at creation: two columns
+    added afterwards were invisible through it until someone happened to select one."""
+    stored = {
+        str(c) for (c,) in catalogue.execute(
+            "select column_name from information_schema.columns where table_name = 'plan_price'"
+        ).fetchall()
+    }
+    shown = {
+        str(c) for (c,) in catalogue.execute(
+            "select column_name from information_schema.columns "
+            "where table_name = 'plan_current'"
+        ).fetchall()
+    }
+    assert stored == shown
+
+
+def test_a_published_price_says_so(catalogue: psycopg.Connection[TupleRow]) -> None:
+    """A rate card and a quote from an ordering system are not the same claim."""
+    tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(60))
+    write(catalogue, "OTE", [tariff], TODAY, source="published")
+    assert catalogue.execute("select source from plan_price").fetchall() == [("published",)]
+
+
+def test_a_catalogue_price_is_the_default(catalogue: psycopg.Connection[TupleRow]) -> None:
+    tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(20))
+    write(catalogue, "OTE", [tariff], TODAY)
+    assert catalogue.execute("select source from plan_price").fetchall() == [("catalogue",)]
