@@ -41,6 +41,11 @@ TECHNOLOGY = {
 # A home router is part of the offer, not an optional extra, and it is a real cost.
 HARDWARE = {"FWA_4G": "5g_router", "FWA_5G": "5g_router"}
 
+# Their plan pages state an activation fee that the catalogue payload leaves out entirely.
+# A line is 6€ and a wireless home router is 40€, which is most of the difference between
+# the two over a year. Read from vodafone.gr on 2026-09-10.
+ACTIVATION = {"fibre": Decimal(6), "copper": Decimal(6), "wireless": Decimal(40)}
+
 
 class CatalogueError(RuntimeError):
     """The catalogue could not be read."""
@@ -112,6 +117,9 @@ def read(payload: dict[str, Any]) -> list[Tariff]:
                 down_mbps=None if mbps is None else Decimal(mbps),
                 needs_hardware=HARDWARE.get(technology),
                 monthly_eur=sale,
+                setup_eur=ACTIVATION.get(family),
+                # They give the router with the plan and charge nothing for it.
+                hardware_eur=Decimal(0),
                 # Equal prices mean no discount is running, not a discount of nothing.
                 promo_monthly_eur=None if listed is None or listed == sale else sale,
             ))

@@ -209,3 +209,59 @@ def test_a_catalogue_price_is_the_default(catalogue: psycopg.Connection[TupleRow
     tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(20))
     write(catalogue, "OTE", [tariff], TODAY)
     assert catalogue.execute("select source from plan_price").fetchall() == [("catalogue",)]
+
+
+def test_a_provider_publishing_on_two_pages_is_one_provider() -> None:
+    """Lines and airtime live on different pages; both are the same company's catalogue."""
+    from prices.published import load
+
+    ote = {t.external_key for t in load()["OTE"][0]}
+    assert "TELEKOM_FIBER_1G" in ote
+    assert "TELEKOM_GIGAMAX_UNLIMITED" in ote
+
+
+def test_a_data_plan_needs_a_router_the_operator_does_not_give() -> None:
+    """That is the difference from a wireless home product, and it is a real cost."""
+    from prices.published import load
+
+    plans = {t.external_key: t for t in load()["NOVA"][0]}
+    fallback = plans["NOVA_UNLIMITED_ALL"]
+    assert fallback.technology == "MOBILE"
+    assert fallback.needs_hardware == "5g_router"
+    assert fallback.hardware_eur == Decimal(0)
+    assert fallback.data_cap_gb is None
+
+
+def test_an_introductory_price_records_both_halves() -> None:
+    """Twelve months at one price and twelve at another is not a plan costing either."""
+    from prices.published import load
+
+    red = {t.external_key: t for t in load()["VODAFONE"][0]}["VODAFONE_RED_10"]
+    assert red.promo_monthly_eur == Decimal("16.60")
+    assert red.promo_months == 12
+    assert red.monthly_eur == Decimal("22.14")
+
+
+def test_the_introductory_blend_beats_neither_half() -> None:
+    """The comparable number is the whole contract, which is the point of blending."""
+    from prices.published import load
+    from ranking.cost import Price, blended
+
+    red = {t.external_key: t for t in load()["VODAFONE"][0]}["VODAFONE_RED_10"]
+    cost = blended(Price(
+        monthly_eur=red.monthly_eur,
+        setup_eur=Decimal(0),
+        hardware_eur=red.hardware_eur,
+        promo_months=red.promo_months,
+        promo_monthly_eur=red.promo_monthly_eur,
+    ))
+    assert cost is not None
+    assert red.promo_monthly_eur is not None
+    assert red.promo_monthly_eur < cost.recurring < red.monthly_eur
+
+
+def test_a_wireless_home_router_costs_more_to_start_than_a_line() -> None:
+    """Forty euros against six is most of a year's difference, and the feed states neither."""
+    from prices.vodafone import ACTIVATION
+
+    assert ACTIVATION["wireless"] > ACTIVATION["fibre"]

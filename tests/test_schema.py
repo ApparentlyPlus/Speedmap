@@ -24,6 +24,7 @@ def test_technology_vocabulary_is_seeded(db: psycopg.Connection[TupleRow]) -> No
         "DOCSIS": "coax",
         "FTTH": "fibre",
         "FWA": "wireless",
+        "MOBILE": "wireless",
         "FWA_4G": "wireless",
         "FWA_5G": "wireless",
         "SAT": "satellite",
@@ -439,7 +440,7 @@ def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[
     rows = db.execute(
         "select code from technology where register_id is null order by code"
     ).fetchall()
-    assert [r[0] for r in rows] == ["FWA", "FWA_4G", "FWA_5G", "SAT"]
+    assert [r[0] for r in rows] == ["FWA", "FWA_4G", "FWA_5G", "MOBILE", "SAT"]
 
 
 def test_every_register_provider_is_known(db: psycopg.Connection[TupleRow]) -> None:

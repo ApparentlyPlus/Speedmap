@@ -31,6 +31,7 @@ FAMILY = {
     "VECT_VDSL": "copper",
     "VDSL": "copper",
     "ADSL": "copper",
+    "MOBILE": "wireless",
     "FWA_4G": "wireless",
     "FWA_5G": "wireless",
     "FWA": "wireless",
@@ -51,6 +52,8 @@ def tariff(plan: dict[str, Any]) -> Tariff:
         technology=technology,
         down_mbps=money(plan.get("down_mbps")),
         up_mbps=money(plan.get("up_mbps")),
+        data_cap_gb=plan.get("data_cap_gb"),
+        needs_hardware=plan.get("needs_hardware"),
         monthly_eur=Decimal(str(plan["monthly_eur"])),
         setup_eur=money(plan.get("setup_eur")),
         hardware_eur=money(plan.get("hardware_eur")),
@@ -64,7 +67,11 @@ def load(path: Path = PUBLISHED) -> dict[str, tuple[list[Tariff], date]]:
     """Every recorded catalogue, by provider, with the day it was read."""
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     found: dict[str, tuple[list[Tariff], date]] = {}
-    for provider, entry in document.items():
+    for section, entry in document.items():
+        # A provider publishes its lines and its airtime on different pages, so a section is
+        # a page rather than a company, and names the company when the two differ.
+        provider = str(entry.get("provider", section))
         plans = [tariff(plan) for plan in entry["plans"]]
-        found[str(provider)] = (plans, entry["observed_on"])
+        held, observed_on = found.get(provider, ([], entry["observed_on"]))
+        found[provider] = (held + plans, observed_on)
     return found
