@@ -15,11 +15,14 @@ from psycopg.rows import TupleRow
 
 PLAN = """
 insert into plan (
-    provider_id, external_key, name, family, technology, down_mbps, up_mbps, needs_hardware
+    provider_id, external_key, name, family, technology,
+    down_mbps, up_mbps, data_cap_gb, needs_hardware
 )
-select p.id, %(key)s, %(name)s, %(family)s, %(technology)s, %(down)s, %(up)s, %(hardware)s
+select p.id, %(key)s, %(name)s, %(family)s, %(technology)s,
+       %(down)s, %(up)s, %(cap)s, %(hardware)s
 from provider p where p.code = %(provider)s
 on conflict (provider_id, external_key) do update set
+    data_cap_gb = excluded.data_cap_gb,
     name = excluded.name,
     family = excluded.family,
     technology = excluded.technology,
@@ -64,6 +67,7 @@ class Tariff:
     technology: str | None = None
     down_mbps: Decimal | None = None
     up_mbps: Decimal | None = None
+    data_cap_gb: int | None = None
     needs_hardware: str | None = None
     setup_eur: Decimal | None = None
     hardware_eur: Decimal | None = None
@@ -94,6 +98,7 @@ def write(
             "technology": tariff.technology,
             "down": tariff.down_mbps,
             "up": tariff.up_mbps,
+            "cap": tariff.data_cap_gb,
             "hardware": tariff.needs_hardware,
         }).fetchone()
         if row is None:

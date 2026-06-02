@@ -33,6 +33,145 @@ INALAN:
       setup_eur: 0
       hardware_eur: 0
 
+# Read from their plan pages on 2026-09-10, the retail prices a new customer is quoted.
+# Their regulated rate card asks far more and is what the register-facing world publishes;
+# these are what the shop sells.
+OTE:
+  source: https://www.telekom.gr/
+  observed_on: 2026-09-10
+  plans:
+    - key: TELEKOM_FIBER_100
+      name: Telekom Fiber 100 Unlimited
+      technology: VECT_VDSL
+      down_mbps: 100
+      monthly_eur: 24.90
+    - key: TELEKOM_FIBER_300
+      name: Telekom Fiber 300 Unlimited
+      technology: FTTH
+      down_mbps: 300
+      up_mbps: 150
+      monthly_eur: 27.90
+    - key: TELEKOM_FIBER_500
+      name: Telekom Fiber 500 Unlimited
+      technology: FTTH
+      down_mbps: 500
+      up_mbps: 250
+      monthly_eur: 31.90
+    - key: TELEKOM_FIBER_1G
+      name: Telekom Fiber 1Gbps Unlimited
+      technology: FTTH
+      down_mbps: 1000
+      up_mbps: 500
+      monthly_eur: 35.90
+    # Airtime only: the router is the customer's, which is what separates these from the
+    # wireless home products another operator sells.
+    - key: TELEKOM_GIGAMAX_9
+      name: Telekom Gigamax 9GB
+      technology: MOBILE
+      data_cap_gb: 9
+      monthly_eur: 24.00
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: TELEKOM_GIGAMAX_18
+      name: Telekom Gigamax 18GB
+      technology: MOBILE
+      data_cap_gb: 18
+      monthly_eur: 28.00
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: TELEKOM_GIGAMAX_35
+      name: Telekom Gigamax 35GB
+      technology: MOBILE
+      data_cap_gb: 35
+      monthly_eur: 32.00
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: TELEKOM_GIGAMAX_70
+      name: Telekom Gigamax 70GB
+      technology: MOBILE
+      data_cap_gb: 70
+      monthly_eur: 36.00
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: TELEKOM_GIGAMAX_UNLIMITED
+      name: Telekom Gigamax Unlimited
+      technology: MOBILE
+      monthly_eur: 41.00
+      hardware_eur: 0
+      needs_hardware: 5g_router
+
+NOVA_MOBILE:
+  source: https://nova.gr/
+  observed_on: 2026-09-10
+  provider: NOVA
+  plans:
+    - key: NOVA_UNLIMITED_5
+      name: Unlimited+ 5GB
+      technology: MOBILE
+      data_cap_gb: 5
+      monthly_eur: 18
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: NOVA_UNLIMITED_20
+      name: Unlimited+ 20GB
+      technology: MOBILE
+      data_cap_gb: 20
+      monthly_eur: 23
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: NOVA_UNLIMITED_40
+      name: Unlimited+ 40GB
+      technology: MOBILE
+      data_cap_gb: 40
+      monthly_eur: 25
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: NOVA_UNLIMITED_ALL
+      name: Unlimited All
+      technology: MOBILE
+      monthly_eur: 30
+      hardware_eur: 0
+      needs_hardware: 5g_router
+
+# The introductory price runs twelve months of a twenty-four month contract and then the
+# plan reverts, which their own card states outright. Both halves are recorded, because a
+# blend over the contract is the only number that compares to a plan without an offer.
+VODAFONE_MOBILE:
+  source: https://www.vodafone.gr/
+  observed_on: 2026-09-10
+  provider: VODAFONE
+  plans:
+    - key: VODAFONE_RED_10
+      name: RED 10GB
+      technology: MOBILE
+      data_cap_gb: 10
+      monthly_eur: 22.14
+      promo_monthly_eur: 16.60
+      promo_months: 12
+      contract_months: 24
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: VODAFONE_RED_20
+      name: RED 20GB
+      technology: MOBILE
+      data_cap_gb: 20
+      monthly_eur: 25.31
+      promo_monthly_eur: 19.00
+      promo_months: 12
+      contract_months: 24
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: VODAFONE_RED_80
+      name: RED 80GB
+      technology: MOBILE
+      data_cap_gb: 80
+      monthly_eur: 28.83
+      promo_monthly_eur: 21.62
+      promo_months: 12
+      contract_months: 24
+      hardware_eur: 0
+      needs_hardware: 5g_router
+
 DEI:
   source: https://www.dei.gr/media/xswntpli/deh-fiber-pricelist_2026-with-voice-add-on-21x29-7cm-20260618-final.pdf
   observed_on: 2026-09-10
