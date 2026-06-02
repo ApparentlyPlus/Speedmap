@@ -40,29 +40,48 @@ OTE:
   source: https://www.telekom.gr/
   observed_on: 2026-09-10
   plans:
+    # The two slower rungs come from their February 2026 announcement, which lists the
+    # same prices as the plan page for the ones both carry and no activation charge for
+    # any of them: only a termination fee, which is not a cost of joining.
+    - key: TELEKOM_DP_UNLIMITED
+      name: COSMOTE Double Play Unlimited
+      technology: ADSL
+      down_mbps: 24
+      monthly_eur: 19.90
+      setup_eur: 0
+    - key: TELEKOM_DP_ADVANCED
+      name: COSMOTE Double Play Advanced Unlimited
+      technology: VDSL
+      down_mbps: 50
+      monthly_eur: 22.90
+      setup_eur: 0
     - key: TELEKOM_FIBER_100
       name: Telekom Fiber 100 Unlimited
       technology: VECT_VDSL
       down_mbps: 100
       monthly_eur: 24.90
+      setup_eur: 0
     - key: TELEKOM_FIBER_300
       name: Telekom Fiber 300 Unlimited
       technology: FTTH
       down_mbps: 300
       up_mbps: 150
       monthly_eur: 27.90
+      setup_eur: 0
     - key: TELEKOM_FIBER_500
       name: Telekom Fiber 500 Unlimited
       technology: FTTH
       down_mbps: 500
       up_mbps: 250
       monthly_eur: 31.90
+      setup_eur: 0
     - key: TELEKOM_FIBER_1G
       name: Telekom Fiber 1Gbps Unlimited
       technology: FTTH
       down_mbps: 1000
       up_mbps: 500
       monthly_eur: 35.90
+      setup_eur: 0
     # Airtime only: the router is the customer's, which is what separates these from the
     # wireless home products another operator sells.
     # Fixed wireless proper: the router comes with the plan and the coverage is the
@@ -75,6 +94,7 @@ OTE:
       monthly_eur: 30.90
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: TELEKOM_5G_WIFI_DP_300
       name: Telekom 5G WiFi Double Play 300
       technology: FWA_5G
@@ -82,6 +102,7 @@ OTE:
       monthly_eur: 35.90
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     # The same line without a contract, paying for the router instead of being given it.
     - key: TELEKOM_5G_WIFI_300_FREE
       name: Telekom 5G WiFi 300 Contract Free
@@ -90,6 +111,7 @@ OTE:
       monthly_eur: 35.90
       hardware_eur: 349
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: TELEKOM_GIGAMAX_9
       name: Telekom Gigamax 9GB
       technology: MOBILE
@@ -97,6 +119,7 @@ OTE:
       monthly_eur: 24.00
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: TELEKOM_GIGAMAX_18
       name: Telekom Gigamax 18GB
       technology: MOBILE
@@ -104,6 +127,7 @@ OTE:
       monthly_eur: 28.00
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: TELEKOM_GIGAMAX_35
       name: Telekom Gigamax 35GB
       technology: MOBILE
@@ -111,6 +135,7 @@ OTE:
       monthly_eur: 32.00
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: TELEKOM_GIGAMAX_70
       name: Telekom Gigamax 70GB
       technology: MOBILE
@@ -118,12 +143,14 @@ OTE:
       monthly_eur: 36.00
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: TELEKOM_GIGAMAX_UNLIMITED
       name: Telekom Gigamax Unlimited
       technology: MOBILE
       monthly_eur: 41.00
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
 
 NOVA_MOBILE:
   source: https://nova.gr/
@@ -137,6 +164,7 @@ NOVA_MOBILE:
       monthly_eur: 18
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: NOVA_UNLIMITED_20
       name: Unlimited+ 20GB
       technology: MOBILE
@@ -144,6 +172,7 @@ NOVA_MOBILE:
       monthly_eur: 23
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: NOVA_UNLIMITED_40
       name: Unlimited+ 40GB
       technology: MOBILE
@@ -151,12 +180,14 @@ NOVA_MOBILE:
       monthly_eur: 25
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
     - key: NOVA_UNLIMITED_ALL
       name: Unlimited All
       technology: MOBILE
       monthly_eur: 30
       hardware_eur: 0
       needs_hardware: 5g_router
+      setup_eur: 0
 
 # The introductory price runs twelve months of a twenty-four month contract and then the
 # plan reverts, which their own card states outright. Both halves are recorded, because a
@@ -247,6 +278,7 @@ STARLINK:
       monthly_eur: 35
       hardware_eur: 349
       needs_hardware: dish
+      setup_eur: 0
     - key: STARLINK_RESIDENTIAL_200
       name: Starlink Residential 200 Mbps
       technology: SAT
@@ -254,6 +286,7 @@ STARLINK:
       monthly_eur: 45
       hardware_eur: 349
       needs_hardware: dish
+      setup_eur: 0
     - key: STARLINK_RESIDENTIAL_MAX
       name: Starlink Residential Max
       technology: SAT
@@ -261,12 +294,14 @@ STARLINK:
       monthly_eur: 65
       hardware_eur: 349
       needs_hardware: dish
+      setup_eur: 0
 
 HCN:
   source: https://www.hcn.gr/el/
   observed_on: 2026-09-10
-  # Their page prices every tier "from", so these are floors rather than the whole story,
-  # and no setup fee is stated anywhere: it is left unknown rather than called zero.
+  # Their page prices every tier "from", so these are floors rather than the whole story.
+  # Only Sonic advertises free setup; on the others nothing is said either way, and
+  # nothing said is not the same as nothing charged.
   plans:
     - key: HCN_LIGHT_PLUS
       name: Light+
@@ -292,3 +327,4 @@ HCN:
       down_mbps: 1000
       up_mbps: 1000
       monthly_eur: 23
+      setup_eur: 0

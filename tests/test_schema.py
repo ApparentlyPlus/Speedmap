@@ -523,10 +523,17 @@ def test_search_key_has_a_prefix_index(db: psycopg.Connection[TupleRow]) -> None
 
 
 def test_prefix_search_uses_the_index(db: psycopg.Connection[TupleRow]) -> None:
-    """text_pattern_ops matters: under a non-C collation a plain btree would not be used."""
+    """text_pattern_ops matters: under a non-C collation a plain btree would not be used.
+
+    Sequential scans are disabled for the question rather than relying on the table being
+    large enough to make the planner prefer an index: on an empty table it would scan
+    whatever the opclass was, and the opclass is the whole point here.
+    """
+    db.execute("set local enable_seqscan = off")
     plan = db.execute(
         "explain select id from address where search_key like 'ΑΧΑΡΝ%' limit 8"
     ).fetchall()
+    db.rollback()
     assert any("address_search_key_prefix" in line for (line,) in plan)
 
 

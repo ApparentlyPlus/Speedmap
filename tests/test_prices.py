@@ -157,13 +157,14 @@ def test_a_published_tariff_is_dated_by_when_it_was_read() -> None:
 
 
 def test_a_stated_free_fee_is_zero_and_a_silent_one_is_unknown() -> None:
-    """Inalan says installation is free; HCN says nothing, and nothing is not free."""
+    """Inalan says installation is free; HCN says so only on Sonic, and silence is not free."""
     from prices.published import load
 
     inalan = {t.external_key: t for t in load()["INALAN"][0]}
     hcn = {t.external_key: t for t in load()["HCN"][0]}
     assert inalan["INALAN_1G"].setup_eur == Decimal(0)
-    assert hcn["HCN_SONIC"].setup_eur is None
+    assert hcn["HCN_SONIC"].setup_eur == Decimal(0)
+    assert hcn["HCN_STELLAR"].setup_eur is None
 
 
 def test_the_published_technologies_exist_in_the_database(

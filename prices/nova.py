@@ -63,6 +63,9 @@ def read(packages: list[dict[str, object]]) -> list[Tariff]:
             down_mbps=Decimal(mbps),
             monthly_eur=monthly,
             contract_months=int(contract) if isinstance(contract, int) else None,
+            # Their own tariff puts activation at 50€ and every current offer waives it.
+            # Recorded as waived, which is what a new customer is actually charged.
+            setup_eur=Decimal(0),
         ))
     return tariffs
 
