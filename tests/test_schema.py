@@ -24,6 +24,7 @@ def test_technology_vocabulary_is_seeded(db: psycopg.Connection[TupleRow]) -> No
         "DOCSIS": "coax",
         "FTTH": "fibre",
         "FWA": "wireless",
+        "MOBILE": "wireless",
         "FWA_4G": "wireless",
         "FWA_5G": "wireless",
         "SAT": "satellite",
@@ -439,18 +440,26 @@ def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[
     rows = db.execute(
         "select code from technology where register_id is null order by code"
     ).fetchall()
-    assert [r[0] for r in rows] == ["FWA", "FWA_4G", "FWA_5G", "SAT"]
+    assert [r[0] for r in rows] == ["FWA", "FWA_4G", "FWA_5G", "MOBILE", "SAT"]
 
 
 def test_every_register_provider_is_known(db: psycopg.Connection[TupleRow]) -> None:
-    rows = db.execute("select count(*), count(register_id) from provider").fetchone()
+    """Every provider the register files is known to us. Starlink is the one that is not
+    filed: it reaches everywhere and so appears nowhere, and carries no register_id."""
+    rows = db.execute(
+        "select count(*), count(register_id) from provider where code <> 'STARLINK'"
+    ).fetchone()
     assert rows == (24, 24)
 
 
 def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -> None:
-    """Exactly the operators that appear as infrprov on the register's infrastructure points."""
+    """Exactly the operators that appear as infrprov on the register's infrastructure points.
+
+    A satellite constellation builds its own and files nothing, so it is excluded here by
+    the same rule that keeps it out of the register: it has no register_id to match on."""
     rows = db.execute(
-        "select code from provider where builds_own_network order by code"
+        "select code from provider where builds_own_network and register_id is not null "
+        "order by code"
     ).fetchall()
     assert [r[0] for r in rows] == [
         "FIBER2ALL",
@@ -514,10 +523,17 @@ def test_search_key_has_a_prefix_index(db: psycopg.Connection[TupleRow]) -> None
 
 
 def test_prefix_search_uses_the_index(db: psycopg.Connection[TupleRow]) -> None:
-    """text_pattern_ops matters: under a non-C collation a plain btree would not be used."""
+    """text_pattern_ops matters: under a non-C collation a plain btree would not be used.
+
+    Sequential scans are disabled for the question rather than relying on the table being
+    large enough to make the planner prefer an index: on an empty table it would scan
+    whatever the opclass was, and the opclass is the whole point here.
+    """
+    db.execute("set local enable_seqscan = off")
     plan = db.execute(
         "explain select id from address where search_key like 'ΑΧΑΡΝ%' limit 8"
     ).fetchall()
+    db.rollback()
     assert any("address_search_key_prefix" in line for (line,) in plan)
 
 

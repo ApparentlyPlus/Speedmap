@@ -1,13 +1,18 @@
-"""Read-only JSON over the register. Computes nothing: it returns stored state, including
-the state of not knowing."""
+"""JSON over the register. Computes nothing: it returns stored state, including the state
+of not knowing.
+
+Reads, with one exception. Everything here is best effort — a register that leaves three
+quarters of its filings undated, a scrape that stopped where it stopped, a rate card that
+asks three times what the market charges — so there is somewhere to say we got it wrong."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date
-from typing import Any
+from datetime import date, datetime
+from typing import Any, Literal
 
+import psycopg
 from fastapi import FastAPI, HTTPException, Query
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, Field
@@ -45,6 +50,31 @@ class Health(BaseModel):
 def rows(sql: str, params: tuple[object, ...] = ()) -> list[tuple[Any, ...]]:
     with pool.connection() as conn:
         return conn.execute(sql, params).fetchall()
+
+
+# What a person is allowed to say went wrong. Free text is capped rather than trusted:
+# it is stored as typed and never read as anything but text.
+KINDS = Literal["availability", "price", "address", "other"]
+
+FILED = """
+insert into report (kind, detail, address_id, provider_id, plan_id, contact)
+values (%s, %s, %s, %s, %s, %s)
+returning id, created_at
+"""
+
+
+class ReportIn(BaseModel):
+    kind: KINDS
+    detail: str = Field(min_length=10, max_length=2000, description="what looks wrong")
+    address_id: int | None = Field(default=None, description="the address it is about")
+    provider_id: int | None = None
+    plan_id: int | None = None
+    contact: str | None = Field(default=None, max_length=200, description="optional, to reply")
+
+
+class Report(BaseModel):
+    id: int
+    created_at: datetime
 
 
 @app.get("/health", response_model=Health, tags=["meta"])
@@ -303,3 +333,24 @@ def street(street_id: int) -> StreetDetail:
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         offers=offers(rows(STREET_OFFERS, (street_id,))),
     )
+
+
+@app.post("/reports", response_model=Report, status_code=201, tags=["report"])
+def report(filed: ReportIn) -> Report:
+    """Record that something here looks wrong.
+
+    The only write in the API. Rate limiting belongs at the reverse proxy rather than in
+    process, where it would be per worker and reset on deploy.
+    """
+    try:
+        with pool.connection() as conn:
+            row = conn.execute(FILED, (
+                filed.kind, filed.detail, filed.address_id,
+                filed.provider_id, filed.plan_id, filed.contact,
+            )).fetchone()
+    except psycopg.errors.ForeignKeyViolation as unknown:
+        # An id we do not have is a mistaken report, not a server fault.
+        raise HTTPException(422, "unknown address, provider or plan") from unknown
+    if row is None:
+        raise HTTPException(500, "report not recorded")
+    return Report(id=row[0], created_at=row[1])
