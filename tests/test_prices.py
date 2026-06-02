@@ -265,3 +265,44 @@ def test_a_wireless_home_router_costs_more_to_start_than_a_line() -> None:
     from prices.vodafone import ACTIVATION
 
     assert ACTIVATION["wireless"] > ACTIVATION["fibre"]
+
+
+def test_a_dish_is_bought_and_a_router_is_lent() -> None:
+    """349€ over the window is another 14,54 a month, which decides half the comparisons."""
+    from prices.published import load
+
+    dish = {t.external_key: t for t in load()["STARLINK"][0]}["STARLINK_RESIDENTIAL_100"]
+    assert dish.needs_hardware == "dish"
+    assert dish.hardware_eur == Decimal(349)
+
+    router = {t.external_key: t for t in load()["OTE"][0]}["TELEKOM_5G_WIFI_DP_300"]
+    assert router.needs_hardware == "5g_router"
+    assert router.hardware_eur == Decimal(0)
+
+
+def test_the_hardware_changes_which_plan_is_cheapest() -> None:
+    """A dish bought outright loses to a router lent free, on a dearer headline price."""
+    from prices.published import load
+    from ranking.cost import Price, blended
+
+    def monthly(tariff: Tariff) -> Decimal:
+        cost = blended(Price(
+            monthly_eur=tariff.monthly_eur,
+            setup_eur=tariff.setup_eur if tariff.setup_eur is not None else Decimal(0),
+            hardware_eur=tariff.hardware_eur,
+        ))
+        assert cost is not None
+        return cost.total
+
+    published = load()
+    dish = {t.external_key: t for t in published["STARLINK"][0]}["STARLINK_RESIDENTIAL_100"]
+    lent = {t.external_key: t for t in published["OTE"][0]}["TELEKOM_5G_WIFI_DP_300"]
+    assert dish.monthly_eur < lent.monthly_eur
+    assert monthly(dish) > monthly(lent)
+
+
+def test_the_satellite_provider_files_no_register_id() -> None:
+    """It reaches everywhere and so appears nowhere, which is not the same as absent."""
+    from prices.published import load
+
+    assert load()["STARLINK"][0]

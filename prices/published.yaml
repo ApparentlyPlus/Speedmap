@@ -65,6 +65,31 @@ OTE:
       monthly_eur: 35.90
     # Airtime only: the router is the customer's, which is what separates these from the
     # wireless home products another operator sells.
+    # Fixed wireless proper: the router comes with the plan and the coverage is the
+    # mobile grid. Their 300 rung reaches the bottom of the band the register files for
+    # them, which is the first outside confirmation that filing was not fantasy.
+    - key: TELEKOM_5G_WIFI_DP_50
+      name: Telekom 5G WiFi Double Play 50
+      technology: FWA_5G
+      down_mbps: 50
+      monthly_eur: 30.90
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    - key: TELEKOM_5G_WIFI_DP_300
+      name: Telekom 5G WiFi Double Play 300
+      technology: FWA_5G
+      down_mbps: 300
+      monthly_eur: 35.90
+      hardware_eur: 0
+      needs_hardware: 5g_router
+    # The same line without a contract, paying for the router instead of being given it.
+    - key: TELEKOM_5G_WIFI_300_FREE
+      name: Telekom 5G WiFi 300 Contract Free
+      technology: FWA_5G
+      down_mbps: 300
+      monthly_eur: 35.90
+      hardware_eur: 349
+      needs_hardware: 5g_router
     - key: TELEKOM_GIGAMAX_9
       name: Telekom Gigamax 9GB
       technology: MOBILE
@@ -173,19 +198,19 @@ VODAFONE_MOBILE:
       needs_hardware: 5g_router
 
 DEI:
-  source: https://www.dei.gr/media/xswntpli/deh-fiber-pricelist_2026-with-voice-add-on-21x29-7cm-20260618-final.pdf
+  source: https://www.dei.gr/el/gia-to-spiti/dei-fiber/
   observed_on: 2026-09-10
-  # Their own rate card, VAT included, dated 18 June 2026. The market sells these far
-  # cheaper and their order portal quotes only after an address check, so the retail price
-  # is not recorded here: see the note in the loader.
+  # From their own plan pages, VAT included, 24-month contract. Their rate card asks 50, 60
+  # and 80 for the same three lines: it is published rather than sold, and nobody pays it.
+  # Activation and the Wi-Fi 6 router are free; the 30€ the card lists is not charged here.
   plans:
     - key: DEI_FIBER_500
       name: ΔΕΗ Fiber 500Mbps
       technology: FTTH
       down_mbps: 500
       up_mbps: 250
-      monthly_eur: 50
-      setup_eur: 30
+      monthly_eur: 17.90
+      setup_eur: 0
       hardware_eur: 0
       contract_months: 24
     - key: DEI_FIBER_1G
@@ -193,8 +218,8 @@ DEI:
       technology: FTTH
       down_mbps: 1000
       up_mbps: 500
-      monthly_eur: 60
-      setup_eur: 30
+      monthly_eur: 19.90
+      setup_eur: 0
       hardware_eur: 0
       contract_months: 24
     - key: DEI_FIBER_2_5G
@@ -202,10 +227,40 @@ DEI:
       technology: FTTH
       down_mbps: 2500
       up_mbps: 1250
-      monthly_eur: 80
-      setup_eur: 30
+      monthly_eur: 52.90
+      setup_eur: 0
       hardware_eur: 0
       contract_months: 24
+
+STARLINK:
+  source: https://www.starlink.com/gr
+  observed_on: 2026-09-10
+  # The dish is bought outright and is most of the first year's cost, which is the whole
+  # reason to blend it: 349€ over twenty four months is another 14,54 a month on top.
+  # Speeds are the maxima they quote and are explicitly not guaranteed, so the ranker
+  # should never treat them as it treats a fibre line's.
+  plans:
+    - key: STARLINK_RESIDENTIAL_100
+      name: Starlink Residential 100 Mbps
+      technology: SAT
+      down_mbps: 100
+      monthly_eur: 35
+      hardware_eur: 349
+      needs_hardware: dish
+    - key: STARLINK_RESIDENTIAL_200
+      name: Starlink Residential 200 Mbps
+      technology: SAT
+      down_mbps: 200
+      monthly_eur: 45
+      hardware_eur: 349
+      needs_hardware: dish
+    - key: STARLINK_RESIDENTIAL_MAX
+      name: Starlink Residential Max
+      technology: SAT
+      down_mbps: 400
+      monthly_eur: 65
+      hardware_eur: 349
+      needs_hardware: dish
 
 HCN:
   source: https://www.hcn.gr/el/

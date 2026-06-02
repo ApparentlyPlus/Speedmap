@@ -444,14 +444,22 @@ def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[
 
 
 def test_every_register_provider_is_known(db: psycopg.Connection[TupleRow]) -> None:
-    rows = db.execute("select count(*), count(register_id) from provider").fetchone()
+    """Every provider the register files is known to us. Starlink is the one that is not
+    filed: it reaches everywhere and so appears nowhere, and carries no register_id."""
+    rows = db.execute(
+        "select count(*), count(register_id) from provider where code <> 'STARLINK'"
+    ).fetchone()
     assert rows == (24, 24)
 
 
 def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -> None:
-    """Exactly the operators that appear as infrprov on the register's infrastructure points."""
+    """Exactly the operators that appear as infrprov on the register's infrastructure points.
+
+    A satellite constellation builds its own and files nothing, so it is excluded here by
+    the same rule that keeps it out of the register: it has no register_id to match on."""
     rows = db.execute(
-        "select code from provider where builds_own_network order by code"
+        "select code from provider where builds_own_network and register_id is not null "
+        "order by code"
     ).fetchall()
     assert [r[0] for r in rows] == [
         "FIBER2ALL",

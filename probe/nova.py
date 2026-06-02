@@ -10,6 +10,7 @@ The answer carries the tariff with it, so an availability check is also a price 
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -160,15 +161,21 @@ class Nova:
                 return exact[0]
         return candidates[0] if len(candidates) == 1 else None
 
-    def check(self, target: Target, region: str, municipality: str) -> Probed:
+    def check(
+        self,
+        target: Target,
+        region: str,
+        municipality: str,
+        preselect: Mapping[str, object] | None = None,
+    ) -> Probed:
         street = self.locate(target, region, municipality)
         if street is None:
             raise ProbeError(f"no street matched {target.street} in {municipality}")
         payload = {
             # Their own flow arrives here having already chosen a package, and an empty one
-            # returns no offers at all. Which package is sent does not change the answer;
-            # that there is one does.
-            "packagePreselected": PRESELECTED,
+            # returns no offers at all. The choice also scopes the answer to that rung and
+            # its neighbours, so asking once returns a quarter of what they sell.
+            "packagePreselected": PRESELECTED if preselect is None else preselect,
             "packageSelected": {"code": "", "title": "", "price": None, "packageGroupType": ""},
             "customerInfo": {
                 "isNewCustomer": True,
