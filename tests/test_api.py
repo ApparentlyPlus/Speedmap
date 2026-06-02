@@ -287,3 +287,40 @@ async def test_a_street_reports_its_merged_ways(
     assert body["name"] == "Αχιλλέα Τζελίλη"
     assert body["ways"] == 1
     assert body["offers"] == []
+
+
+async def test_a_report_is_recorded(client: httpx.AsyncClient) -> None:
+    """Everything here is best effort, and best effort only improves if people can say so."""
+    response = await client.post("/reports", json={
+        "kind": "price", "detail": "Το 1Gbps δεν κοστίζει 60 ευρώ, το πήρα 19,90.",
+    })
+    assert response.status_code == 201
+    assert response.json()["id"] > 0
+
+
+async def test_a_report_needs_something_to_say(client: httpx.AsyncClient) -> None:
+    """A blank report is noise in the queue that someone has to read."""
+    response = await client.post("/reports", json={"kind": "price", "detail": "όχι"})
+    assert response.status_code == 422
+
+
+async def test_a_report_about_nothing_we_hold_is_refused(client: httpx.AsyncClient) -> None:
+    """An id we do not have is a mistaken report, not a server fault."""
+    response = await client.post("/reports", json={
+        "kind": "availability", "detail": "This address has fibre, you say it does not.",
+        "address_id": 999999999,
+    })
+    assert response.status_code == 422
+
+
+async def test_a_report_kind_is_one_of_ours(client: httpx.AsyncClient) -> None:
+    response = await client.post("/reports", json={
+        "kind": "complaint", "detail": "something is wrong here somewhere",
+    })
+    assert response.status_code == 422
+
+
+async def test_a_long_report_is_capped(client: httpx.AsyncClient) -> None:
+    """Free text is capped rather than trusted."""
+    response = await client.post("/reports", json={"kind": "other", "detail": "x" * 3000})
+    assert response.status_code == 422
