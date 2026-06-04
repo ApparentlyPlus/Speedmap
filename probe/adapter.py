@@ -11,6 +11,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+import psycopg
+from psycopg.rows import TupleRow
+
 
 @dataclass(frozen=True)
 class Target:
@@ -72,4 +75,4 @@ class Adapter(Protocol):
 
     code: str
 
-    def check(self, conn: object, target: Target) -> Probed: ...
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed: ...

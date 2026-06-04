@@ -324,3 +324,44 @@ async def test_a_long_report_is_capped(client: httpx.AsyncClient) -> None:
     """Free text is capped rather than trusted."""
     response = await client.post("/reports", json={"kind": "other", "detail": "x" * 3000})
     assert response.status_code == 422
+
+
+async def test_options_are_ranked_and_priced(client: httpx.AsyncClient) -> None:
+    """The whole engine, over HTTP: what is buyable here, best first."""
+    address = await client.get("/search", params={"q": "Αχαρνών"})
+    found = [r for r in address.json() if r["kind"] == "address"]
+    if not found:
+        pytest.skip("the scratch database holds no address to rank")
+    response = await client.get(f"/addresses/{found[0]['id']}/options")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["need_mbps"] == "100"
+    assert set(body["known"]) == {"OTE", "VODAFONE", "NOVA"}
+
+
+async def test_options_for_nothing_are_a_404(client: httpx.AsyncClient) -> None:
+    response = await client.get("/addresses/999999999/options")
+    assert response.status_code == 404
+
+
+async def test_the_bar_can_be_moved_by_the_caller(client: httpx.AsyncClient) -> None:
+    """Someone working from home wants the gigabit the household does not."""
+    address = await client.get("/search", params={"q": "Αχαρνών"})
+    found = [r for r in address.json() if r["kind"] == "address"]
+    if not found:
+        pytest.skip("the scratch database holds no address to rank")
+    response = await client.get(
+        f"/addresses/{found[0]['id']}/options", params={"need_mbps": "500"}
+    )
+    assert response.json()["need_mbps"] == "500"
+
+
+async def test_a_bar_of_nothing_is_refused(client: httpx.AsyncClient) -> None:
+    address = await client.get("/search", params={"q": "Αχαρνών"})
+    found = [r for r in address.json() if r["kind"] == "address"]
+    if not found:
+        pytest.skip("the scratch database holds no address to rank")
+    response = await client.get(
+        f"/addresses/{found[0]['id']}/options", params={"need_mbps": "0"}
+    )
+    assert response.status_code == 422

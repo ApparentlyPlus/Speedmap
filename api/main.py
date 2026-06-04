@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date, datetime
-from typing import Any, Literal
+from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Annotated, Any, Literal
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Query
@@ -20,6 +21,13 @@ from pydantic import BaseModel, Field
 from db.settings import settings
 from normalise.greeklish import from_latin, is_greeklish
 from normalise.text import street_key
+from probe.cosmote import Cosmote
+from probe.lookup import verdicts
+from probe.nova import Nova
+from probe.run import refresh, target_for
+from probe.vodafone import Vodafone
+from ranking.offer import options as buyable
+from ranking.rank import ENOUGH_MBPS, rank
 
 pool = ConnectionPool(settings.dsn, min_size=1, max_size=4, open=False)
 
@@ -354,3 +362,125 @@ def report(filed: ReportIn) -> Report:
     if row is None:
         raise HTTPException(500, "report not recorded")
     return Report(id=row[0], created_at=row[1])
+
+
+# The three that sell to households and can be asked. The rest are read from the register
+# and from what they publish, because there is nothing of theirs to ask.
+RETAIL = ["OTE", "VODAFONE", "NOVA"]
+
+
+class Cost(BaseModel):
+    """A monthly cost in its parts, so a card can say why a cheap headline is not cheap."""
+
+    total: Decimal
+    recurring: Decimal
+    upfront: Decimal = Field(description="setup and equipment, spread over the window")
+
+
+class Buyable(BaseModel):
+    provider: str
+    plan: str
+    technology: str
+    family: str
+    expected_mbps: Decimal | None = Field(description="null when nothing here can say")
+    data_cap_gb: int | None = Field(description="null is unlimited, not unknown")
+    cost: Cost | None = Field(description="null when a part of it was never published")
+    enough: bool = Field(description="covers an ordinary household, on speed and allowance")
+    why: str
+
+
+class Options(BaseModel):
+    address_id: int
+    need_mbps: Decimal = Field(description="the bar used, which the caller may move")
+    known: dict[str, str] = Field(description="per operator: how the answer was arrived at")
+    options: list[Buyable]
+
+
+# Blending a lump sum across two years is an exact division and rarely lands on a cent.
+# The arithmetic stays exact and the answer is rounded once, here, where it is read.
+CENTS = Decimal("0.01")
+
+
+def cents(amount: object) -> Decimal:
+    return Decimal(str(amount)).quantize(CENTS, rounding=ROUND_HALF_UP)
+
+
+def priced(total: object, recurring: object, upfront: object) -> Cost:
+    return Cost(total=cents(total), recurring=cents(recurring), upfront=cents(upfront))
+
+
+@app.get("/addresses/{address_id}/options", response_model=Options, tags=["address"])
+def address_options(
+    address_id: int,
+    need_mbps: Annotated[Decimal, Query(gt=0, le=10000)] = ENOUGH_MBPS,
+) -> Options:
+    """What can be bought here, best first, from what is already known.
+
+    Nothing is asked of an operator on this path. A page that waits eight seconds for three
+    checkers is a page nobody sees the end of, so the stored answer is served at once and
+    `known` says, per operator, whether asking would add anything.
+    """
+    with pool.connection() as conn:
+        found = conn.execute("select 1 from address where id = %s", (address_id,)).fetchone()
+        if found is None:
+            raise HTTPException(404, "no such address")
+        known = verdicts(conn, address_id, RETAIL, now=datetime.now(UTC))
+        ranked = rank(buyable(conn, address_id), need=need_mbps)
+
+    return Options(
+        address_id=address_id,
+        need_mbps=need_mbps,
+        known=known,
+        options=[
+            Buyable(
+                provider=r.option.provider,
+                plan=r.option.plan,
+                technology=r.option.technology,
+                family=r.option.family,
+                expected_mbps=r.option.expected_mbps,
+                data_cap_gb=r.option.data_cap_gb,
+                cost=None if r.option.cost is None else priced(
+                    r.option.cost.total, r.option.cost.recurring, r.option.cost.upfront
+                ),
+                enough=r.enough,
+                why=r.why,
+            )
+            for r in ranked
+        ],
+    )
+
+
+class Probed(BaseModel):
+    provider: str
+    asked: bool = Field(description="false when the operator was inside its backoff")
+    reached: bool = Field(description="false when the checker could not be reached at all")
+    serviceable: bool | None = Field(description="null when nothing conclusive came back")
+    detail: str | None
+
+
+@app.post("/addresses/{address_id}/probe", response_model=list[Probed], tags=["address"])
+def address_probe(address_id: int) -> list[Probed]:
+    """Ask the operators that are due, and keep what they say.
+
+    The one path here that leaves the building. It is slow by nature, it is a write, and it
+    is rate limited at the proxy for the same reasons the report endpoint is.
+    """
+    with pool.connection() as conn:
+        target = target_for(conn, address_id)
+        if target is None:
+            raise HTTPException(404, "no such address")
+        answers = refresh(conn, target, [Cosmote(), Vodafone(), Nova()], datetime.now(UTC))
+
+    return [
+        Probed(
+            provider=code,
+            asked=True,
+            reached=answer.probed is not None,
+            serviceable=(
+                None if answer.probed is None or not answer.probed.conclusive
+                else answer.probed.serviceable
+            ),
+            detail=answer.error,
+        )
+        for code, answer in sorted(answers.items())
+    ]

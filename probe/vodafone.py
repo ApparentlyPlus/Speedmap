@@ -16,6 +16,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
+import psycopg
+from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
@@ -207,7 +209,7 @@ class Vodafone:
             "requestId": f"speedmap-{target.address_id}",
         }
 
-    def check(self, conn: object, target: Target) -> Probed:
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
         """The connection is unused: a point is the whole query, which is the point of it."""
         response = self.session().post(
             f"/api/proxy-request{QUALIFY}", json=self.request(target)
