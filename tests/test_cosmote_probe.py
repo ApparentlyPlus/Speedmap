@@ -10,7 +10,8 @@ import pytest
 from psycopg.rows import TupleRow
 
 from probe.adapter import Target
-from probe.cosmote import Cosmote, Naming, naming, offers, read, technology_of
+from probe.cosmote import Cosmote, offers, read, technology_of
+from probe.naming import Naming, naming
 
 # As their estimate table is built: one tbody per nominal rung, download on the second row
 # and upload on the third, each a label followed by maximum, usual and minimum.

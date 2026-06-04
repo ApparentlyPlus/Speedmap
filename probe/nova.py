@@ -17,9 +17,12 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
+import psycopg
+from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
+from probe.naming import naming
 
 BASE = "https://nova.gr"
 LANDING = f"{BASE}/statheri-tilefonia/programmata/stathero-internet"
@@ -162,6 +165,19 @@ class Nova:
         return candidates[0] if len(candidates) == 1 else None
 
     def check(
+        self,
+        conn: psycopg.Connection[TupleRow],
+        target: Target,
+        preselect: Mapping[str, object] | None = None,
+    ) -> Probed:
+        """Their prefecture and municipality are the same ones the other operator wants,
+        with a prefix in front, so one recorded spelling answers for both."""
+        named = naming(conn, target.municipality_id, target.street_fold)
+        if named is None:
+            raise ProbeError(f"no spelling recorded for {target.street}")
+        return self.ask(target, named.prefecture, named.municipality, preselect)
+
+    def ask(
         self,
         target: Target,
         region: str,

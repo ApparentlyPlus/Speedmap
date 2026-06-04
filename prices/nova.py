@@ -82,7 +82,7 @@ def fetch(references: tuple[Reference, ...] = REFERENCES) -> list[Tariff]:
         )
         for code in PRESELECTIONS:
             preselect = {"code": code, "title": code, "price": "29.0"}
-            probed = nova.check(target, reference.region, reference.municipality, preselect)
+            probed = nova.ask(target, reference.region, reference.municipality, preselect)
             raw = probed.raw if probed.raw is not None else {}
             packages = raw.get("packages")
             if not isinstance(packages, list):

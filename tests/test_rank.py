@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from ranking.cost import Price, blended
-from ranking.rank import CHEAPEST, FASTEST, SHORT, UNPRICED, Option, Ranked, rank
+from ranking.rank import BEST, FASTEST, SHORT, UNPRICED, Option, Ranked, rank
 
 
 def option(
@@ -27,25 +27,34 @@ def order(ranked: list[Ranked]) -> list[str]:
     return [r.option.plan for r in ranked]
 
 
-def test_the_cheapest_that_is_fast_enough_wins() -> None:
-    """A gigabit and a hundred both cover a household, so the gigabit is only dearer."""
+def test_a_line_comes_first_and_then_the_cheapest_of_them() -> None:
+    """Fibre before copper, and within fibre the cheaper one. All three cover a household."""
     found = rank([
         option("DEI", "fibre 1G", "fibre", 1000, "19.90"),
         option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL"),
         option("VODAFONE", "fibre 300", "fibre", 300, "24.22"),
     ])
-    assert order(found) == ["fibre 1G", "fibre 100", "fibre 300"]
-    assert found[0].why == CHEAPEST
+    assert order(found) == ["fibre 1G", "fibre 300", "fibre 100"]
+    assert found[0].why == BEST
     assert all(r.enough for r in found)
 
 
-def test_a_dearer_gigabit_loses_to_a_cheap_hundred() -> None:
+def test_fibre_beats_a_cheaper_cell() -> None:
+    """A cell is shared with the street at seven in the evening and a line is not."""
+    found = rank([
+        option("OTE", "gigamax", "wireless", 240, "30.00", technology="MOBILE"),
+        option("INALAN", "inalan 1G", "fibre", 1000, "34.00"),
+    ])
+    assert order(found) == ["inalan 1G", "gigamax"]
+
+
+def test_a_dearer_gigabit_loses_to_a_cheaper_one() -> None:
     """Above the bar the extra speed is a number on a bill, not a difference anyone sees."""
     found = rank([
         option("DEI", "fibre 2.5G", "fibre", 2500, "52.90"),
-        option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL"),
+        option("NOVA", "fibre 300", "fibre", 300, "23"),
     ])
-    assert order(found) == ["fibre 100", "fibre 2.5G"]
+    assert order(found) == ["fibre 300", "fibre 2.5G"]
 
 
 def test_below_the_bar_speed_decides_not_price() -> None:
