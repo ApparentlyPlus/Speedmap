@@ -22,6 +22,7 @@ from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
+from probe.naming import Naming, naming
 
 BASE = "https://www.telekom.gr"
 ELIGIBILITY = "/eshop/jsp/eligibility.jsp"
@@ -36,43 +37,9 @@ INCONCLUSIVE = "διερεύνηση"
 # ceiling: their 30 Mbps rung is a VDSL line sold short, not a fast ADSL one.
 RUNGS = ((200, "FTTH"), (100, "VECT_VDSL"), (25, "VDSL"), (0, "ADSL"))
 
-NAMING = """
-select nomos, dimos, area, street, street_type
-from raw_cosmote
-where municipality_id = %s and street_fold = %s
-limit 1
-"""
-
 
 class ProbeError(RuntimeError):
     """The checker could not be asked. Not an answer, and never cached as one."""
-
-
-@dataclass(frozen=True)
-class Naming:
-    """One address, spelled the way this operator spells it."""
-
-    nomos: str
-    dimos: str
-    area: str | None
-    street: str
-    street_type: str | None
-
-
-def naming(
-    conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str
-) -> Naming | None:
-    """Their spelling of this street, if the scrape ever walked it."""
-    row = conn.execute(NAMING, (municipality_id, street_fold)).fetchone()
-    if row is None:
-        return None
-    return Naming(
-        nomos=str(row[0]),
-        dimos=str(row[1]),
-        area=None if row[2] is None else str(row[2]),
-        street=str(row[3]),
-        street_type=None if row[4] is None else str(row[4]),
-    )
 
 
 def technology_of(mbps: int) -> str:
@@ -219,7 +186,10 @@ class Cosmote:
             "ct": "res",
         }
 
-    def check(self, target: Target, named: Naming) -> Probed:
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
+        named = naming(conn, target.municipality_id, target.street_fold)
+        if named is None:
+            raise ProbeError(f"no spelling recorded for {target.street}")
         response = self.session().post(AVAILABILITY, data=self.form(target, named))
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"availability returned {response.status_code}")

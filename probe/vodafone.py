@@ -207,7 +207,8 @@ class Vodafone:
             "requestId": f"speedmap-{target.address_id}",
         }
 
-    def check(self, target: Target) -> Probed:
+    def check(self, conn: object, target: Target) -> Probed:
+        """The connection is unused: a point is the whole query, which is the point of it."""
         response = self.session().post(
             f"/api/proxy-request{QUALIFY}", json=self.request(target)
         )
