@@ -128,3 +128,12 @@ def test_an_operator_that_answered_may_be_asked_again(
 
 def test_an_operator_never_asked_is_due(asked: psycopg.Connection[TupleRow]) -> None:
     assert due(asked, 1, "OTE", NOW) is True
+
+
+def test_a_refusal_is_remembered_for_a_month(asked: psycopg.Connection[TupleRow]) -> None:
+    """It leaves no row in availability to expire, so nothing else would ever stop us
+    asking again on every visit to the address."""
+    store(asked, 1, Asked("NOVA", probed(serviceable=False)), NOW)
+    asked.commit()
+    assert due(asked, 1, "NOVA", NOW + timedelta(days=7)) is False
+    assert due(asked, 1, "NOVA", NOW + timedelta(days=31)) is True

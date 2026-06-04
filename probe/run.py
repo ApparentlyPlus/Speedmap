@@ -22,13 +22,13 @@ from psycopg.rows import TupleRow
 from psycopg.types.json import Jsonb
 
 from probe.adapter import Adapter, Probed, Target
-from probe.ttl import FAILED, ttl
+from probe.ttl import FAILED, VOLATILE, ttl
 
 # Three operators, three sessions, one wait.
 WIDTH = 3
 
 LAST = """
-select ok, attempted_at
+select ok, serviceable, attempted_at
 from probe_attempt
 where address_id = %(address)s and provider_id = (select id from provider where code = %(code)s)
 order by attempted_at desc
@@ -80,14 +80,23 @@ def best(probed: Probed) -> Decimal | None:
 def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: datetime) -> bool:
     """Whether this operator may be asked again yet.
 
-    A failure is left alone for a few hours. Asking a broken endpoint on every request is
+    A failure is left alone for a few hours: asking a broken endpoint on every request is
     how a rate limit turns into a ban, and the answer will not have improved in between.
+
+    A refusal is left alone for a month. It leaves no row in availability to expire, so
+    without this it would be asked again on every visit to the address for ever, which is
+    the same mistake spread thinner.
     """
     row = conn.execute(LAST, {"address": address_id, "code": code}).fetchone()
     if row is None:
         return True
-    ok, attempted_at = row
-    return bool(ok) or attempted_at + FAILED <= now
+    ok, serviceable, attempted_at = row
+    since: datetime = attempted_at
+    if not ok:
+        return since + FAILED <= now
+    if serviceable is False:
+        return since + VOLATILE <= now
+    return True
 
 
 def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) -> Asked:
