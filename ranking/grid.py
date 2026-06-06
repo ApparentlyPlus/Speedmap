@@ -25,7 +25,8 @@ with here as (
 )
 select pr.code,
        bool_or(w.tech5gm = 1),
-       max(sb.min_mbps)
+       max(sb.min_mbps),
+       max(sb.max_mbps)
 from raw_wireless_grid w
 join here h on h.gridid = w.gridid
 join provider pr on pr.register_id = w.servprov
@@ -42,6 +43,10 @@ class Reach:
     provider: str
     five_g: bool
     floor_mbps: Decimal | None
+    # The top of the band this operator filed here. A tile of tests says what the place can
+    # do; this says what this operator does in it, and the two are not the same claim when
+    # one operator's mast is good and another's is not.
+    ceiling_mbps: Decimal | None = None
 
 
 def mobile(conn: psycopg.Connection[TupleRow], address_id: int) -> dict[str, Reach]:
@@ -51,10 +56,13 @@ def mobile(conn: psycopg.Connection[TupleRow], address_id: int) -> dict[str, Rea
     statement than a slow band and is why absence is not filled in with a zero.
     """
     found: dict[str, Reach] = {}
-    for code, five_g, floor_mbps in conn.execute(REACH, (address_id,)).fetchall():
+    for code, five_g, floor_mbps, ceiling_mbps in conn.execute(
+        REACH, (address_id,)
+    ).fetchall():
         found[str(code)] = Reach(
             provider=str(code),
             five_g=bool(five_g),
             floor_mbps=None if floor_mbps is None else Decimal(floor_mbps),
+            ceiling_mbps=None if ceiling_mbps is None else Decimal(ceiling_mbps),
         )
     return found

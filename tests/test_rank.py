@@ -168,15 +168,15 @@ def test_a_plan_is_never_faster_than_it_is_sold_as() -> None:
     """Their 5G router sold at 50 Mbps delivers 50 on a cell that carries 300."""
     from ranking.offer import speed
 
-    assert speed("wireless", Decimal(50), None, None, Decimal(300)) == Decimal(50)
-    assert speed("wireless", Decimal(300), None, None, Decimal(300)) == Decimal(240)
+    assert speed("wireless", Decimal(50), None, None, Decimal(300), None).mbps == Decimal(50)
+    assert speed("wireless", Decimal(300), None, None, Decimal(300), None).mbps == Decimal(240)
 
 
 def test_an_operator_quote_beats_the_advertised_rung() -> None:
     """They guarantee 93 on a plan sold as 100, and 93 is what the line carries."""
     from ranking.offer import speed
 
-    assert speed("copper", Decimal(100), Decimal(100), Decimal(93), None) == Decimal(93)
+    assert speed("copper", Decimal(100), Decimal(100), Decimal(93), None, None).mbps == Decimal(93)
 
 
 def test_no_equipment_means_no_equipment_to_pay_for() -> None:

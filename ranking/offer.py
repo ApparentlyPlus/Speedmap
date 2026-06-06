@@ -9,6 +9,7 @@ an absent one.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal
 
 import psycopg
@@ -16,6 +17,7 @@ from psycopg.rows import TupleRow
 
 from ranking.cost import Price, blended
 from ranking.grid import mobile
+from ranking.measured import Measured, for_family, nearby
 from ranking.rank import Option
 from ranking.speed import expected
 
@@ -50,30 +52,66 @@ where pl.technology = %(airtime)s
 """
 
 
+@dataclass(frozen=True)
+class Reckoned:
+    """A speed and where it came from."""
+
+    mbps: Decimal | None
+    basis: str
+    confidence: float = 0.0
+    tests: int = 0
+
+
+def capped(reached: Decimal | None, advertised: Decimal | None) -> Decimal | None:
+    """A fast street does not make a slow plan fast.
+
+    Their 5G router sold at 50 Mbps delivers 50 wherever it stands, and a tile measuring
+    260 is about the cell rather than the contract.
+    """
+    if reached is None or advertised is None:
+        return reached
+    return min(advertised, reached)
+
+
 def speed(
     family: str,
     advertised: Decimal | None,
     ceiling: Decimal | None,
     quoted: Decimal | None,
     filed: Decimal | None,
-) -> Decimal | None:
-    """What this offer should be expected to deliver here.
+    measured: Measured | None,
+    ceiling_here: Decimal | None = None,
+) -> Reckoned:
+    """What this offer should be expected to deliver here, and on what grounds.
 
-    An operator's own per-line quote is used as it stands. It is not a crowd median taken
-    across congested evenings, so the tolerance that exists to forgive those does not apply
-    to it: the operator is telling us what this line carries, and it cannot carry more than
-    it is sold as either.
+    Three kinds of evidence, in order of how specific they are to this address. An operator
+    quoting this line beats a tile of tests around it, which beats a band filed for the
+    area. The first is used as it stands: it is not a crowd median taken across congested
+    evenings, so the tolerance that exists to forgive those does not apply to it.
     """
-    if quoted is not None and advertised is not None:
-        return min(advertised, quoted)
     if quoted is not None:
-        return quoted
-    reached = expected(family, advertised, ceiling, median_mbps=filed).mbps
-    if reached is None or advertised is None:
-        return reached
-    # A fast cell does not make a slow plan fast: their 5G router sold at 50 Mbps delivers
-    # 50 wherever it stands, and the grid saying 300 is about the cell, not the contract.
-    return min(advertised, reached)
+        return Reckoned(capped(quoted, advertised), basis="quoted")
+
+    if measured is not None:
+        reckoned = expected(
+            family, advertised, ceiling,
+            median_mbps=measured.down_mbps, tests=measured.tests,
+        )
+        # Only claim a measurement where one was used. Fibre delivers what it says and the
+        # tempering step ignores the median entirely, so calling that figure measured would
+        # dress an advertised number up as an observed one.
+        if reckoned.mbps is not None and reckoned.measured:
+            # A tile is every operator in it at once. One operator filing a slower band
+            # here is saying its own mast is worse than the place, and it knows.
+            held = capped(reckoned.mbps, ceiling_here)
+            return Reckoned(
+                capped(held, advertised), basis="measured",
+                confidence=reckoned.confidence, tests=measured.tests,
+            )
+
+    reckoned = expected(family, advertised, ceiling, median_mbps=filed)
+    basis = "filed" if filed is not None else "advertised"
+    return Reckoned(capped(reckoned.mbps, advertised), basis=basis)
 
 
 def owned(needs_hardware: str | None, hardware_eur: Decimal | None) -> Decimal | None:
@@ -91,6 +129,11 @@ def owned(needs_hardware: str | None, hardware_eur: Decimal | None) -> Decimal |
 def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]:
     """Everything buyable here, with a cost and an expectation attached to each."""
     reach = mobile(conn, address_id)
+    point = conn.execute(
+        "select st_y(geom::geometry), st_x(geom::geometry) from address where id = %s",
+        (address_id,),
+    ).fetchone()
+    tested = {} if point is None else nearby(conn, float(point[0]), float(point[1]))
     rows = conn.execute(PLANS, {
         "address": address_id,
         "airtime": AIRTIME,
@@ -102,6 +145,7 @@ def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]
          monthly, setup, hardware, promo_months, promo_monthly,
          quoted, filed) in rows:
         here = filed
+        ceiling_here = None
         if technology == AIRTIME:
             # Airtime is only worth anything where the operator's own network reaches, and
             # the grid is the only thing that knows whether it does.
@@ -109,13 +153,21 @@ def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]
             if covers is None:
                 continue
             here = covers.floor_mbps
+            ceiling_here = covers.ceiling_mbps
+        reckoned = speed(
+            str(family), advertised, ceiling, quoted, here,
+            for_family(tested, str(family)), ceiling_here,
+        )
         found.append(Option(
             provider=str(code),
             plan=str(name),
             technology=str(technology),
             family=str(family),
-            expected_mbps=speed(str(family), advertised, ceiling, quoted, here),
+            expected_mbps=reckoned.mbps,
             data_cap_gb=cap,
+            basis=reckoned.basis,
+            confidence=reckoned.confidence,
+            tests=reckoned.tests,
             cost=blended(Price(
                 monthly_eur=monthly,
                 setup_eur=setup,
