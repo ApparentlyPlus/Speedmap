@@ -47,6 +47,13 @@ class Option:
     expected_mbps: Decimal | None
     cost: MonthlyCost | None
     data_cap_gb: int | None = None
+    # Where the speed came from, so a card can say why it says what it does.
+    basis: str = "advertised"
+    # Evidence from tests, and nothing else. A figure an operator quoted for this exact
+    # line is the most specific thing here and still has a confidence of zero, because no
+    # one measured it: the two say different things and neither replaces the other.
+    confidence: float = 0.0
+    tests: int = 0
 
 
 @dataclass(frozen=True)

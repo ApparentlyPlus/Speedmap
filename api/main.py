@@ -385,6 +385,9 @@ class Buyable(BaseModel):
     expected_mbps: Decimal | None = Field(description="null when nothing here can say")
     data_cap_gb: int | None = Field(description="null is unlimited, not unknown")
     cost: Cost | None = Field(description="null when a part of it was never published")
+    basis: str = Field(description="quoted, measured, filed or advertised")
+    tests: int = Field(description="measurements behind it, zero when it rests on none")
+    confidence: float = Field(description="evidence from tests alone; a quote has none")
     enough: bool = Field(description="covers an ordinary household, on speed and allowance")
     why: str
 
@@ -442,6 +445,9 @@ def address_options(
                 cost=None if r.option.cost is None else priced(
                     r.option.cost.total, r.option.cost.recurring, r.option.cost.upfront
                 ),
+                basis=r.option.basis,
+                tests=r.option.tests,
+                confidence=r.option.confidence,
                 enough=r.enough,
                 why=r.why,
             )
