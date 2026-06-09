@@ -12,13 +12,15 @@ range requests takes hours for the same query that takes no measurable time off 
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import duckdb
+import httpx
 import psycopg
 from psycopg.rows import TupleRow
 
@@ -62,6 +64,54 @@ def url(kind: str, year: int, quarter: int) -> str:
 
 def quarter_start(year: int, quarter: int) -> date:
     return date(year, (quarter - 1) * 3 + 1, 1)
+
+
+def published(kind: str, year: int, quarter: int) -> bool:
+    """Whether Ookla has put this quarter out yet."""
+    try:
+        answer = httpx.head(url(kind, year, quarter), timeout=30, follow_redirects=True)
+    except httpx.HTTPError:
+        return False
+    return answer.status_code == httpx.codes.OK
+
+
+def latest(today: date) -> tuple[int, int]:
+    """The most recent quarter they have published.
+
+    They publish a quarter some weeks after it ends, so walking back from the current one is
+    the only way to know without being told. Two years of walking is a data source that has
+    stopped rather than one that is late.
+    """
+    year, quarter = today.year, (today.month - 1) // 3 + 1
+    for _ in range(8):
+        if published(KINDS[0], year, quarter):
+            return year, quarter
+        quarter -= 1
+        if quarter == 0:
+            year, quarter = year - 1, 4
+    raise LookupError("no published quarter found in the last two years")
+
+
+def download(kind: str, year: int, quarter: int, into: Path) -> Path:
+    """Fetch a quarter if it is not already here.
+
+    The file is a few hundred megabytes and is read locally rather than over HTTP: the same
+    query against the remote parquet takes hours of range requests instead of no measurable
+    time off disk.
+    """
+    path = into / f"ookla_{kind}_{year}Q{quarter}.parquet"
+    if path.exists():
+        return path
+    into.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(".partial")
+    with httpx.stream("GET", url(kind, year, quarter), timeout=None, follow_redirects=True) as r:
+        r.raise_for_status()
+        with partial.open("wb") as out:
+            for chunk in r.iter_bytes():
+                out.write(chunk)
+    # Renamed only once whole, so an interrupted download is never read as a quarter.
+    shutil.move(partial, path)
+    return path
 
 
 def cells(path: Path, kind: str, year: int, quarter: int) -> Iterator[Cell]:
@@ -112,19 +162,30 @@ def write(conn: psycopg.Connection[TupleRow], found: Iterator[Cell]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--year", type=int, required=True)
-    parser.add_argument("--quarter", type=int, required=True, choices=(1, 2, 3, 4))
+    parser.add_argument("--year", type=int)
+    parser.add_argument("--quarter", type=int, choices=(1, 2, 3, 4))
+    parser.add_argument("--latest", action="store_true", help="whatever they last published")
     parser.add_argument("--dir", type=Path, default=Path("data"), help="where the files are")
+    parser.add_argument("--offline", action="store_true", help="fail rather than fetch")
     args = parser.parse_args(argv)
+
+    if args.latest:
+        year, quarter = latest(datetime.now(UTC).date())
+    elif args.year is not None and args.quarter is not None:
+        year, quarter = args.year, args.quarter
+    else:
+        parser.error("give --year and --quarter, or --latest")
 
     with connect() as conn:
         for kind in KINDS:
-            path = args.dir / f"ookla_{kind}_{args.year}Q{args.quarter}.parquet"
+            path = args.dir / f"ookla_{kind}_{year}Q{quarter}.parquet"
             if not path.exists():
-                parser.error(f"{path} not found. Download it from {url(kind, args.year, args.quarter)}")
-            written = write(conn, cells(path, kind, args.year, args.quarter))
+                if args.offline:
+                    parser.error(f"{path} not found")
+                path = download(kind, year, quarter, args.dir)
+            written = write(conn, cells(path, kind, year, quarter))
             conn.commit()
-            print(f"  ookla {kind} {args.year}Q{args.quarter}: {written} tiles loaded")
+            print(f"  ookla {kind} {year}Q{quarter}: {written} tiles loaded")
     return 0
 
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=speedmap.gr weekly price refresh
+
+[Timer]
+OnCalendar=Mon *-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

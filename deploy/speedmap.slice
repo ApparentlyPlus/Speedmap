@@ -1,0 +1,9 @@
+# Everything speedmap runs lives under one slice, so the whole thing can be given a memory
+# ceiling and a CPU share at once. On a Pi the jobs matter less than the API staying up.
+[Unit]
+Description=speedmap.gr
+
+[Slice]
+MemoryHigh=2G
+MemoryMax=3G
+CPUWeight=100
