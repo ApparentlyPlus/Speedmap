@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 import osmium
 import psycopg
 from psycopg.rows import TupleRow
@@ -73,13 +75,36 @@ def write(conn: psycopg.Connection[TupleRow], found: Iterator[Street]) -> int:
     return written
 
 
+def download(into: Path) -> Path:
+    """Fetch the extract if it is not already here.
+
+    Geofabrik rebuild it daily and it is the better part of a gigabyte, so it is fetched
+    once and kept: a rebuild reads the same file rather than the same download.
+    """
+    if into.exists():
+        return into
+    into.parent.mkdir(parents=True, exist_ok=True)
+    partial = into.with_suffix(".partial")
+    with httpx.stream("GET", SOURCE_URL, timeout=None, follow_redirects=True) as answer:
+        answer.raise_for_status()
+        with partial.open("wb") as out:
+            for chunk in answer.iter_bytes():
+                out.write(chunk)
+    # Renamed only once whole: a half-written extract parses as a small one, silently.
+    shutil.move(partial, into)
+    return into
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pbf", type=Path, default=EXTRACT, help=f"default: {EXTRACT}")
+    parser.add_argument("--offline", action="store_true", help="fail rather than fetch")
     args = parser.parse_args(argv)
 
     if not args.pbf.exists():
-        parser.error(f"{args.pbf} not found. Download it from {SOURCE_URL}")
+        if args.offline:
+            parser.error(f"{args.pbf} not found. Download it from {SOURCE_URL}")
+        download(args.pbf)
 
     with connect() as conn:
         written = write(conn, streets(args.pbf))
