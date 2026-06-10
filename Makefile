@@ -36,6 +36,10 @@ test: # pytest
 .PHONY: check
 check: lint typecheck test # everything a commit should pass
 
+.PHONY: bootstrap
+bootstrap: # from a bare clone to a loaded database, in the one order that works
+	$(PY) -m tools.bootstrap
+
 .PHONY: migrate
 migrate: # apply pending migrations
 	$(PY) -m normalise.migrate
