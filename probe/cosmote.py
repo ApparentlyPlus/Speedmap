@@ -12,7 +12,7 @@ would have the cache repeat it for six months.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 
@@ -193,4 +193,4 @@ class Cosmote:
         response = self.session().post(AVAILABILITY, data=self.form(target, named))
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"availability returned {response.status_code}")
-        return read(response.text)
+        return replace(read(response.text), body=response.text)

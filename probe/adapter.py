@@ -63,6 +63,9 @@ class Probed:
     offers: tuple[Offer, ...] = ()
     raw: dict[str, object] | None = None
     conclusive: bool = True
+    # The response as it arrived, carried so a canary can be diffed over time and a broken
+    # parser re-run against history. Kept only where it earns its size: see the probe loop.
+    body: str | None = None
 
 
 class Adapter(Protocol):
