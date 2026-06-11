@@ -11,7 +11,7 @@ request travels as a payload and the session cookie from the onboarding page is 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -220,4 +220,5 @@ class Vodafone:
         payload = body.get("response") if isinstance(body, dict) else None
         if not isinstance(payload, dict):
             raise ProbeError("qualification returned no answer")
-        return read(payload)
+        probed = read(payload)
+        return replace(probed, body=response.text)

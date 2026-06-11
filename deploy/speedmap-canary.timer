@@ -1,0 +1,11 @@
+[Unit]
+Description=speedmap.gr nightly canary
+
+[Timer]
+# Before the sweep, so a night of asking is not spent on an adapter already known broken.
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

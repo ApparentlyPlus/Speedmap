@@ -36,8 +36,8 @@ limit 1
 """
 
 ATTEMPT = """
-insert into probe_attempt (address_id, provider_id, attempted_at, ok, serviceable, detail)
-select %(address)s, p.id, %(at)s, %(ok)s, %(serviceable)s, %(detail)s
+insert into probe_attempt (address_id, provider_id, attempted_at, ok, serviceable, detail, raw)
+select %(address)s, p.id, %(at)s, %(ok)s, %(serviceable)s, %(detail)s, %(raw)s
 from provider p where p.code = %(code)s
 """
 
@@ -108,9 +108,19 @@ def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) ->
 
 
 def store(
-    conn: psycopg.Connection[TupleRow], address_id: int, asked: Asked, now: datetime
+    conn: psycopg.Connection[TupleRow],
+    address_id: int,
+    asked: Asked,
+    now: datetime,
+    keep_raw: bool = False,
 ) -> int:
-    """Record the attempt always, and the answer only when there was one."""
+    """Record the attempt always, and the answer only when there was one.
+
+    The body is kept when it was asked for — a canary, whose point is to be compared over
+    time — and whenever the answer was not conclusive, which is when a parser is most
+    likely to be the thing at fault. A nightly sweep keeps none of it: two hundred
+    addresses of identical HTML answers no question anyone will ask.
+    """
     probed = asked.probed
     conclusive = probed is not None and probed.conclusive
     conn.execute(ATTEMPT, {
@@ -120,6 +130,9 @@ def store(
         "ok": conclusive,
         "serviceable": probed.serviceable if probed is not None and conclusive else None,
         "detail": asked.error if probed is None else None,
+        "raw": (
+            probed.body if probed is not None and (keep_raw or not conclusive) else None
+        ),
     })
     if probed is None or not conclusive:
         return 0
@@ -147,6 +160,7 @@ def refresh(
     target: Target,
     adapters: list[Adapter],
     now: datetime,
+    keep_raw: bool = False,
 ) -> dict[str, Asked]:
     """Ask every operator that is due, at once, and keep what comes back."""
     wanted = [a for a in adapters if due(conn, target.address_id, a.code, now)]
@@ -159,7 +173,7 @@ def refresh(
         answers = list(pool.map(lambda a: ask(conn, a, target), wanted))
 
     for answer in answers:
-        store(conn, target.address_id, answer, now)
+        store(conn, target.address_id, answer, now, keep_raw=keep_raw)
     conn.commit()
     return {a.provider: a for a in answers}
 

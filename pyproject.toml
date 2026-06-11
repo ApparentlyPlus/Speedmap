@@ -74,6 +74,7 @@ ignore = [
 "normalise/migrate.py" = ["T20"]
 "prices/load.py" = ["T20"]
 "probe/sweep.py" = ["T20"]
+"probe/canary.py" = ["T20"]
 "normalise/build.py" = ["T20"]
 "tools/*" = ["T20"]
 "tests/*" = ["T20"]

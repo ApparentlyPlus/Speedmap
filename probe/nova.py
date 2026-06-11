@@ -11,7 +11,7 @@ The answer carries the tariff with it, so an availability check is also a price 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import quote
@@ -213,4 +213,4 @@ class Nova:
         response = self.session().post(ELIGIBILITY, json=payload)
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"eligibility returned {response.status_code}")
-        return read(response.json())
+        return replace(read(response.json()), body=response.text)

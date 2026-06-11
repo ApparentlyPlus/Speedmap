@@ -22,6 +22,7 @@ from db.settings import settings
 from normalise.greeklish import from_latin, is_greeklish
 from normalise.text import street_key
 from probe.cosmote import Cosmote
+from probe.health import health as adapter_state
 from probe.lookup import verdicts
 from probe.nova import Nova
 from probe.run import refresh, target_for
@@ -392,10 +393,20 @@ class Buyable(BaseModel):
     why: str
 
 
+class Operator(BaseModel):
+    provider: str
+    known: str = Field(description="how this operator's answer was arrived at")
+    state: str = Field(description="healthy, degraded, broken or untried")
+    says: str = Field(description="what to tell the reader when it is not answering")
+
+
 class Options(BaseModel):
     address_id: int
     need_mbps: Decimal = Field(description="the bar used, which the caller may move")
     known: dict[str, str] = Field(description="per operator: how the answer was arrived at")
+    operators: list[Operator] = Field(
+        description="an operator missing from a comparison is a worse lie than a visible gap"
+    )
     options: list[Buyable]
 
 
@@ -427,13 +438,24 @@ def address_options(
         found = conn.execute("select 1 from address where id = %s", (address_id,)).fetchone()
         if found is None:
             raise HTTPException(404, "no such address")
-        known = verdicts(conn, address_id, RETAIL, now=datetime.now(UTC))
+        now = datetime.now(UTC)
+        known = verdicts(conn, address_id, RETAIL, now=now)
+        faring = adapter_state(conn, RETAIL, now)
         ranked = rank(buyable(conn, address_id), need=need_mbps)
 
     return Options(
         address_id=address_id,
         need_mbps=need_mbps,
         known=known,
+        operators=[
+            Operator(
+                provider=code,
+                known=known.get(code, "unknown"),
+                state=faring[code].state,
+                says=faring[code].says,
+            )
+            for code in sorted(faring)
+        ],
         options=[
             Buyable(
                 provider=r.option.provider,
@@ -489,4 +511,19 @@ def address_probe(address_id: int) -> list[Probed]:
             detail=answer.error,
         )
         for code, answer in sorted(answers.items())
+    ]
+
+
+@app.get("/health/adapters", response_model=list[Operator], tags=["meta"])
+def adapter_health() -> list[Operator]:
+    """How each operator's checker is faring, derived from what happened when it was asked.
+
+    Not stored anywhere: a status field is one more thing that can be stale while the thing
+    it describes has moved on.
+    """
+    with pool.connection() as conn:
+        faring = adapter_state(conn, RETAIL, datetime.now(UTC))
+    return [
+        Operator(provider=code, known="-", state=faring[code].state, says=faring[code].says)
+        for code in sorted(faring)
     ]
