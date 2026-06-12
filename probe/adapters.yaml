@@ -1,0 +1,88 @@
+# What each operator's checker looks like today.
+#
+# Everything here changes when a site is redesigned, and none of it is logic: endpoints,
+# header values, the names of form fields, the words that mean "we will not say", and the
+# codes each operator uses for a technology. Repairing rot should be editing this file and
+# re-running the canary, not a code change and a deploy.
+#
+# Parsing stays in code. A table with a header row that is not a measurement, or a TM Forum
+# document with services nested three deep, is not expressible here and should not be.
+
+OTE:
+  base: https://www.telekom.gr
+  # Their availability call will not answer without the cookie this page sets.
+  warm: /eshop/jsp/eligibility.jsp
+  availability: /eshop/jsp/ajax/avdslavailabilityAjaxV2.jsp
+  headers:
+    Accept-Language: el
+    X-Requested-With: XMLHttpRequest
+  # Their form field names. The prefixes are theirs: Ν. for a prefecture, Δ. for a
+  # municipality, and the street carries its type in brackets or they refuse to decide.
+  form:
+    telephone: mTelno
+    prefecture: mState
+    municipality: mPrefecture
+    area: mArea
+    street: mAddress
+    number: mNumber
+  constants:
+    searchcriteria: address
+    ct: res
+  prefecture_prefix: "Ν. "
+  municipality_prefix: "Δ. "
+  # What their answer says when it will not decide online. Neither yes nor no.
+  inconclusive: διερεύνηση
+  # Speed names the medium. The floor for VDSL is 25 because ADSL cannot pass 24.
+  rungs:
+    - [200, FTTH]
+    - [100, VECT_VDSL]
+    - [25, VDSL]
+    - [0, ADSL]
+
+VODAFONE:
+  base: https://www.vodafone.gr
+  warm: /fixed-onboarding?persistState=true
+  # A TM Forum service qualification behind a same-origin proxy, so the real request
+  # travels as a payload and the path is repeated in the proxy URL.
+  qualify: /tmf-api/serviceQualificationManagement/v4/queryServiceQualification
+  proxy: /api/proxy-request
+  process: CELL
+  retail_party: 1-DIUSAOI90
+  headers:
+    Accept-Language: el
+    sec-fetch-mode: cors
+    sec-fetch-site: same-origin
+  technology:
+    ADSL: ADSL
+    VDSL_50: VDSL
+    VDSL_100: VECT_VDSL
+    FTTH_100: FTTH
+    FTTH_300: FTTH
+    FTTH_500: FTTH
+    FTTH_1000: FTTH
+  # Categories that qualify without naming a service. Fixed wireless answers that it
+  # reaches here and quotes nothing, and never says which generation.
+  bare:
+    FWA: FWA
+
+NOVA:
+  base: https://nova.gr
+  warm: /statheri-tilefonia/programmata/stathero-internet
+  streets: /api/address/streets
+  eligibility: /api/GetEligibilityInfo
+  headers:
+    Accept-Language: el
+  # Their flow arrives here having already chosen a package, and an empty one returns no
+  # offers at all. The choice also scopes the answer to that rung and its neighbours.
+  preselect:
+    code: 2P_FIBER_100
+    title: Fiber 100
+    price: "29.0"
+  prefecture_prefix: "Ν. "
+  municipality_prefix: "Δ. "
+  rungs:
+    - [1000, FTTH]
+    - [200, FTTH]
+    - [100, VECT_VDSL]
+    - [50, VDSL]
+    - [0, ADSL]

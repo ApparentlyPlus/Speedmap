@@ -34,15 +34,6 @@ class Naming:
     street: str
     street_type: str | None
 
-    @property
-    def prefecture(self) -> str:
-        """The prefecture as the operators' own dropdowns present it."""
-        return f"Ν. {self.nomos}"
-
-    @property
-    def municipality(self) -> str:
-        return f"Δ. {self.dimos}"
-
 
 def naming(
     conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str
