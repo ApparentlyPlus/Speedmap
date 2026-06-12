@@ -22,20 +22,23 @@ from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
+from probe.descriptor import Descriptor
 from probe.naming import Naming, naming
 
-BASE = "https://www.telekom.gr"
-ELIGIBILITY = "/eshop/jsp/eligibility.jsp"
-AVAILABILITY = "/eshop/jsp/ajax/avdslavailabilityAjaxV2.jsp"
+SPEC = Descriptor("OTE")
+
+BASE = SPEC.text("base")
+ELIGIBILITY = SPEC.text("warm")
+AVAILABILITY = SPEC.text("availability")
 
 # What their answer says when it will not decide online.
-INCONCLUSIVE = "διερεύνηση"
+INCONCLUSIVE = SPEC.text("inconclusive")
 
 # Speed names the medium, as it does in their own plan codes: vectored copper stops short
 # of 200 Mbps, and a hundred over copper is vectored by definition. The floor for VDSL is 25
 # rather than 50 because ADSL cannot pass 24, which the technology table records as its
 # ceiling: their 30 Mbps rung is a VDSL line sold short, not a fast ADSL one.
-RUNGS = ((200, "FTTH"), (100, "VECT_VDSL"), (25, "VDSL"), (0, "ADSL"))
+RUNGS = SPEC.rungs()
 
 
 class ProbeError(RuntimeError):
@@ -154,10 +157,9 @@ class Cosmote:
             timeout=30.0,
             headers={
                 "User-Agent": self.user_agent,
-                "Accept-Language": "el",
                 "Referer": f"{BASE}{ELIGIBILITY}",
                 "Origin": BASE,
-                "X-Requested-With": "XMLHttpRequest",
+                **SPEC.mapping("headers"),
             },
         )
         client.get(ELIGIBILITY)
@@ -175,15 +177,15 @@ class Cosmote:
         return f"{named.street} ({named.street_type})"
 
     def form(self, target: Target, named: Naming) -> dict[str, str]:
+        field = SPEC.mapping("form")
         return {
-            "mTelno": "",
-            "mState": f"Ν. {named.nomos}",
-            "mPrefecture": f"Δ. {named.dimos}",
-            "mArea": named.area if named.area is not None else named.dimos,
-            "mAddress": self.addressed(named),
-            "mNumber": target.street_no,
-            "searchcriteria": "address",
-            "ct": "res",
+            field["telephone"]: "",
+            field["prefecture"]: SPEC.text("prefecture_prefix") + named.nomos,
+            field["municipality"]: SPEC.text("municipality_prefix") + named.dimos,
+            field["area"]: named.area if named.area is not None else named.dimos,
+            field["street"]: self.addressed(named),
+            field["number"]: target.street_no,
+            **SPEC.mapping("constants"),
         }
 
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
