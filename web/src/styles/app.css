@@ -1,0 +1,225 @@
+/*
+ * Dark, one accent, one light source.
+ *
+ * The restraint is the effect: a single elliptical glow from below the fold, a 1px highlight
+ * along the top of the search field, and nothing else competing.
+ */
+
+:root {
+  --ink: #e2e8f0;
+  --ink-dim: #94a3b8;
+  --ink-faint: #64748b;
+  --ground: #0b1120;
+  --raised: #111c30;
+  --edge: #1e293b;
+  --fibre: #38bdf8;
+
+  --settle: 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landing {
+  display: grid;
+  position: relative;
+  place-items: center;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+/* The premium underglow: fibre cyan, low opacity, heavily blurred, from below. */
+.glow {
+  position: absolute;
+  inset: auto 0 -40% 0;
+  height: 420px;
+  background: radial-gradient(
+    ellipse 60% 100% at 50% 100%,
+    rgb(56 189 248 / 16%),
+    transparent 70%
+  );
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+/*
+ * Optical centre, not true centre: a block centred at 50% reads low.
+ *
+ * Lifted from the middle rather than pushed down from the top, because a percentage of the
+ * viewport and a percentage of the element are different numbers and mixing them was how
+ * this ended up at 8% on the first try.
+ */
+.landing-centre {
+  position: relative;
+  width: min(620px, calc(100% - 48px));
+  transform: translateY(-8vh);
+}
+
+.tagline {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.sub {
+  margin: 12px 0 32px;
+  color: var(--ink-dim);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.search {
+  position: relative;
+}
+
+.search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.search-field {
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--ink);
+  font: inherit;
+  /* The 1px top highlight, as if lit from below. */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 8px 24px rgb(0 0 0 / 25%);
+  transition: border-color var(--settle), box-shadow var(--settle);
+}
+
+.search-field::placeholder {
+  color: var(--ink-faint);
+}
+
+/* The browser's own clear button is a blue cross in the middle of a dark field. */
+.search-field::-webkit-search-cancel-button,
+.search-field::-webkit-search-decoration {
+  appearance: none;
+}
+
+.search-field:focus {
+  outline: none;
+  border-color: rgb(56 189 248 / 45%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 0 0 4px rgb(56 189 248 / 12%),
+    0 8px 24px rgb(0 0 0 / 30%);
+}
+
+.suggestions {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--raised);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 45%);
+  list-style: none;
+  /* Eight results at full height overflow a laptop viewport, and the last of them is the
+   * one worth reading: a fuzzy match is where the interesting near-misses land. */
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.suggestion-note {
+  padding: 12px 14px;
+  color: var(--ink-faint);
+}
+
+.suggestion-hit {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.suggestion-hit:hover,
+.suggestion-hit:focus-visible {
+  outline: none;
+  background: rgb(56 189 248 / 8%);
+}
+
+.suggestion-name {
+  grid-column: 1;
+}
+
+.suggestion-kind {
+  margin-inline-start: 8px;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.suggestion-where {
+  grid-row: 2;
+  grid-column: 1;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.suggestion-dot {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.browse {
+  display: block;
+  margin-top: 28px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+  transition: color var(--settle);
+}
+
+.browse:hover {
+  color: var(--ink-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+  }
+}
