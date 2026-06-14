@@ -1,0 +1,21 @@
+[Unit]
+Description=speedmap.gr load the latest quarter of measurements
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+# It finds the newest quarter they have published rather than being told, because they
+# publish some weeks after a quarter ends and the delay is not fixed.
+ExecStart=/opt/speedmap/.venv/bin/python -m ingest.ookla --latest
+TimeoutStartSec=2h
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+MemoryMax=1G

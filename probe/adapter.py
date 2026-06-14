@@ -11,6 +11,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Protocol
 
+import psycopg
+from psycopg.rows import TupleRow
+
 
 @dataclass(frozen=True)
 class Target:
@@ -22,6 +25,10 @@ class Target:
     street: str
     street_no: str
     municipality: str
+    # The keys an operator's own spelling is looked up by, which is not by name: their
+    # municipalities are the pre-Καλλικράτης ones and mostly do not share ours.
+    municipality_id: int = 0
+    street_fold: str = ""
     locality: str | None = None
     postcode: str | None = None
 
@@ -56,11 +63,19 @@ class Probed:
     offers: tuple[Offer, ...] = ()
     raw: dict[str, object] | None = None
     conclusive: bool = True
+    # The response as it arrived, carried so a canary can be diffed over time and a broken
+    # parser re-run against history. Kept only where it earns its size: see the probe loop.
+    body: str | None = None
 
 
 class Adapter(Protocol):
-    """An operator's availability checker."""
+    """An operator's availability checker.
+
+    Every one of them takes a connection, because two of the three cannot say what they
+    want to be asked without reading how they spell the address first, and the third
+    ignoring it is cheaper than the caller knowing which is which.
+    """
 
     code: str
 
-    def check(self, target: Target) -> Probed: ...
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed: ...

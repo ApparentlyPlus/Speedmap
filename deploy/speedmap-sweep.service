@@ -1,0 +1,21 @@
+[Unit]
+Description=speedmap.gr re-ask about expiring answers
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+ExecStart=/opt/speedmap/.venv/bin/python -m probe.sweep
+# It paces itself between addresses, so a run is long and idle rather than short and rude.
+# If it is still going at dawn it has done enough; the queue is a query and resumes itself.
+TimeoutStartSec=6h
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+MemoryMax=512M

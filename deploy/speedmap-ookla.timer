@@ -1,0 +1,12 @@
+[Unit]
+Description=speedmap.gr quarterly measurement refresh
+
+[Timer]
+# Weekly, but the load is a no-op until a new quarter appears: cheaper to look often than
+# to guess when they will publish, and a quarter that arrives late still arrives.
+OnCalendar=Sun *-*-* 05:00:00
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target

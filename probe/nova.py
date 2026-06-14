@@ -11,28 +11,34 @@ The answer carries the tariff with it, so an availability check is also a price 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import quote
 
 import httpx
+import psycopg
+from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
+from probe.descriptor import Descriptor
+from probe.naming import naming
 
-BASE = "https://nova.gr"
-LANDING = f"{BASE}/statheri-tilefonia/programmata/stathero-internet"
-STREETS = "/api/address/streets"
-ELIGIBILITY = "/api/GetEligibilityInfo"
+SPEC = Descriptor("NOVA")
+
+BASE = SPEC.text("base")
+LANDING = SPEC.url("warm")
+STREETS = SPEC.text("streets")
+ELIGIBILITY = SPEC.text("eligibility")
 
 # The entry package their plan page starts every visitor on.
-PRESELECTED = {"code": "2P_FIBER_100", "title": "Fiber 100", "price": "29.0"}
+PRESELECTED = SPEC.payload("preselect")
 
 # Their code names the speed and nothing else about the medium: 2P_FIBER_100 is vectored
 # copper on a copper street and fibre on a fibre one, exactly as the other operator's
 # FBR codes are. The rungs are read the same way, from the fastest offered.
-RUNGS = ((1000, "FTTH"), (200, "FTTH"), (100, "VECT_VDSL"), (50, "VDSL"), (0, "ADSL"))
+RUNGS = SPEC.rungs()
 
 
 class ProbeError(RuntimeError):
@@ -118,10 +124,10 @@ class Nova:
             timeout=30.0,
             headers={
                 "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "el",
                 "Content-Type": "application/json",
                 "User-Agent": self.user_agent,
                 "Referer": LANDING,
+                **SPEC.mapping("headers"),
             },
         )
         client.get(LANDING, headers={"Accept": "text/html"})
@@ -163,6 +169,24 @@ class Nova:
 
     def check(
         self,
+        conn: psycopg.Connection[TupleRow],
+        target: Target,
+        preselect: Mapping[str, object] | None = None,
+    ) -> Probed:
+        """Their prefecture and municipality are the same ones the other operator wants,
+        with a prefix in front, so one recorded spelling answers for both."""
+        named = naming(conn, target.municipality_id, target.street_fold)
+        if named is None:
+            raise ProbeError(f"no spelling recorded for {target.street}")
+        return self.ask(
+            target,
+            SPEC.text("prefecture_prefix") + named.nomos,
+            SPEC.text("municipality_prefix") + named.dimos,
+            preselect,
+        )
+
+    def ask(
+        self,
         target: Target,
         region: str,
         municipality: str,
@@ -197,4 +221,4 @@ class Nova:
         response = self.session().post(ELIGIBILITY, json=payload)
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"eligibility returned {response.status_code}")
-        return read(response.json())
+        return replace(read(response.json()), body=response.text)

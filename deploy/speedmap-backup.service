@@ -1,0 +1,19 @@
+[Unit]
+Description=speedmap.gr back up the state that cannot be rebuilt
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+ExecStart=/opt/speedmap/deploy/backup.sh
+TimeoutStartSec=1h
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+MemoryMax=512M

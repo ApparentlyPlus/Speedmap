@@ -30,7 +30,7 @@ STEADINESS = {"fibre": 0, "coax": 1, "copper": 2, "wireless": 3, "satellite": 4}
 UNSTEADY = len(STEADINESS)
 
 ENOUGH = "covers an ordinary household"
-CHEAPEST = "cheapest that covers an ordinary household"
+BEST = "the steadiest connection here that covers a household"
 FASTEST = "the fastest here, and short of what a household wants"
 SHORT = "short of what a household wants"
 UNPRICED = "not ranked: the cost is not known"
@@ -47,6 +47,13 @@ class Option:
     expected_mbps: Decimal | None
     cost: MonthlyCost | None
     data_cap_gb: int | None = None
+    # Where the speed came from, so a card can say why it says what it does.
+    basis: str = "advertised"
+    # Evidence from tests, and nothing else. A figure an operator quoted for this exact
+    # line is the most specific thing here and still has a confidence of zero, because no
+    # one measured it: the two say different things and neither replaces the other.
+    confidence: float = 0.0
+    tests: int = 0
 
 
 @dataclass(frozen=True)
@@ -72,16 +79,19 @@ def enough_for(option: Option, need: Decimal) -> bool:
     return option.expected_mbps is not None and option.expected_mbps >= need
 
 
-def order(option: Option, need: Decimal) -> tuple[int, Decimal, int, Decimal]:
+def order(option: Option, need: Decimal) -> tuple[int, Decimal, Decimal, Decimal]:
     """The sort key, in three groups, so unranked offers never displace ranked ones."""
     speed = option.expected_mbps if option.expected_mbps is not None else Decimal(0)
     if option.cost is None:
-        return (2, Decimal(0), steadiness(option.family), -speed)
+        return (2, Decimal(0), Decimal(steadiness(option.family)), -speed)
     if enough_for(option, need):
-        # Everything here is fast enough, so the question is only what it costs.
-        return (0, option.cost.total, steadiness(option.family), -speed)
+        # Everything here is fast enough, so the question is what it is carried on and then
+        # what it costs. A line that covers a household beats a cell that also covers it,
+        # even for a few euros more: the cell is shared with the street at seven in the
+        # evening and the line is not, and no price comparison shows that.
+        return (0, Decimal(steadiness(option.family)), option.cost.total, -speed)
     # Nothing here is fast enough, so speed is the question and cost breaks the tie.
-    return (1, -speed, steadiness(option.family), option.cost.total)
+    return (1, -speed, Decimal(steadiness(option.family)), option.cost.total)
 
 
 def rank(options: list[Option], need: Decimal = ENOUGH_MBPS) -> list[Ranked]:
@@ -94,7 +104,7 @@ def rank(options: list[Option], need: Decimal = ENOUGH_MBPS) -> list[Ranked]:
         if option.cost is None:
             why = UNPRICED
         elif clears:
-            why = CHEAPEST if index == 0 else ENOUGH
+            why = BEST if index == 0 else ENOUGH
         else:
             why = FASTEST if index == 0 else SHORT
         ranked.append(Ranked(option=option, enough=clears, why=why))

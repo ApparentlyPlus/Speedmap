@@ -11,38 +11,36 @@ request travels as a payload and the session cookie from the onboarding page is 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
+import psycopg
+from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
+from probe.descriptor import Descriptor
 
-BASE = "https://www.vodafone.gr"
-ONBOARDING = f"{BASE}/fixed-onboarding?persistState=true"
-QUALIFY = "/tmf-api/serviceQualificationManagement/v4/queryServiceQualification"
+SPEC = Descriptor("VODAFONE")
+
+BASE = SPEC.text("base")
+ONBOARDING = SPEC.url("warm")
+QUALIFY = SPEC.text("qualify")
+PROXY = SPEC.text("proxy")
 
 # Their identifier for a retail consumer, as their own onboarding sends it.
-RETAIL_PARTY = "1-DIUSAOI90"
+RETAIL_PARTY = SPEC.text("retail_party")
 
 # What they call a technology, in our vocabulary. A hundred megabits over copper is
 # vectored by definition, which is why the two VDSL rungs do not map to one code.
-TECHNOLOGY = {
-    "ADSL": "ADSL",
-    "VDSL_50": "VDSL",
-    "VDSL_100": "VECT_VDSL",
-    "FTTH_100": "FTTH",
-    "FTTH_300": "FTTH",
-    "FTTH_500": "FTTH",
-    "FTTH_1000": "FTTH",
-}
+TECHNOLOGY = SPEC.mapping("technology")
 
 # Categories that qualify without naming a service to go with it. Fixed wireless answers
 # that it reaches here and quotes nothing, and the generation is not said, so the offer
 # stays generic rather than claiming a 5G it never mentioned.
-BARE_CATEGORY = {"FWA": "FWA"}
+BARE_CATEGORY = SPEC.mapping("bare")
 
 
 class ProbeError(RuntimeError):
@@ -153,13 +151,11 @@ class Vodafone:
             timeout=30.0,
             headers={
                 "User-Agent": self.user_agent,
-                "Accept-Language": "el",
                 "Accept": "application/json, text/plain, */*",
                 "Content-Type": "application/json",
                 "Origin": BASE,
                 "Referer": ONBOARDING,
-                "sec-fetch-mode": "cors",
-                "sec-fetch-site": "same-origin",
+                **SPEC.mapping("headers"),
             },
         )
         # The proxy will not act without the cookie the onboarding page sets.
@@ -174,7 +170,7 @@ class Vodafone:
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "vf-country-code": "GR",
-                "x-vf-api-process": "CELL",
+                "x-vf-api-process": SPEC.text("process"),
             },
             "endpoint": QUALIFY,
             "data": {
@@ -207,9 +203,10 @@ class Vodafone:
             "requestId": f"speedmap-{target.address_id}",
         }
 
-    def check(self, target: Target) -> Probed:
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
+        """The connection is unused: a point is the whole query, which is the point of it."""
         response = self.session().post(
-            f"/api/proxy-request{QUALIFY}", json=self.request(target)
+            f"{PROXY}{QUALIFY}", json=self.request(target)
         )
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"qualification returned {response.status_code}")
@@ -217,4 +214,5 @@ class Vodafone:
         payload = body.get("response") if isinstance(body, dict) else None
         if not isinstance(payload, dict):
             raise ProbeError("qualification returned no answer")
-        return read(payload)
+        probed = read(payload)
+        return replace(probed, body=response.text)

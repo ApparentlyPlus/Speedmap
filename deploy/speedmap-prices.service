@@ -1,0 +1,21 @@
+[Unit]
+Description=speedmap.gr refresh the tariff catalogues
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+ExecStart=/opt/speedmap/.venv/bin/python -m prices.load
+# One catalogue failing must not empty the others: yesterday's price beats none.
+SuccessExitStatus=0
+TimeoutStartSec=30m
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+MemoryMax=512M

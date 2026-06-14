@@ -1,0 +1,21 @@
+[Unit]
+Description=speedmap.gr check the operator checkers still work
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+# Exits non-zero when an adapter has rotted, so `systemctl --failed` and any journal alert
+# already watching for it says so. Silent rot is the failure this exists to make loud.
+ExecStart=/opt/speedmap/.venv/bin/python -m probe.canary
+TimeoutStartSec=15m
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+MemoryMax=256M

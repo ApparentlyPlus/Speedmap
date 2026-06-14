@@ -1,0 +1,12 @@
+[Unit]
+Description=speedmap.gr quarterly register refresh
+
+[Timer]
+# The register is filed quarterly. The middle of the month after each quarter is late
+# enough that operators have filed and early enough to matter.
+OnCalendar=*-01,04,07,10-15 03:00:00
+Persistent=true
+RandomizedDelaySec=2h
+
+[Install]
+WantedBy=timers.target
