@@ -33,8 +33,14 @@ typecheck: # mypy --strict
 test: # pytest
 	$(PY) -m pytest -q
 
+.PHONY: web-check
+web-check: # typecheck the frontend, when it has been installed
+	@test -d web/node_modules \
+		&& (cd web && npm run --silent typecheck) \
+		|| echo "  web: no node_modules, skipped"
+
 .PHONY: check
-check: lint typecheck test # everything a commit should pass
+check: lint typecheck test web-check # everything a commit should pass
 
 .PHONY: bootstrap
 bootstrap: # from a bare clone to a loaded database, in the one order that works
