@@ -12,7 +12,7 @@ would have the cache repeat it for six months.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 
@@ -22,57 +22,27 @@ from psycopg.rows import TupleRow
 
 from db.settings import settings
 from probe.adapter import Offer, Probed, Target
+from probe.descriptor import Descriptor
+from probe.naming import Naming, naming
 
-BASE = "https://www.telekom.gr"
-ELIGIBILITY = "/eshop/jsp/eligibility.jsp"
-AVAILABILITY = "/eshop/jsp/ajax/avdslavailabilityAjaxV2.jsp"
+SPEC = Descriptor("OTE")
+
+BASE = SPEC.text("base")
+ELIGIBILITY = SPEC.text("warm")
+AVAILABILITY = SPEC.text("availability")
 
 # What their answer says when it will not decide online.
-INCONCLUSIVE = "διερεύνηση"
+INCONCLUSIVE = SPEC.text("inconclusive")
 
 # Speed names the medium, as it does in their own plan codes: vectored copper stops short
 # of 200 Mbps, and a hundred over copper is vectored by definition. The floor for VDSL is 25
 # rather than 50 because ADSL cannot pass 24, which the technology table records as its
 # ceiling: their 30 Mbps rung is a VDSL line sold short, not a fast ADSL one.
-RUNGS = ((200, "FTTH"), (100, "VECT_VDSL"), (25, "VDSL"), (0, "ADSL"))
-
-NAMING = """
-select nomos, dimos, area, street, street_type
-from raw_cosmote
-where municipality_id = %s and street_fold = %s
-limit 1
-"""
+RUNGS = SPEC.rungs()
 
 
 class ProbeError(RuntimeError):
     """The checker could not be asked. Not an answer, and never cached as one."""
-
-
-@dataclass(frozen=True)
-class Naming:
-    """One address, spelled the way this operator spells it."""
-
-    nomos: str
-    dimos: str
-    area: str | None
-    street: str
-    street_type: str | None
-
-
-def naming(
-    conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str
-) -> Naming | None:
-    """Their spelling of this street, if the scrape ever walked it."""
-    row = conn.execute(NAMING, (municipality_id, street_fold)).fetchone()
-    if row is None:
-        return None
-    return Naming(
-        nomos=str(row[0]),
-        dimos=str(row[1]),
-        area=None if row[2] is None else str(row[2]),
-        street=str(row[3]),
-        street_type=None if row[4] is None else str(row[4]),
-    )
 
 
 def technology_of(mbps: int) -> str:
@@ -187,10 +157,9 @@ class Cosmote:
             timeout=30.0,
             headers={
                 "User-Agent": self.user_agent,
-                "Accept-Language": "el",
                 "Referer": f"{BASE}{ELIGIBILITY}",
                 "Origin": BASE,
-                "X-Requested-With": "XMLHttpRequest",
+                **SPEC.mapping("headers"),
             },
         )
         client.get(ELIGIBILITY)
@@ -208,19 +177,22 @@ class Cosmote:
         return f"{named.street} ({named.street_type})"
 
     def form(self, target: Target, named: Naming) -> dict[str, str]:
+        field = SPEC.mapping("form")
         return {
-            "mTelno": "",
-            "mState": f"Ν. {named.nomos}",
-            "mPrefecture": f"Δ. {named.dimos}",
-            "mArea": named.area if named.area is not None else named.dimos,
-            "mAddress": self.addressed(named),
-            "mNumber": target.street_no,
-            "searchcriteria": "address",
-            "ct": "res",
+            field["telephone"]: "",
+            field["prefecture"]: SPEC.text("prefecture_prefix") + named.nomos,
+            field["municipality"]: SPEC.text("municipality_prefix") + named.dimos,
+            field["area"]: named.area if named.area is not None else named.dimos,
+            field["street"]: self.addressed(named),
+            field["number"]: target.street_no,
+            **SPEC.mapping("constants"),
         }
 
-    def check(self, target: Target, named: Naming) -> Probed:
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
+        named = naming(conn, target.municipality_id, target.street_fold)
+        if named is None:
+            raise ProbeError(f"no spelling recorded for {target.street}")
         response = self.session().post(AVAILABILITY, data=self.form(target, named))
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"availability returned {response.status_code}")
-        return read(response.text)
+        return replace(read(response.text), body=response.text)

@@ -1,0 +1,26 @@
+# Addresses whose answer is known and does not change, asked on a schedule so that rot is
+# loud rather than silent. An adapter that has been redesigned out from under us returns a
+# 200 with an empty page, which is indistinguishable from a country with no broadband unless
+# something already knows what the answer should be.
+#
+# Pick addresses that are stable in both directions: a central block that has had fibre for
+# years, and somewhere rural that will not get it this quarter. Anything mid-upgrade makes a
+# canary that cries wolf, which is worse than none.
+
+- name: athens-fibre
+  why: central Athens, fibre for years, every operator sells there
+  municipality: ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ
+  street: ΑΧΑΡΝΩΝ
+  street_no: "100"
+  expect: offers
+
+- name: lagkadas-copper
+  why: rural Thessaloniki, copper only, the street the register never named
+  municipality: ΔΗΜΟΣ ΛΑΓΚΑΔΑ
+  street: ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ
+  # Number 1, not 40: the scan stopped at 1 and the register never filed the street, so
+  # 40 is real and is not in the index. A canary has to be an address we hold, or it
+  # reports on our own gaps instead of on the adapter.
+  street_no: "1"
+  expect: offers
+  providers: [OTE]

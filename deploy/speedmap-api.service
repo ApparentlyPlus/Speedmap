@@ -1,0 +1,29 @@
+[Unit]
+Description=speedmap.gr read API
+# The API answers from Postgres and has nothing to say without it.
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=exec
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+ExecStart=/opt/speedmap/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+Slice=speedmap.slice
+
+# It reads a database and writes nothing to disk. Nothing else needs to be reachable.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

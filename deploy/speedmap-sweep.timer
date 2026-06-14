@@ -1,0 +1,14 @@
+[Unit]
+Description=speedmap.gr nightly sweep
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+# A Pi that was off at half two should still sweep when it comes back, or the addresses
+# nobody visits are exactly the ones that never get refreshed.
+Persistent=true
+# Not on the half hour every night. Three operators being asked by everyone's cron at
+# once is how a polite job looks like an attack.
+RandomizedDelaySec=45m
+
+[Install]
+WantedBy=timers.target

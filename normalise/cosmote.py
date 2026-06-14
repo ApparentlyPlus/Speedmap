@@ -15,12 +15,17 @@ from psycopg.rows import TupleRow
 
 from normalise.greeklish import from_greek
 from normalise.text import fold, street_key
+from probe.ttl import (
+    CHANGING,
+    FAST,
+    GIGABIT,
+    LIKELY,
+    SETTLED,
+    USABLE,
+    VOLATILE,
+)
 
 CHUNK = 50_000
-
-# How long an answer is trusted before it is asked again. Footprints grow rather than
-# shrink, so this is about the plan list going out of date, not the line disappearing.
-TTL_DAYS = 180
 
 # Which of two filings of one address to keep. The scrape geocoded most rows by
 # interpolating along a street; a rooftop is an actual building and wins.
@@ -42,10 +47,12 @@ group by c.dimos, coalesce(c.area, ''), m.id
 order by c.dimos, coalesce(c.area, ''), count(*) desc
 """
 
+# Only the rungs the scrape's own codes name. Their unlimited airtime quotes no speed at
+# all, and a plan without one cannot say what a scraped code was worth.
 CATALOGUE = """
 select pl.external_key, pl.down_mbps, pl.technology
 from plan pl join provider pr on pr.id = pl.provider_id
-where pr.code = 'OTE' and pl.technology is not null
+where pr.code = 'OTE' and pl.technology is not null and pl.down_mbps is not null
 """
 
 HELD = """
@@ -140,6 +147,7 @@ where a.municipality_id = s.municipality_id and a.street_fold = s.street_fold
 """
 
 # The scrape only ever recorded a serviceable answer, so serviceable is true throughout.
+# How long each is trusted depends on what it says: see the probe loop for the rule.
 # An address the operator refuses is absent from the scrape, not present with an empty list.
 CACHE = """
 insert into availability (
@@ -150,7 +158,12 @@ select distinct on (s.address_id)
     s.address_id, p.id, s.technology, s.max_down_mbps, true,
     'isp-live', 'declared',
     s.observed_at at time zone 'Europe/Athens',
-    (s.observed_at at time zone 'Europe/Athens') + make_interval(days => %(ttl)s),
+    (s.observed_at at time zone 'Europe/Athens') + case
+        when s.max_down_mbps >= %(gigabit)s then %(settled)s
+        when s.max_down_mbps >= %(fast)s then %(likely)s
+        when s.max_down_mbps >= %(usable)s then %(changing)s
+        else %(volatile)s
+    end,
     jsonb_build_object('plans', s.plans)
 from stage_cosmote s
 cross join (select id from provider where code = 'OTE') p
@@ -285,7 +298,12 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
         conn.execute(MARK_SCANNED)
 
     conn.execute(RESOLVE)
-    conn.execute(CACHE, {"ttl": TTL_DAYS})
+    # The thresholds live with the probe loop, which applies the same rule to a live
+    # answer: a scraped gigabit and a probed one are settled for the same two years.
+    conn.execute(CACHE, {
+        "gigabit": GIGABIT, "fast": FAST, "usable": USABLE,
+        "settled": SETTLED, "likely": LIKELY, "changing": CHANGING, "volatile": VOLATILE,
+    })
     return written
 
 

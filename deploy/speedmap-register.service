@@ -1,0 +1,23 @@
+[Unit]
+Description=speedmap.gr refresh the national register and rebuild from it
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=speedmap
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+# Every page is committed with its resume key, so an interrupted run continues rather than
+# restarts, and the rebuild afterwards is idempotent by construction.
+ExecStart=/opt/speedmap/.venv/bin/python -m ingest.load
+ExecStart=/opt/speedmap/.venv/bin/python -m normalise.migrate
+ExecStart=/opt/speedmap/.venv/bin/python -m normalise.build
+TimeoutStartSec=8h
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+MemoryMax=2G
