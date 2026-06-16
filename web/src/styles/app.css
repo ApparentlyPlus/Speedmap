@@ -1,20 +1,32 @@
 /*
- * Dark, one accent, one light source.
+ * True black, neutral greys, one warm accent, and shadow doing the work that borders
+ * usually do.
  *
- * The restraint is the effect: a single elliptical glow from below the fold, a 1px highlight
- * along the top of the search field, and nothing else competing.
+ * The restraint is the design. There is no tinted glow, no gradient behind the type and no
+ * second colour: surfaces are told apart by how far off the page they sit, which is what
+ * the shadows are for, and the only hue anywhere is the amber that also runs through the
+ * speed ramp — so the accent and the data agree instead of competing.
  */
 
 :root {
-  --ink: #e2e8f0;
-  --ink-dim: #94a3b8;
-  --ink-faint: #64748b;
-  --ground: #0b1120;
-  --raised: #111c30;
-  --edge: #1e293b;
-  --fibre: #38bdf8;
+  /* Neutral throughout. A slate-blue grey reads as a colour choice; this reads as absence. */
+  --ground: #000;
+  --raised: #0e0e0e;
+  --raised-high: #161616;
+  --edge: rgb(255 255 255 / 8%);
 
-  --settle: 220ms cubic-bezier(0.2, 0, 0, 1);
+  --ink: #f4f4f5;
+  --ink-dim: #a1a1aa;
+  --ink-faint: #71717a;
+
+  --accent: #f59e0b;
+
+  /* Ambient, not directional. Large and soft, so a surface floats rather than is outlined. */
+  --lift: 0 1px 2px rgb(0 0 0 / 60%), 0 12px 32px rgb(0 0 0 / 45%);
+  --lift-high: 0 2px 4px rgb(0 0 0 / 70%), 0 28px 64px rgb(0 0 0 / 55%);
+
+  --radius: 12px;
+  --settle: 180ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 * {
@@ -31,8 +43,14 @@ body {
   margin: 0;
   background: var(--ground);
   color: var(--ink);
-  font: 16px/1.5 system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font:
+    400 16px/1.5 system-ui,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizelegibility;
 }
 
 .landing {
@@ -40,21 +58,6 @@ body {
   position: relative;
   place-items: center;
   min-height: 100%;
-  overflow: hidden;
-}
-
-/* The premium underglow: fibre cyan, low opacity, heavily blurred, from below. */
-.glow {
-  position: absolute;
-  inset: auto 0 -40% 0;
-  height: 420px;
-  background: radial-gradient(
-    ellipse 60% 100% at 50% 100%,
-    rgb(56 189 248 / 16%),
-    transparent 70%
-  );
-  filter: blur(40px);
-  pointer-events: none;
 }
 
 /*
@@ -66,22 +69,35 @@ body {
  */
 .landing-centre {
   position: relative;
-  width: min(620px, calc(100% - 48px));
+  width: min(560px, calc(100% - 48px));
   transform: translateY(-8vh);
+}
+
+/* The signature small label: tiny, spaced, quiet. Says what this is without a heading. */
+.eyebrow {
+  margin: 0 0 18px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .tagline {
   margin: 0;
-  font-size: clamp(28px, 5vw, 44px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: clamp(30px, 4.6vw, 46px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
   text-align: center;
   text-wrap: balance;
 }
 
 .sub {
-  margin: 12px 0 32px;
+  margin: 14px 0 36px;
   color: var(--ink-dim);
+  font-size: 15px;
   text-align: center;
   text-wrap: balance;
 }
@@ -100,17 +116,17 @@ body {
 
 .search-field {
   width: 100%;
-  padding: 16px 18px;
+  padding: 17px 18px;
   border: 1px solid var(--edge);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--raised);
+  box-shadow: var(--lift);
   color: var(--ink);
   font: inherit;
-  /* The 1px top highlight, as if lit from below. */
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    0 8px 24px rgb(0 0 0 / 25%);
-  transition: border-color var(--settle), box-shadow var(--settle);
+  transition:
+    border-color var(--settle),
+    box-shadow var(--settle),
+    background var(--settle);
 }
 
 .search-field::placeholder {
@@ -125,25 +141,25 @@ body {
 
 .search-field:focus {
   outline: none;
-  border-color: rgb(56 189 248 / 45%);
+  border-color: rgb(245 158 11 / 40%);
+  background: var(--raised-high);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    0 0 0 4px rgb(56 189 248 / 12%),
-    0 8px 24px rgb(0 0 0 / 30%);
+    var(--lift-high),
+    0 0 0 3px rgb(245 158 11 / 12%);
 }
 
 .suggestions {
   position: absolute;
   z-index: 2;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
   left: 0;
   margin: 0;
   padding: 6px;
   border: 1px solid var(--edge);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--raised);
-  box-shadow: 0 16px 40px rgb(0 0 0 / 45%);
+  box-shadow: var(--lift-high);
   list-style: none;
   /* Eight results at full height overflow a laptop viewport, and the last of them is the
    * one worth reading: a fuzzy match is where the interesting near-misses land. */
@@ -153,17 +169,18 @@ body {
 }
 
 .suggestion-note {
-  padding: 12px 14px;
+  padding: 13px 14px;
   color: var(--ink-faint);
+  font-size: 14px;
 }
 
 .suggestion-hit {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 2px 12px;
+  gap: 3px 14px;
   align-items: center;
   width: 100%;
-  padding: 10px 12px;
+  padding: 11px 12px;
   border: 0;
   border-radius: 8px;
   background: none;
@@ -171,51 +188,58 @@ body {
   font: inherit;
   text-align: start;
   cursor: pointer;
+  transition: background var(--settle);
 }
 
 .suggestion-hit:hover,
 .suggestion-hit:focus-visible {
   outline: none;
-  background: rgb(56 189 248 / 8%);
+  background: rgb(255 255 255 / 5%);
 }
 
 .suggestion-name {
   grid-column: 1;
+  font-size: 15px;
 }
 
 .suggestion-kind {
-  margin-inline-start: 8px;
+  margin-inline-start: 9px;
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .suggestion-where {
   grid-row: 2;
   grid-column: 1;
-  color: var(--ink-dim);
-  font-size: 13px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.02em;
 }
 
 .suggestion-dot {
   grid-row: 1 / span 2;
   grid-column: 2;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
 .browse {
   display: block;
-  margin-top: 28px;
+  margin-top: 30px;
   color: var(--ink-faint);
-  font-size: 14px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   text-align: center;
   text-decoration: none;
+  text-transform: uppercase;
   transition: color var(--settle);
 }
 
 .browse:hover {
-  color: var(--ink-dim);
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
