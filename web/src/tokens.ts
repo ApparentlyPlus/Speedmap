@@ -28,22 +28,27 @@ export type Band = {
  *
  * The thresholds are the ones the rest of the system already reasons in: a hundred is what
  * a household needs, three hundred is where copper cannot follow, a gigabit is settled.
+ *
+ * A heat ramp, dark red through to pale gold. It orders by lightness as well as by hue, so
+ * it survives being read by someone who cannot separate red from green, and it is warm
+ * throughout rather than a cool accent sitting on a warm page.
  */
 export const RAMP: readonly Band[] = [
-  { floor: mbps(1000), colour: "#67e8f9", name: "gigabit" },
-  { floor: mbps(300), colour: "#22d3ee", name: "fast" },
-  { floor: mbps(100), colour: "#a3e635", name: "enough" },
-  { floor: mbps(30), colour: "#fbbf24", name: "slow" },
-  { floor: mbps(0), colour: "#fb7185", name: "poor" },
+  { floor: mbps(1000), colour: "#fde68a", name: "gigabit" },
+  { floor: mbps(300), colour: "#fbbf24", name: "fast" },
+  { floor: mbps(100), colour: "#f59e0b", name: "enough" },
+  { floor: mbps(30), colour: "#ea580c", name: "slow" },
+  { floor: mbps(0), colour: "#b91c1c", name: "poor" },
 ];
 
 /**
  * The colour for a speed nobody has filed.
  *
- * Deliberately not the bottom of the ramp: "serves this street, files no speed" is the most
- * common state for six of the eleven operators, and painting it as slow invents a fact.
+ * Deliberately not the bottom of the ramp, and deliberately outside its hue: "serves this
+ * street, files no speed" is the most common state for six of the eleven operators, and
+ * painting it as slow invents a fact.
  */
-export const UNFILED = "#475569";
+export const UNFILED = "#3f3f46";
 
 export function bandFor(speed: Mbps | null): Band | null {
   if (speed === null) return null;
@@ -54,5 +59,5 @@ export function colourFor(speed: Mbps | null): string {
   return bandFor(speed)?.colour ?? UNFILED;
 }
 
-/** The accent everything else is lit by: one light source, from below. */
-export const FIBRE = "#38bdf8";
+/** The accent everything else is lit by: one light source, from below, and warm. */
+export const ACCENT = "#f59e0b";

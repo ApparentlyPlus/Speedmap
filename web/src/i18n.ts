@@ -12,6 +12,7 @@ export type Language = (typeof LANGUAGES)[number];
 export const DEFAULT: Language = "el";
 
 type Strings = {
+  readonly eyebrow: string;
   readonly tagline: string;
   readonly sub: string;
   readonly searchLabel: string;
@@ -26,6 +27,7 @@ type Strings = {
 };
 
 const el: Strings = {
+  eyebrow: "Ευρυζωνική κάλυψη Ελλάδας",
   tagline: "Τι ίντερνετ μπορείς να πάρεις;",
   sub: "Κάλυψη, ταχύτητες και τιμές για κάθε διεύθυνση στην Ελλάδα.",
   searchLabel: "Διεύθυνση",
@@ -40,6 +42,7 @@ const el: Strings = {
 };
 
 const en: Strings = {
+  eyebrow: "Greek broadband coverage",
   tagline: "What internet can you get?",
   sub: "Coverage, speeds and prices for every address in Greece.",
   searchLabel: "Address",
