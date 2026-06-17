@@ -1,11 +1,14 @@
 /*
- * True black, neutral greys, one warm accent, and shadow doing the work that borders
- * usually do.
+ * True black, neutral greys, and one warm light doing the work that borders usually do.
  *
- * The restraint is the design. There is no tinted glow, no gradient behind the type and no
- * second colour: surfaces are told apart by how far off the page they sit, which is what
- * the shadows are for, and the only hue anywhere is the amber that also runs through the
- * speed ramp — so the accent and the data agree instead of competing.
+ * Nothing here is outlined. There is a lamp below the fold and everything on the page is
+ * either lit by it or in shadow, which is why a surface can be told from the page behind it
+ * with no line drawn around either. The light is amber, the same amber the speed ramp runs
+ * through, so the room and the data agree instead of competing.
+ *
+ * It comes on when the page does. Not a flourish: an unlit room and a lit one are the same
+ * screenshot, and the difference between them is the only thing that says the page is
+ * ready rather than empty.
  */
 
 :root {
@@ -24,6 +27,13 @@
   /* Ambient, not directional. Large and soft, so a surface floats rather than is outlined. */
   --lift: 0 1px 2px rgb(0 0 0 / 60%), 0 12px 32px rgb(0 0 0 / 45%);
   --lift-high: 0 2px 4px rgb(0 0 0 / 70%), 0 28px 64px rgb(0 0 0 / 55%);
+
+  /* The underside of a surface, catching the lamp. One hairline of warmth, not a border:
+   * it runs along the bottom edge only, because that is the edge facing the light. */
+  --lit-below: inset 0 -1px 0 rgb(245 158 11 / 16%);
+
+  /* Long enough to read as a filament warming rather than a fade. */
+  --warmup: 1500ms;
 
   --radius: 12px;
   --settle: 180ms cubic-bezier(0.2, 0, 0, 1);
@@ -58,6 +68,42 @@ body {
   position: relative;
   place-items: center;
   min-height: 100%;
+  isolation: isolate;
+}
+
+/*
+ * The lamp. Fixed to the bottom of the viewport, warm, and very blurred: two pools, a broad
+ * amber wash and a tighter orange core inside it, which is what stops it reading as a flat
+ * gradient. It sits behind everything and catches nothing.
+ */
+.lamp {
+  position: fixed;
+  z-index: -1;
+  inset: auto 0 -18% 0;
+  height: 96vh;
+  /* Three pools rather than one: a wide low wash, a warmer core inside it, and a tall
+   * faint bloom that reaches the type. One ellipse either lights the floor and nothing
+   * else, or washes the whole page flat. */
+  background:
+    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(245 158 11 / 20%), transparent 70%),
+    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(251 146 60 / 16%), transparent 66%),
+    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(245 158 11 / 9%), transparent 72%);
+  filter: blur(52px);
+  pointer-events: none;
+  animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Rising as it brightens, so the light arrives from somewhere rather than simply appearing. */
+@keyframes lights-on {
+  from {
+    opacity: 0;
+    transform: translateY(16%) scaleY(0.72);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /*
@@ -70,7 +116,20 @@ body {
 .landing-centre {
   position: relative;
   width: min(560px, calc(100% - 48px));
-  transform: translateY(-8vh);
+  /* Both ends carry the offset, or the lift would fight the optical centre. */
+  animation: rise 900ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-8vh + 14px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-8vh);
+  }
 }
 
 /* The signature small label: tiny, spaced, quiet. Says what this is without a heading. */
@@ -117,10 +176,12 @@ body {
 .search-field {
   width: 100%;
   padding: 17px 18px;
-  border: 1px solid var(--edge);
+  border: 0;
   border-radius: var(--radius);
-  background: var(--raised);
-  box-shadow: var(--lift);
+  /* Lit from below like everything else, so the surface itself carries a little of the
+   * lamp rather than being a flat grey rectangle sitting in front of it. */
+  background: linear-gradient(to top, rgb(245 158 11 / 5%), transparent 60%), var(--raised);
+  box-shadow: var(--lit-below), var(--lift);
   color: var(--ink);
   font: inherit;
   transition:
@@ -141,11 +202,13 @@ body {
 
 .search-field:focus {
   outline: none;
-  border-color: rgb(245 158 11 / 40%);
   background: var(--raised-high);
+  /* Focus turns the lamp up on this one surface rather than drawing a ring around it. */
   box-shadow:
-    var(--lift-high),
-    0 0 0 3px rgb(245 158 11 / 12%);
+    inset 0 -1px 0 rgb(245 158 11 / 38%),
+    0 0 0 1px rgb(245 158 11 / 14%),
+    0 0 28px -6px rgb(245 158 11 / 22%),
+    var(--lift-high);
 }
 
 .suggestions {
@@ -156,10 +219,10 @@ body {
   left: 0;
   margin: 0;
   padding: 6px;
-  border: 1px solid var(--edge);
+  border: 0;
   border-radius: var(--radius);
   background: var(--raised);
-  box-shadow: var(--lift-high);
+  box-shadow: var(--lit-below), var(--lift-high);
   list-style: none;
   /* Eight results at full height overflow a laptop viewport, and the last of them is the
    * one worth reading: a fuzzy match is where the interesting near-misses land. */
@@ -242,8 +305,12 @@ body {
   color: var(--accent);
 }
 
+/* The lit room, arrived at rather than animated into. Someone who asked for less motion
+ * still gets the light; they just do not watch it come on. */
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0ms !important;
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
   }
 }
