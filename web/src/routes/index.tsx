@@ -4,8 +4,8 @@
  * One question, one field, one quiet way out. The tagline sits at the optical centre rather
  * than the true middle, because text centred at 50% reads low.
  *
- * Nothing is lit by a gradient. Depth comes from shadow alone, which is why the page holds
- * together with no colour on it but the amber in the ramp.
+ * Nothing is outlined. A warm lamp sits below the fold and comes on with the page, and every
+ * surface is told from the page behind it by how the light falls on it.
  */
 
 import { Search } from "../components/Search";
@@ -17,6 +17,9 @@ export function Landing(): React.ReactElement {
 
   return (
     <main className="landing" lang={language}>
+      {/* The lamp below the fold. Everything on the page is lit by it or in shadow. */}
+      <div className="lamp" aria-hidden="true" />
+
       <div className="landing-centre">
         <p className="eyebrow">{text.eyebrow}</p>
         <h1 className="tagline">{text.tagline}</h1>
