@@ -1,10 +1,10 @@
 /*
- * True black, neutral greys, and one warm light doing the work that borders usually do.
+ * True black, neutral greys, and one violet light doing the work that borders usually do.
  *
  * Nothing here is outlined. There is a lamp below the fold and everything on the page is
  * either lit by it or in shadow, which is why a surface can be told from the page behind it
- * with no line drawn around either. The light is amber, the same amber the speed ramp runs
- * through, so the room and the data agree instead of competing.
+ * with no line drawn around either. The light is violet and the far end of it is cyan, which
+ * is exactly the range the speed ramp runs through, so the room and the data agree.
  *
  * It comes on when the page does. Not a flourish: an unlit room and a lit one are the same
  * screenshot, and the difference between them is the only thing that says the page is
@@ -22,15 +22,16 @@
   --ink-dim: #a1a1aa;
   --ink-faint: #71717a;
 
-  --accent: #f59e0b;
+  --accent: #a855f7;
+  --accent-far: #22d3ee;
 
   /* Ambient, not directional. Large and soft, so a surface floats rather than is outlined. */
   --lift: 0 1px 2px rgb(0 0 0 / 60%), 0 12px 32px rgb(0 0 0 / 45%);
   --lift-high: 0 2px 4px rgb(0 0 0 / 70%), 0 28px 64px rgb(0 0 0 / 55%);
 
-  /* The underside of a surface, catching the lamp. One hairline of warmth, not a border:
-   * it runs along the bottom edge only, because that is the edge facing the light. */
-  --lit-below: inset 0 -1px 0 rgb(245 158 11 / 16%);
+  /* The underside of a surface, catching the lamp. One hairline, not a border: it runs
+   * along the bottom edge only, because that is the edge facing the light. */
+  --lit-below: inset 0 -1px 0 rgb(168 85 247 / 22%);
 
   /* Long enough to read as a filament warming rather than a fade. */
   --warmup: 1500ms;
@@ -76,6 +77,20 @@ body {
  * amber wash and a tighter orange core inside it, which is what stops it reading as a flat
  * gradient. It sits behind everything and catches nothing.
  */
+.network {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.5;
+  pointer-events: none;
+  /* Dimmed towards the middle so the type is never read against a line, and towards the
+   * edges so the field has no border of its own making. */
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 42%, transparent 8%, #000 62%);
+  animation: lights-on calc(var(--warmup) * 1.4) ease-out both;
+}
+
 .lamp {
   position: fixed;
   z-index: -1;
@@ -85,9 +100,9 @@ body {
    * faint bloom that reaches the type. One ellipse either lights the floor and nothing
    * else, or washes the whole page flat. */
   background:
-    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(245 158 11 / 20%), transparent 70%),
-    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(251 146 60 / 16%), transparent 66%),
-    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(245 158 11 / 9%), transparent 72%);
+    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(168 85 247 / 20%), transparent 70%),
+    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(34 211 238 / 16%), transparent 66%),
+    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(168 85 247 / 9%), transparent 72%);
   filter: blur(52px);
   pointer-events: none;
   animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -173,21 +188,54 @@ body {
   clip-path: inset(50%);
 }
 
-.search-field {
-  width: 100%;
-  padding: 17px 18px;
-  border: 0;
-  border-radius: var(--radius);
-  /* Lit from below like everything else, so the surface itself carries a little of the
-   * lamp rather than being a flat grey rectangle sitting in front of it. */
-  background: linear-gradient(to top, rgb(245 158 11 / 5%), transparent 60%), var(--raised);
-  box-shadow: var(--lit-below), var(--lift);
-  color: var(--ink);
-  font: inherit;
+/*
+ * The field is the shell, not the input. The input inside it is stripped to nothing so the
+ * glyph, the light and the text sit in one surface rather than a box inside a box.
+ */
+.search-shell {
+  display: grid;
+  position: relative;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 0 20px;
+  border-radius: 14px;
+  background: linear-gradient(to top, rgb(168 85 247 / 7%), transparent 62%), var(--raised);
+  box-shadow:
+    var(--lit-below),
+    inset 0 1px 0 rgb(255 255 255 / 4%),
+    var(--lift);
   transition:
-    border-color var(--settle),
     box-shadow var(--settle),
     background var(--settle);
+}
+
+.search-glyph {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  transition: stroke var(--settle);
+}
+
+.search-shell:focus-within .search-glyph {
+  stroke: var(--accent);
+}
+
+.search-field {
+  width: 100%;
+  padding: 19px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.search-field:focus {
+  outline: none;
 }
 
 .search-field::placeholder {
@@ -200,14 +248,13 @@ body {
   appearance: none;
 }
 
-.search-field:focus {
-  outline: none;
-  background: var(--raised-high);
-  /* Focus turns the lamp up on this one surface rather than drawing a ring around it. */
+/* Focus turns the lamp up on this one surface rather than drawing a ring around it. */
+.search-shell:focus-within {
+  background: linear-gradient(to top, rgb(168 85 247 / 12%), transparent 62%), var(--raised-high);
   box-shadow:
-    inset 0 -1px 0 rgb(245 158 11 / 38%),
-    0 0 0 1px rgb(245 158 11 / 14%),
-    0 0 28px -6px rgb(245 158 11 / 22%),
+    inset 0 -1px 0 rgb(168 85 247 / 55%),
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 0 34px -8px rgb(168 85 247 / 40%),
     var(--lift-high);
 }
 
@@ -218,17 +265,20 @@ body {
   right: 0;
   left: 0;
   margin: 0;
-  padding: 6px;
+  padding: 5px;
   border: 0;
-  border-radius: var(--radius);
+  border-radius: 14px;
   background: var(--raised);
   box-shadow: var(--lit-below), var(--lift-high);
   list-style: none;
-  /* Eight results at full height overflow a laptop viewport, and the last of them is the
-   * one worth reading: a fuzzy match is where the interesting near-misses land. */
-  max-height: min(52vh, 420px);
+  /* The room actually left under the field, measured on open and on every viewport change,
+   * because a phone keyboard takes half the screen and no fraction of vh knows that. The
+   * last row is the one worth reaching: a fuzzy match is where the near-misses land. */
+  max-height: min(var(--room, 46dvh), 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 14%) transparent;
 }
 
 .suggestion-note {
@@ -243,7 +293,7 @@ body {
   gap: 3px 14px;
   align-items: center;
   width: 100%;
-  padding: 11px 12px;
+  padding: 13px 15px;
   border: 0;
   border-radius: 8px;
   background: none;
@@ -281,12 +331,14 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* A lit point, not a swatch: it is the same ramp the network behind the page is drawn in. */
 .suggestion-dot {
   grid-row: 1 / span 2;
   grid-column: 2;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  box-shadow: 0 0 10px -1px currentcolor;
 }
 
 .browse {
