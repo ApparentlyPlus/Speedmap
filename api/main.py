@@ -99,12 +99,29 @@ def health() -> Health:
 MIN_QUERY = 2
 MAX_RESULTS = 20
 
-ADDRESS_COLUMNS = """
-    'address', a.id, a.street, a.street_no, a.locality, m.name, a.postcode, a.premises
+# The fastest thing known to reach this address, for the dot beside it. Two sources: what
+# an operator has told us directly, and the band the register filed. Greatest ignores nulls,
+# so an address known to one and not the other still gets a colour. The topmost band is
+# open-ended and files no ceiling, so its floor stands in for it.
+BEST_MBPS = """
+    greatest(
+        (select max(v.max_down_mbps) from availability v
+         where v.address_id = a.id and v.serviceable),
+        (select max(coalesce(sb.max_mbps, sb.min_mbps)) from address_coverage ac
+         join speed_band sb on sb.id = ac.speed_band_id
+         where ac.address_id = a.id)
+    )
 """
 
+ADDRESS_COLUMNS = f"""
+    'address', a.id, a.street, a.street_no, a.locality, m.name, a.postcode, a.premises,
+    {BEST_MBPS}
+"""
+
+# A street's best is the best of the addresses on it, worked out by the build rather than
+# here: asking it per keystroke cost 173ms against a tier that answers in a third of one.
 STREET_COLUMNS = """
-    'street', s.id, s.name, null, null, m.name, null, null
+    'street', s.id, s.name, null, null, m.name, null, null, s.best_mbps
 """
 
 # Three tiers, widening only when the one above has not filled the page. A prefix costs
@@ -112,11 +129,18 @@ STREET_COLUMNS = """
 TIERS = ("prefix", "word", "fuzzy")
 
 
+# The register files a bare dash where it holds no street name: 70 addresses of it. They
+# cannot be found by searching for a street, so they only ever surface as fuzzy noise, and a
+# row reading "- -" tells the reader nothing they can act on. They stay in the index and out
+# of the suggestions.
+NAMELESS = "a.street <> '-'"
+
+
 def address_sql(key: str, tier: str) -> str:
     return f"""
     select {ADDRESS_COLUMNS}
     from address a left join municipality m on m.id = a.municipality_id
-    where {condition('a.' + key, tier)}
+    where {NAMELESS} and {condition('a.' + key, tier)}
     order by {order('a.' + key, tier)} a.premises desc nulls last, a.id
     limit %s
     """
@@ -162,6 +186,9 @@ class Result(BaseModel):
     municipality: str | None
     postcode: str | None
     premises: int | None = Field(description="dwellings passed, null when not filed")
+    best_mbps: Decimal | None = Field(
+        description="the fastest known to reach here; null is not filed, not zero"
+    )
     match: str = Field(description="prefix, word or fuzzy")
 
 
@@ -176,7 +203,8 @@ def results(found: list[tuple[Any, ...]], match: str) -> list[Result]:
     return [
         Result(
             kind=row[0], id=row[1], name=row[2], street_no=row[3], locality=row[4],
-            municipality=row[5], postcode=row[6], premises=row[7], match=match,
+            municipality=row[5], postcode=row[6], premises=row[7], best_mbps=row[8],
+            match=match,
         )
         for row in found
     ]

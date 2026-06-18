@@ -365,3 +365,27 @@ async def test_a_bar_of_nothing_is_refused(client: httpx.AsyncClient) -> None:
         f"/addresses/{found[0]['id']}/options", params={"need_mbps": "0"}
     )
     assert response.status_code == 422
+
+
+async def test_a_result_carries_its_best_known_speed(client: httpx.AsyncClient) -> None:
+    """The dot beside a suggestion teaches the ramp before anyone reaches the map."""
+    response = await client.get("/search", params={"q": "Αχαρνών"})
+    found = response.json()
+    if not found:
+        pytest.skip("the scratch database holds nothing to search")
+    assert "best_mbps" in found[0]
+
+
+async def test_an_address_with_no_street_name_is_not_suggested(
+    client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
+) -> None:
+    """The register files a bare dash where it holds no name. Such a row reads as '- -' and
+    tells the reader nothing they can act on, so it stays in the index and out of search."""
+    db.execute(
+        "insert into address (street, street_fold, street_no, geom, search_key, latin_key) "
+        "values ('-', '-', '-', st_setsrid(st_point(23.7, 37.9), 4326), "
+        "'ΑΧΑΡΝΩΝ ΔΑΣΗ', 'ACHARNON DASI')"
+    )
+    db.commit()
+    response = await client.get("/search", params={"q": "ΑΧΑΡΝΩΝ ΔΑΣΗ"})
+    assert all(r["name"] != "-" for r in response.json())

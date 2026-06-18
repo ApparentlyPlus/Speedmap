@@ -421,6 +421,11 @@ export interface components {
         };
         /** Result */
         Result: {
+            /**
+             * Best Mbps
+             * @description the fastest known to reach here; null is not filed, not zero
+             */
+            best_mbps: string | null;
             /** Id */
             id: number;
             /**
