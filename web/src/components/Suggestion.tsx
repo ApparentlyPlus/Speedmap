@@ -19,9 +19,9 @@ export function Suggestion({
   readonly language: Language;
 }): React.ReactElement {
   const text = strings(language);
-  // Not yet on the search response. Every row reads as unfiled until it is, which is the
-  // honest rendering rather than a placeholder.
-  const best = null as ReturnType<typeof mbps> | null;
+  // A string on the wire, because the server sends a decimal and JSON has no such thing.
+  // Null is not filed rather than nothing, and stays null all the way to the colour.
+  const best = result.best_mbps === null ? null : mbps(Number(result.best_mbps));
   const band = bandFor(best);
 
   const name = result.street_no === null ? result.name : `${result.name} ${result.street_no}`;
@@ -38,8 +38,8 @@ export function Suggestion({
         <span
           className="suggestion-dot"
           style={{ background: colourFor(best), color: colourFor(best) }}
-          title={band === null ? text.unfiled : band.name}
-          aria-label={band === null ? text.unfiled : band.name}
+          title={band === null ? text.unfiled : `${best} Mbps`}
+          aria-label={band === null ? text.unfiled : `${best} Mbps`}
         />
       </button>
     </li>

@@ -578,6 +578,19 @@
       },
       "Result": {
         "properties": {
+          "best_mbps": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the fastest known to reach here; null is not filed, not zero",
+            "title": "Best Mbps"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -663,6 +676,7 @@
           "municipality",
           "postcode",
           "premises",
+          "best_mbps",
           "match"
         ],
         "title": "Result",
