@@ -29,16 +29,16 @@ export type Band = {
  * The thresholds are the ones the rest of the system already reasons in: a hundred is what
  * a household needs, three hundred is where copper cannot follow, a gigabit is settled.
  *
- * A heat ramp, dark red through to pale gold. It orders by lightness as well as by hue, so
- * it survives being read by someone who cannot separate red from green, and it is warm
- * throughout rather than a cool accent sitting on a warm page.
+ * Deep violet through to pale cyan. It climbs in lightness the whole way, so it survives
+ * being read by someone who cannot separate the hues at all, and it stays inside the
+ * page's own two colours rather than importing a third.
  */
 export const RAMP: readonly Band[] = [
-  { floor: mbps(1000), colour: "#fde68a", name: "gigabit" },
-  { floor: mbps(300), colour: "#fbbf24", name: "fast" },
-  { floor: mbps(100), colour: "#f59e0b", name: "enough" },
-  { floor: mbps(30), colour: "#ea580c", name: "slow" },
-  { floor: mbps(0), colour: "#b91c1c", name: "poor" },
+  { floor: mbps(1000), colour: "#a5f3fc", name: "gigabit" },
+  { floor: mbps(300), colour: "#22d3ee", name: "fast" },
+  { floor: mbps(100), colour: "#c4b5fd", name: "enough" },
+  { floor: mbps(30), colour: "#a855f7", name: "slow" },
+  { floor: mbps(0), colour: "#6d28d9", name: "poor" },
 ];
 
 /**
@@ -59,5 +59,8 @@ export function colourFor(speed: Mbps | null): string {
   return bandFor(speed)?.colour ?? UNFILED;
 }
 
-/** The accent everything else is lit by: one light source, from below, and warm. */
-export const ACCENT = "#f59e0b";
+/** The accent everything else is lit by: one light source, from below. */
+export const ACCENT = "#a855f7";
+
+/** The far end of the ramp, and the second colour the network behind the page is drawn in. */
+export const FAR = "#22d3ee";

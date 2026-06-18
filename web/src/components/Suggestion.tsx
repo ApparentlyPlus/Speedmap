@@ -37,7 +37,7 @@ export function Suggestion({
         <span className="suggestion-where">{where}</span>
         <span
           className="suggestion-dot"
-          style={{ background: colourFor(best) }}
+          style={{ background: colourFor(best), color: colourFor(best) }}
           title={band === null ? text.unfiled : band.name}
           aria-label={band === null ? text.unfiled : band.name}
         />

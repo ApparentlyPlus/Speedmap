@@ -9,6 +9,7 @@
  */
 
 import { Search } from "../components/Search";
+import { Network } from "../components/Network";
 import { languageOf, strings } from "../i18n";
 
 export function Landing(): React.ReactElement {
@@ -17,6 +18,9 @@ export function Landing(): React.ReactElement {
 
   return (
     <main className="landing" lang={language}>
+      {/* The map this site is about, reduced until it is texture rather than information. */}
+      <Network />
+
       {/* The lamp below the fold. Everything on the page is lit by it or in shadow. */}
       <div className="lamp" aria-hidden="true" />
 
