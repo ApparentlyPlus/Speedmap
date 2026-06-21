@@ -389,3 +389,16 @@ async def test_an_address_with_no_street_name_is_not_suggested(
     db.commit()
     response = await client.get("/search", params={"q": "ΑΧΑΡΝΩΝ ΔΑΣΗ"})
     assert all(r["name"] != "-" for r in response.json())
+
+
+async def test_one_operator_can_be_asked_alone(client: httpx.AsyncClient) -> None:
+    """Three checkers behind one request makes the reader wait for the slowest before
+    learning anything about the other two."""
+    address = await client.get("/search", params={"q": "Αχαρνών"})
+    found = [r for r in address.json() if r["kind"] == "address"]
+    if not found:
+        pytest.skip("the scratch database holds no address to probe")
+    response = await client.post(
+        f"/addresses/{found[0]['id']}/probe", params={"provider": "NOPE"}
+    )
+    assert response.status_code == 422

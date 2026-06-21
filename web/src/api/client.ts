@@ -12,6 +12,7 @@ export type Result = components["schemas"]["Result"];
 export type Options = components["schemas"]["Options"];
 export type Buyable = components["schemas"]["Buyable"];
 export type Operator = components["schemas"]["Operator"];
+export type Probed = components["schemas"]["Probed"];
 
 /** Same origin in production behind Caddy, and proxied to the same place in development. */
 const BASE = "/api";
@@ -24,6 +25,18 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+async function send<T>(method: string, path: string, signal?: AbortSignal): Promise<T> {
+  const answer = await fetch(`${BASE}${path}`, {
+    method,
+    signal: signal ?? null,
+    headers: { Accept: "application/json" },
+  });
+  if (!answer.ok) {
+    throw new ApiError(answer.status, `${path} answered ${answer.status}`);
+  }
+  return (await answer.json()) as T;
 }
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -43,4 +56,18 @@ export function search(query: string, signal?: AbortSignal): Promise<Result[]> {
 
 export function options(addressId: number, signal?: AbortSignal): Promise<Options> {
   return get<Options>(`/addresses/${addressId}/options`, signal);
+}
+
+/**
+ * Ask one operator. One at a time on purpose: a checker takes between two and eight
+ * seconds, and asking all three behind a single request makes the reader wait for the
+ * slowest before learning anything about the other two.
+ */
+export function probe(
+  addressId: number,
+  provider: string,
+  signal?: AbortSignal,
+): Promise<Probed[]> {
+  const where = `/addresses/${addressId}/probe?provider=${encodeURIComponent(provider)}`;
+  return send<Probed[]>("POST", where, signal);
 }

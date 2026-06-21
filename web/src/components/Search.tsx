@@ -28,7 +28,13 @@ type State =
   | { readonly kind: "answered"; readonly results: Result[] }
   | { readonly kind: "failed" };
 
-export function Search({ language }: { readonly language: Language }): React.ReactElement {
+export function Search({
+  language,
+  onPick,
+}: {
+  readonly language: Language;
+  readonly onPick: (result: Result) => void;
+}): React.ReactElement {
   const text = strings(language);
   const [query, setQuery] = useState("");
   const [state, setState] = useState<State>({ kind: "idle" });
@@ -125,7 +131,12 @@ export function Search({ language }: { readonly language: Language }): React.Rea
           )}
           {state.kind === "answered" &&
             state.results.map((result) => (
-              <Suggestion key={`${result.kind}-${result.id}`} result={result} language={language} />
+              <Suggestion
+                key={`${result.kind}-${result.id}`}
+                result={result}
+                language={language}
+                onPick={onPick}
+              />
             ))}
         </ul>
       )}
