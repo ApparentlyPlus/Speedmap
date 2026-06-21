@@ -55,12 +55,31 @@ def confidence(tests: int | None) -> float:
     return MIN_CONFIDENCE + (1.0 - MIN_CONFIDENCE) * share
 
 
+def tempered(seen: Decimal, filed: Decimal | None, weight: float) -> Decimal:
+    """Move from what was filed toward what was measured, by how much the measurement is worth.
+
+    Two tests are not six and six are not twenty five, and the difference was being thrown
+    away: confidence was computed, reported on the card, and then ignored by the arithmetic,
+    so a tile holding two results could overrule a band filed at 300 Mbps outright. It did —
+    an address a few hundred metres from its neighbour expected 28 Mbps of mobile where the
+    neighbour expected 100, on the strength of two measurements.
+
+    Thin evidence still moves the answer, because a slow tile over a fast claim is real
+    information and the operator is the interested party. It just does not move it all the
+    way. At twenty five tests it does.
+    """
+    if filed is None:
+        return seen
+    return seen + (filed - seen) * Decimal(str(1.0 - weight))
+
+
 def expected(
     family: str,
     advertised: Decimal | None,
     ceiling: Decimal | None = None,
     median_mbps: Decimal | None = None,
     tests: int | None = None,
+    filed_mbps: Decimal | None = None,
 ) -> Expected:
     """Temper an advertised figure with measurement, by what the technology is."""
     held, was_clamped = clamp(advertised, ceiling)
@@ -74,14 +93,20 @@ def expected(
     if family == "copper":
         if median_mbps is None or held is None:
             return Expected(held, was_clamped, False, 0.0)
-        return Expected(min(held, median_mbps * COPPER_TOLERANCE), was_clamped, True, weight)
+        # Held back toward the advertised figure the thinner the measurement is, and never
+        # above it: a line is sold at a rate the copper either carries or does not.
+        reached = min(held, median_mbps * COPPER_TOLERANCE)
+        return Expected(tempered(reached, held, weight), was_clamped, True, weight)
 
     if family in ("wireless", "mobile"):
         # Without a measurement there is no basis at all: an advertised mobile figure is a
         # best case under conditions the customer will not have.
         if median_mbps is None:
             return Expected(None, was_clamped, False, 0.0)
-        return Expected(median_mbps * INDOOR_PENALTY, was_clamped, True, weight)
+        # The band filed for this place is the other witness. Neither is trusted outright:
+        # the operator has an interest, and a tile of two tests is barely a measurement.
+        seen = median_mbps * INDOOR_PENALTY
+        return Expected(tempered(seen, filed_mbps, weight), was_clamped, True, weight)
 
     if family == "satellite":
         if held is None:
