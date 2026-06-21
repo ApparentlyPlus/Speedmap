@@ -41,6 +41,9 @@ class Option:
     """One thing that could be bought here."""
 
     provider: str
+    # What a customer would recognise. The code is what every join uses; this is what the
+    # reader is shown, and they are not always the same word.
+    provider_name: str
     plan: str
     technology: str
     family: str

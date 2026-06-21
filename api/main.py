@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal
@@ -20,7 +21,8 @@ from pydantic import BaseModel, Field
 
 from db.settings import settings
 from normalise.greeklish import from_latin, is_greeklish
-from normalise.text import street_key
+from normalise.propose import propose
+from normalise.text import fold, split_number, street_key
 from probe.adapter import Adapter
 from probe.cosmote import Cosmote
 from probe.health import health as adapter_state
@@ -129,6 +131,9 @@ STREET_COLUMNS = """
 # 0.3ms, a word-start match 11ms, and similarity ordering 445ms over 1.5M rows.
 TIERS = ("prefix", "word", "fuzzy")
 
+# How many streets a bare number is offered on. More than two is a list of guesses.
+PROPOSALS = 2
+
 
 # The register files a bare dash where it holds no street name: 70 addresses of it. They
 # cannot be found by searching for a street, so they only ever surface as fuzzy noise, and a
@@ -137,49 +142,85 @@ TIERS = ("prefix", "word", "fuzzy")
 NAMELESS = "a.street <> '-'"
 
 
-def address_sql(key: str, tier: str) -> str:
-    return f"""
+@dataclass(frozen=True)
+class Asked:
+    """A query taken apart: what to match on, and the house number to prefer."""
+
+    folded: str
+    number: str | None
+
+
+def condition(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]:
+    """The where clause for one tier, and the values it takes.
+
+    The word tier asks for every token separately and in no particular order, because Greek
+    street names are filed both ways round — Συμεωνίδη Αλεξάνδρου here, Αλεξάνδρου
+    Συμεωνίδη a suburb away — and a reader who types one order should not be told the other
+    does not exist. The trigram index serves each `like` the same way it served the one.
+    """
+    joined = " ".join(tokens)
+    prefix, anywhere = joined + "%", "% " + joined + "%"
+    if tier == "prefix":
+        return f"{column} like %s", [prefix]
+    if tier == "word":
+        # Each token at the start of the key or at the start of a word inside it.
+        each = " and ".join(f"({column} like %s or {column} like %s)" for _ in tokens)
+        values: list[object] = []
+        for token in tokens:
+            values += [token + "%", "% " + token + "%"]
+        return f"{each} and not ({column} like %s)", [*values, prefix]
+    return (
+        f"{column} %% %s and not ({column} like %s) and not ({column} like %s)",
+        [joined, prefix, anywhere],
+    )
+
+
+def order(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]:
+    """Within a tier every row matched equally well, so rank by size, not by spelling."""
+    if tier != "fuzzy":
+        return "", []
+    return f"similarity({column}, %s) desc,", [" ".join(tokens)]
+
+
+def address_sql(key: str, tier: str, asked: Asked, limit: int) -> tuple[str, tuple[object, ...]]:
+    column = "a." + key
+    tokens = asked.folded.split(" ")
+    where, taken = condition(column, tier, tokens)
+    ranked, ranking = order(column, tier, tokens)
+    # The number the reader typed, ahead of every other way of ordering the street's
+    # addresses: it is the most specific thing they said and it was being thrown away.
+    wanted, number = ("a.street_no = %s desc, ", [asked.number]) if asked.number else ("", [])
+    return (
+        f"""
     select {ADDRESS_COLUMNS}
     from address a left join municipality m on m.id = a.municipality_id
-    where {NAMELESS} and {condition('a.' + key, tier)}
-    order by {order('a.' + key, tier)} a.premises desc nulls last, a.id
+    where {NAMELESS} and {where}
+    order by {wanted}{ranked} a.premises desc nulls last, a.id
     limit %s
-    """
+    """,
+        tuple(taken + number + ranking + [limit]),
+    )
 
 
-def street_sql(key: str, tier: str) -> str:
-    return f"""
+def street_sql(key: str, tier: str, asked: Asked, limit: int) -> tuple[str, tuple[object, ...]]:
+    column = "s." + key
+    tokens = asked.folded.split(" ")
+    where, taken = condition(column, tier, tokens)
+    ranked, ranking = order(column, tier, tokens)
+    return (
+        f"""
     select {STREET_COLUMNS}
     from street s left join municipality m on m.id = s.municipality_id
-    where {condition('s.' + key, tier)}
-    order by {order('s.' + key, tier)} s.ways desc, s.id
+    where {where}
+    order by {ranked} s.ways desc, s.id
     limit %s
-    """
-
-
-def condition(column: str, tier: str) -> str:
-    if tier == "prefix":
-        return f"{column} like %s"
-    if tier == "word":
-        return f"{column} like %s and not ({column} like %s)"
-    return f"{column} %% %s and not ({column} like %s) and not ({column} like %s)"
-
-
-def order(column: str, tier: str) -> str:
-    """Within a tier every row matched equally well, so rank by size, not by spelling."""
-    return f"similarity({column}, %s) desc," if tier == "fuzzy" else ""
-
-
-def params(tier: str, folded: str, prefix: str, anywhere: str, limit: int) -> tuple[object, ...]:
-    if tier == "prefix":
-        return (prefix, limit)
-    if tier == "word":
-        return (anywhere, prefix, limit)
-    return (folded, prefix, anywhere, folded, limit)
+    """,
+        tuple(taken + ranking + [limit]),
+    )
 
 
 class Result(BaseModel):
-    kind: str = Field(description="address or street")
+    kind: str = Field(description="address, street, or proposed")
     id: int
     name: str
     street_no: str | None
@@ -190,7 +231,35 @@ class Result(BaseModel):
     best_mbps: Decimal | None = Field(
         description="the fastest known to reach here; null is not filed, not zero"
     )
-    match: str = Field(description="prefix, word or fuzzy")
+    match: str = Field(description="prefix, word, fuzzy or asked")
+    street_id: int | None = Field(
+        default=None,
+        description="for a proposed address, the street to ask for it on",
+    )
+
+
+def proposable(key: str, tier: str, asked: Asked, limit: int) -> tuple[str, tuple[object, ...]]:
+    """Streets a number could be on, looked up in their own right.
+
+    The suggestion list fills with addresses first and a street may never reach the page, so
+    a proposal cannot be built out of whatever the tiers happened to return. It walks the
+    same three tiers for the same reason the search does: ΤΖΕΛΙΛΗ is not a prefix of
+    ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ, and that street is exactly the one with no numbers filed on it.
+    """
+    column = "s." + key
+    tokens = asked.folded.split(" ")
+    where, taken = condition(column, tier, tokens)
+    ranked, ranking = order(column, tier, tokens)
+    return (
+        f"""
+        select s.id, s.name, m.name, s.best_mbps
+        from street s left join municipality m on m.id = s.municipality_id
+        where {where}
+        order by {ranked} s.ways desc, s.id
+        limit %s
+        """,
+        tuple(taken + ranking + [limit]),
+    )
 
 
 def like_literal(text: str) -> str:
@@ -219,6 +288,8 @@ def search(
     """Addresses and streets, in Greek or Greeklish, folded the way the index was built."""
     greeklish = is_greeklish(q)
     folded = from_latin(street_key(q)) if greeklish else street_key(q)
+    street, number = split_number(folded)
+    asked = Asked(folded=like_literal(street), number=number)
 
     # The two tables spell the same idea differently: an address key carries the locality,
     # a street key is the name alone.
@@ -227,20 +298,51 @@ def search(
         (street_sql, "latin_key" if greeklish else "name_fold"),
     )
 
-    escaped = like_literal(folded)
-    prefix, anywhere = escaped + "%", "% " + escaped + "%"
-
     found: list[Result] = []
     for tier in TIERS:
         for builder, column in sources:
             remaining = limit - len(found)
             if remaining <= 0:
-                return found
-            found += results(
-                rows(builder(column, tier), params(tier, folded, prefix, anywhere, remaining)),
-                tier,
+                break
+            sql, taken = builder(column, tier, asked, remaining)
+            found += results(rows(sql, taken), tier)
+        if len(found) >= limit:
+            break
+    return offer_the_number(found, asked, "latin_key" if greeklish else "name_fold", limit)
+
+
+def offer_the_number(
+    found: list[Result], asked: Asked, key: str, limit: int
+) -> list[Result]:
+    """The number the reader typed, on a street we know, whether or not it is filed.
+
+    Held addresses come first: one that exists is worth more than one we would have to make.
+    A proposal is offered only when none of them is the number that was asked for, and only
+    on streets that actually match, so it is a door on a real street rather than a guess.
+    """
+    if asked.number is None:
+        return found[:limit]
+    if any(r.kind == "address" and r.street_no == asked.number for r in found):
+        return found[:limit]
+
+    proposals: list[Result] = []
+    for tier in TIERS:
+        if proposals:
+            break
+        sql, taken = proposable(key, tier, asked, PROPOSALS)
+        proposals = [
+            Result(
+                kind="proposed", id=row[0], name=row[1], street_no=asked.number,
+                locality=None, municipality=row[2], postcode=None, premises=None,
+                best_mbps=row[3], match="asked", street_id=row[0],
             )
-    return found
+            for row in rows(sql, taken)
+        ]
+    # A street offered both as itself and as a door on it is two answers to one question,
+    # and the door is the one that was asked for.
+    offered = {p.id for p in proposals}
+    rest = [r for r in found if not (r.kind == "street" and r.id in offered)]
+    return (proposals + rest)[:limit]
 
 
 # One shape for both, but only address_coverage records how the match was made: for a
@@ -363,6 +465,15 @@ def address(address_id: int) -> AddressDetail:
     )
 
 
+# The search row for one address, so an address just made comes back in the shape the
+# suggestion list already knows how to render.
+SEARCH_ONE = f"""
+    select {ADDRESS_COLUMNS}
+    from address a left join municipality m on m.id = a.municipality_id
+    where a.id = %s
+"""
+
+
 @app.get("/streets/{street_id}", response_model=StreetDetail, tags=["street"])
 def street(street_id: int) -> StreetDetail:
     """A street where no address is filed: coverage comes from the cabinets it crosses."""
@@ -371,6 +482,41 @@ def street(street_id: int) -> StreetDetail:
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         offers=offers(rows(STREET_OFFERS, (street_id,))),
     )
+
+
+class Asking(BaseModel):
+    street_no: str = Field(min_length=1, max_length=16, description="as the reader typed it")
+
+
+@app.post(
+    "/streets/{street_id}/addresses",
+    response_model=Result,
+    status_code=201,
+    tags=["street"],
+)
+def ask_for(street_id: int, asked: Asking) -> Result:
+    """Make the address at this number, so it can be probed and kept like any other.
+
+    The register knows the street and not the number, which is the common case rather than
+    the odd one: it files nothing at all on some streets and the Cosmote scrape walked away
+    from others after five empty numbers in a row. Refusing the reader their own front door
+    because nobody filed it is the wrong answer when we hold the street it is on.
+
+    A write, and the second one in this API, so it is rate limited at the proxy alongside
+    the report and the probe. It is idempotent: the same number on the same street is the
+    same address however many times it is asked for.
+    """
+    number = fold(asked.street_no)
+    with pool.connection() as conn:
+        address_id = propose(conn, street_id, number)
+        if address_id is None:
+            raise HTTPException(404, "no such street")
+        conn.commit()
+        found = conn.execute(SEARCH_ONE, (address_id,)).fetchone()
+
+    if found is None:
+        raise HTTPException(404, "no such address")
+    return results([found], "asked")[0]
 
 
 @app.post("/reports", response_model=Report, status_code=201, tags=["report"])
@@ -394,6 +540,12 @@ def report(filed: ReportIn) -> Report:
     return Report(id=row[0], created_at=row[1])
 
 
+def names(conn: object, codes: list[str]) -> dict[str, str]:
+    """What each operator is called where a reader can see it."""
+    found = rows("select code, display_name from provider where code = any(%s)", (codes,))
+    return {str(code): str(shown) for code, shown in found}
+
+
 # The three that sell to households and can be asked. The rest are read from the register
 # and from what they publish, because there is nothing of theirs to ask.
 RETAIL = ["OTE", "VODAFONE", "NOVA"]
@@ -408,7 +560,8 @@ class Cost(BaseModel):
 
 
 class Buyable(BaseModel):
-    provider: str
+    provider: str = Field(description="the code every join uses")
+    provider_name: str = Field(description="what the reader is shown")
     plan: str
     technology: str
     family: str
@@ -424,6 +577,7 @@ class Buyable(BaseModel):
 
 class Operator(BaseModel):
     provider: str
+    provider_name: str
     known: str = Field(description="how this operator's answer was arrived at")
     state: str = Field(description="healthy, degraded, broken or untried")
     says: str = Field(description="what to tell the reader when it is not answering")
@@ -470,6 +624,7 @@ def address_options(
         now = datetime.now(UTC)
         known = verdicts(conn, address_id, RETAIL, now=now)
         faring = adapter_state(conn, RETAIL, now)
+        shown = names(conn, RETAIL)
         ranked = rank(buyable(conn, address_id), need=need_mbps)
 
     return Options(
@@ -479,6 +634,7 @@ def address_options(
         operators=[
             Operator(
                 provider=code,
+                provider_name=shown.get(code, code),
                 known=known.get(code, "unknown"),
                 state=faring[code].state,
                 says=faring[code].says,
@@ -488,6 +644,7 @@ def address_options(
         options=[
             Buyable(
                 provider=r.option.provider,
+                provider_name=r.option.provider_name,
                 plan=r.option.plan,
                 technology=r.option.technology,
                 family=r.option.family,
@@ -575,7 +732,14 @@ def adapter_health() -> list[Operator]:
     """
     with pool.connection() as conn:
         faring = adapter_state(conn, RETAIL, datetime.now(UTC))
+        shown = names(conn, RETAIL)
     return [
-        Operator(provider=code, known="-", state=faring[code].state, says=faring[code].says)
+        Operator(
+            provider=code,
+            provider_name=shown.get(code, code),
+            known="-",
+            state=faring[code].state,
+            says=faring[code].says,
+        )
         for code in sorted(faring)
     ]

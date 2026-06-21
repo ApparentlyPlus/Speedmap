@@ -122,6 +122,22 @@
         "title": "AddressDetail",
         "type": "object"
       },
+      "Asking": {
+        "properties": {
+          "street_no": {
+            "description": "as the reader typed it",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Street No",
+            "type": "string"
+          }
+        },
+        "required": [
+          "street_no"
+        ],
+        "title": "Asking",
+        "type": "object"
+      },
       "Buyable": {
         "properties": {
           "basis": {
@@ -184,7 +200,13 @@
             "type": "string"
           },
           "provider": {
+            "description": "the code every join uses",
             "title": "Provider",
+            "type": "string"
+          },
+          "provider_name": {
+            "description": "what the reader is shown",
+            "title": "Provider Name",
             "type": "string"
           },
           "technology": {
@@ -203,6 +225,7 @@
         },
         "required": [
           "provider",
+          "provider_name",
           "plan",
           "technology",
           "family",
@@ -367,6 +390,10 @@
             "title": "Provider",
             "type": "string"
           },
+          "provider_name": {
+            "title": "Provider Name",
+            "type": "string"
+          },
           "says": {
             "description": "what to tell the reader when it is not answering",
             "title": "Says",
@@ -380,6 +407,7 @@
         },
         "required": [
           "provider",
+          "provider_name",
           "known",
           "state",
           "says"
@@ -596,7 +624,7 @@
             "type": "integer"
           },
           "kind": {
-            "description": "address or street",
+            "description": "address, street, or proposed",
             "title": "Kind",
             "type": "string"
           },
@@ -613,7 +641,7 @@
             "title": "Locality"
           },
           "match": {
-            "description": "prefix, word or fuzzy",
+            "description": "prefix, word, fuzzy or asked",
             "title": "Match",
             "type": "string"
           },
@@ -654,6 +682,18 @@
             ],
             "description": "dwellings passed, null when not filed",
             "title": "Premises"
+          },
+          "street_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "for a proposed address, the street to ask for it on",
+            "title": "Street Id"
           },
           "street_no": {
             "anyOf": [
@@ -932,7 +972,7 @@
     },
     "/addresses/{address_id}/probe": {
       "post": {
-        "description": "Ask the operators that are due, and keep what they say.\n\nThe one path here that leaves the building. It is slow by nature, it is a write, and it\nis rate limited at the proxy for the same reasons the report endpoint is.",
+        "description": "Ask the operators that are due, and keep what they say.\n\nOne operator at a time is the caller's choice, and the reason it exists: a checker takes\nbetween two and eight seconds, and three of them behind one request means the reader\nwaits for the slowest before learning anything. Asked separately, each lands when it\nlands.\n\nThe one path here that leaves the building. It is slow by nature, it is a write, and it\nis rate limited at the proxy for the same reasons the report endpoint is.",
         "operationId": "address_probe_addresses__address_id__probe_post",
         "parameters": [
           {
@@ -942,6 +982,27 @@
             "schema": {
               "title": "Address Id",
               "type": "integer"
+            }
+          },
+          {
+            "description": "ask only these; omit to ask every operator that is due",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ask only these; omit to ask every operator that is due",
+              "title": "Provider"
             }
           }
         ],
@@ -1167,6 +1228,59 @@
           }
         },
         "summary": "Street",
+        "tags": [
+          "street"
+        ]
+      }
+    },
+    "/streets/{street_id}/addresses": {
+      "post": {
+        "description": "Make the address at this number, so it can be probed and kept like any other.\n\nThe register knows the street and not the number, which is the common case rather than\nthe odd one: it files nothing at all on some streets and the Cosmote scrape walked away\nfrom others after five empty numbers in a row. Refusing the reader their own front door\nbecause nobody filed it is the wrong answer when we hold the street it is on.\n\nA write, and the second one in this API, so it is rate limited at the proxy alongside\nthe report and the probe. It is idempotent: the same number on the same street is the\nsame address however many times it is asked for.",
+        "operationId": "ask_for_streets__street_id__addresses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "street_id",
+            "required": true,
+            "schema": {
+              "title": "Street Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Asking"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask For",
         "tags": [
           "street"
         ]
