@@ -95,7 +95,7 @@ def speed(
     if measured is not None:
         reckoned = expected(
             family, advertised, ceiling,
-            median_mbps=measured.down_mbps, tests=measured.tests,
+            median_mbps=measured.down_mbps, tests=measured.tests, filed_mbps=filed,
         )
         # Only claim a measurement where one was used. Fibre delivers what it says and the
         # tempering step ignores the median entirely, so calling that figure measured would
