@@ -49,6 +49,7 @@ asked as (
 )
 select p.code,
        ans.serviceable, ans.expires_at,
+       last.serviceable is false,
        h.street_no,
        case when p.code = %(scanned_by)s then h.checked_to end,
        coalesce(bool_or(filed.fibre), false),
@@ -59,11 +60,20 @@ left join lateral (
     select bool_or(v.serviceable) as serviceable, max(v.expires_at) as expires_at
     from availability v where v.address_id = h.id and v.provider_id = p.id
 ) ans on true
+-- What they last said when asked, which availability cannot record: it holds offers, and
+-- a refusal has none.
+left join lateral (
+    select a.serviceable
+    from probe_attempt a
+    where a.address_id = h.id and a.provider_id = p.id and a.ok
+    order by a.attempted_at desc
+    limit 1
+) last on true
 left join reach r on r.seller_id = p.id
 left join filed on filed.infra_id = r.infra_id
 left join asked on asked.infra_id = r.infra_id
 where p.code = any(%(providers)s)
-group by p.code, ans.serviceable, ans.expires_at, h.street_no, h.checked_to
+group by p.code, ans.serviceable, ans.expires_at, last.serviceable, h.street_no, h.checked_to
 order by p.code
 """
 
@@ -82,7 +92,7 @@ def verdicts(
     ).fetchall()
 
     found: dict[str, str] = {}
-    for code, serviceable, expires_at, street_no, checked_to, fibre, best in rows:
+    for code, serviceable, expires_at, refused, street_no, checked_to, fibre, best in rows:
         answer = (
             Answer(serviceable=serviceable, expires_at=expires_at)
             if expires_at is not None
@@ -95,5 +105,6 @@ def verdicts(
             checked_to=checked_to,
             street_best_mbps=Decimal(best) if best is not None else None,
             street_fibre=bool(fibre),
+            refused=bool(refused),
         )
     return found

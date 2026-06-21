@@ -47,8 +47,12 @@ def verdict(
     checked_to: int | None = None,
     street_best_mbps: Decimal | None = None,
     street_fibre: bool = False,
+    refused: bool = False,
 ) -> str:
     """How much is known about this address, and whether the operator need be asked.
+
+    refused says they were asked and declined, which is a different thing from a street
+    scan finding nothing at this number and a different thing again from silence.
 
     checked_to is how far the operator's own checker was walked up this street, and belongs
     only to the provider that was walked: pass None for every other, or their silence is
@@ -66,6 +70,10 @@ def verdict(
         return INFERRED
     if answer is not None:
         return STALE
+    # They were asked outright and said no. That leaves no row in availability to find, so
+    # without this the answer looks like one nobody has ever sought.
+    if refused:
+        return REFUSED
     if street_no is not None and checked_to is not None and street_no <= checked_to:
         return REFUSED
     return UNKNOWN

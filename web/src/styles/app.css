@@ -366,3 +366,261 @@ body {
     animation-delay: 0ms !important;
   }
 }
+
+/*
+ * The address, and what can be had at it.
+ *
+ * Scrolls, unlike the landing, so the block is placed rather than centred and the lamp
+ * stays fixed behind it.
+ */
+.landing-open {
+  align-items: start;
+  place-items: start center;
+  padding: 48px 24px 96px;
+}
+
+.place {
+  width: min(720px, 100%);
+  animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.place-head {
+  margin-bottom: 26px;
+}
+
+.back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--settle);
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.place-name {
+  margin: 16px 0 4px;
+  font-size: clamp(24px, 3.6vw, 34px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.place-where {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* One row per operator, because eight seconds of silence reads as breakage. */
+.operators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.operator {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--raised);
+  box-shadow: var(--lit-below), var(--lift);
+  font-size: 12px;
+}
+
+.operator-name {
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+
+.chip {
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.chip-asking {
+  color: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.chip-answered {
+  color: var(--accent-far);
+}
+
+/* Never "not available": a checker that could not be reached has said nothing at all. */
+.chip-no-reply {
+  color: #f87171;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.operator-note {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.empty {
+  padding: 28px 0;
+  color: var(--ink-faint);
+}
+
+.offers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offer {
+  display: grid;
+  position: relative;
+  grid-template-areas:
+    "head speed price"
+    "why  why   why";
+  grid-template-columns: 1fr auto auto;
+  gap: 6px 20px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 16px 18px 16px 22px;
+  border-radius: 12px;
+  background: var(--raised);
+  box-shadow: var(--lit-below), var(--lift);
+  overflow: hidden;
+}
+
+/* The ramp again, as a lit edge. Same colour as the dot that led the reader here. */
+.offer-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+}
+
+.offer-first {
+  background: linear-gradient(to top, rgb(168 85 247 / 9%), transparent 70%), var(--raised-high);
+}
+
+.offer-head {
+  grid-area: head;
+  min-width: 0;
+}
+
+.offer-provider {
+  display: block;
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.offer-plan {
+  display: block;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offer-speed {
+  grid-area: speed;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.offer-price {
+  grid-area: price;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-align: end;
+}
+
+.offer-unit {
+  margin-inline-start: 3px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.offer-unpriced {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.offer-why {
+  grid-area: why;
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.offer-basis {
+  color: var(--ink-faint);
+  opacity: 0.7;
+}
+
+.disclaimer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  margin-top: 26px;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.disclaimer p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.report {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (width <= 560px) {
+  .offer {
+    grid-template-areas:
+      "head  head"
+      "speed price"
+      "why   why";
+    grid-template-columns: 1fr auto;
+  }
+}

@@ -24,6 +24,20 @@ type Strings = {
   readonly unfiled: string;
   readonly street: string;
   readonly address: string;
+  readonly back: string;
+  readonly cached: string;
+  readonly asking: string;
+  readonly answered: string;
+  readonly noReply: string;
+  readonly refused: string;
+  readonly checking: string;
+  readonly nothingHere: string;
+  readonly perMonth: string;
+  readonly upfront: string;
+  readonly notPriced: string;
+  readonly unlimited: string;
+  readonly disclaimer: string;
+  readonly report: string;
 };
 
 const el: Strings = {
@@ -39,6 +53,21 @@ const el: Strings = {
   unfiled: "χωρίς δηλωμένη ταχύτητα",
   street: "οδός",
   address: "διεύθυνση",
+  back: "Νέα αναζήτηση",
+  cached: "από πριν",
+  asking: "ρωτάμε…",
+  answered: "απάντησε",
+  noReply: "δεν απάντησε",
+  refused: "δεν εξυπηρετεί",
+  checking: "Έλεγχος διαθεσιμότητας",
+  nothingHere: "Δεν βρέθηκε τίποτα για αυτή τη διεύθυνση",
+  perMonth: "/μήνα",
+  upfront: "αρχικό κόστος",
+  notPriced: "χωρίς τιμή",
+  unlimited: "απεριόριστα",
+  disclaimer:
+    "Η διαθεσιμότητα και οι τιμές είναι κατά προσέγγιση. Επιβεβαίωσέ τα πάντα με τον πάροχο.",
+  report: "Κάτι δεν φαίνεται σωστό;",
 };
 
 const en: Strings = {
@@ -54,6 +83,21 @@ const en: Strings = {
   unfiled: "no speed filed",
   street: "street",
   address: "address",
+  back: "New search",
+  cached: "known",
+  asking: "asking…",
+  answered: "answered",
+  noReply: "no reply",
+  refused: "no service",
+  checking: "Checking availability",
+  nothingHere: "Nothing found for this address",
+  perMonth: "/month",
+  upfront: "up front",
+  notPriced: "not priced",
+  unlimited: "unlimited",
+  disclaimer:
+    "Availability and prices are best effort. Always confirm with the provider.",
+  report: "Something look wrong?",
 };
 
 const TABLE: Record<Language, Strings> = { el, en };

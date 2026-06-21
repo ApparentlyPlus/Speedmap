@@ -14,9 +14,11 @@ import { bandFor, colourFor, mbps } from "../tokens";
 export function Suggestion({
   result,
   language,
+  onPick,
 }: {
   readonly result: Result;
   readonly language: Language;
+  readonly onPick: (result: Result) => void;
 }): React.ReactElement {
   const text = strings(language);
   // A string on the wire, because the server sends a decimal and JSON has no such thing.
@@ -29,7 +31,7 @@ export function Suggestion({
 
   return (
     <li className="suggestion" role="option" aria-selected={false}>
-      <button className="suggestion-hit" type="button">
+      <button className="suggestion-hit" type="button" onClick={() => onPick(result)}>
         <span className="suggestion-name">
           {name}
           {result.kind === "street" && <span className="suggestion-kind">{text.street}</span>}

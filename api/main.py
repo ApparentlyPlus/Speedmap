@@ -7,7 +7,7 @@ asks three times what the market charges — so there is somewhere to say we got
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from db.settings import settings
 from normalise.greeklish import from_latin, is_greeklish
 from normalise.text import street_key
+from probe.adapter import Adapter
 from probe.cosmote import Cosmote
 from probe.health import health as adapter_state
 from probe.lookup import verdicts
@@ -514,18 +515,41 @@ class Probed(BaseModel):
     detail: str | None
 
 
+ADAPTERS: dict[str, Callable[[], Adapter]] = {
+    "OTE": Cosmote,
+    "VODAFONE": Vodafone,
+    "NOVA": Nova,
+}
+
+
 @app.post("/addresses/{address_id}/probe", response_model=list[Probed], tags=["address"])
-def address_probe(address_id: int) -> list[Probed]:
+def address_probe(
+    address_id: int,
+    provider: Annotated[
+        list[str] | None,
+        Query(description="ask only these; omit to ask every operator that is due"),
+    ] = None,
+) -> list[Probed]:
     """Ask the operators that are due, and keep what they say.
+
+    One operator at a time is the caller's choice, and the reason it exists: a checker takes
+    between two and eight seconds, and three of them behind one request means the reader
+    waits for the slowest before learning anything. Asked separately, each lands when it
+    lands.
 
     The one path here that leaves the building. It is slow by nature, it is a write, and it
     is rate limited at the proxy for the same reasons the report endpoint is.
     """
+    wanted = RETAIL if provider is None else [p for p in provider if p in ADAPTERS]
+    if not wanted:
+        raise HTTPException(422, "no operator by that name")
+
     with pool.connection() as conn:
         target = target_for(conn, address_id)
         if target is None:
             raise HTTPException(404, "no such address")
-        answers = refresh(conn, target, [Cosmote(), Vodafone(), Nova()], datetime.now(UTC))
+        asked: list[Adapter] = [ADAPTERS[code]() for code in wanted]
+        answers = refresh(conn, target, asked, datetime.now(UTC))
 
     return [
         Probed(
