@@ -1,0 +1,1290 @@
+{
+  "components": {
+    "schemas": {
+      "AddressDetail": {
+        "properties": {
+          "connected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when not filed, not false",
+            "title": "Connected"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          },
+          "municipality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality"
+          },
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "title": "Offers",
+            "type": "array"
+          },
+          "postcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postcode"
+          },
+          "premises": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Premises"
+          },
+          "street": {
+            "title": "Street",
+            "type": "string"
+          },
+          "street_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street No"
+          },
+          "vhcn": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vhcn"
+          }
+        },
+        "required": [
+          "id",
+          "street",
+          "street_no",
+          "locality",
+          "municipality",
+          "postcode",
+          "premises",
+          "connected",
+          "vhcn",
+          "lon",
+          "lat",
+          "offers"
+        ],
+        "title": "AddressDetail",
+        "type": "object"
+      },
+      "Asking": {
+        "properties": {
+          "street_no": {
+            "description": "as the reader typed it",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Street No",
+            "type": "string"
+          }
+        },
+        "required": [
+          "street_no"
+        ],
+        "title": "Asking",
+        "type": "object"
+      },
+      "Buyable": {
+        "properties": {
+          "basis": {
+            "description": "quoted, measured, filed or advertised",
+            "title": "Basis",
+            "type": "string"
+          },
+          "confidence": {
+            "description": "evidence from tests alone; a quote has none",
+            "title": "Confidence",
+            "type": "number"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Cost"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when a part of it was never published"
+          },
+          "data_cap_gb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null is unlimited, not unknown",
+            "title": "Data Cap Gb"
+          },
+          "enough": {
+            "description": "covers an ordinary household, on speed and allowance",
+            "title": "Enough",
+            "type": "boolean"
+          },
+          "expected_mbps": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when nothing here can say",
+            "title": "Expected Mbps"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "provider": {
+            "description": "the code every join uses",
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_name": {
+            "description": "what the reader is shown",
+            "title": "Provider Name",
+            "type": "string"
+          },
+          "technology": {
+            "title": "Technology",
+            "type": "string"
+          },
+          "tests": {
+            "description": "measurements behind it, zero when it rests on none",
+            "title": "Tests",
+            "type": "integer"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "provider_name",
+          "plan",
+          "technology",
+          "family",
+          "expected_mbps",
+          "data_cap_gb",
+          "cost",
+          "basis",
+          "tests",
+          "confidence",
+          "enough",
+          "why"
+        ],
+        "title": "Buyable",
+        "type": "object"
+      },
+      "Cost": {
+        "description": "A monthly cost in its parts, so a card can say why a cheap headline is not cheap.",
+        "properties": {
+          "recurring": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Recurring",
+            "type": "string"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          },
+          "upfront": {
+            "description": "setup and equipment, spread over the window",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Upfront",
+            "type": "string"
+          }
+        },
+        "required": [
+          "total",
+          "recurring",
+          "upfront"
+        ],
+        "title": "Cost",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "addresses": {
+            "description": "rows in the address index",
+            "title": "Addresses",
+            "type": "integer"
+          },
+          "offers": {
+            "description": "rows in address_coverage",
+            "title": "Offers",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "addresses",
+          "offers"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Offer": {
+        "properties": {
+          "available_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available From"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "infra_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "who built it, when not the seller",
+            "title": "Infra Provider"
+          },
+          "matched_by": {
+            "description": "point for a filing here, area for a cabinet",
+            "title": "Matched By",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_name": {
+            "title": "Provider Name",
+            "type": "string"
+          },
+          "speed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Speed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the operator filed no speed"
+          },
+          "technology": {
+            "title": "Technology",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "provider_name",
+          "technology",
+          "family",
+          "matched_by",
+          "available_from",
+          "infra_provider",
+          "speed"
+        ],
+        "title": "Offer",
+        "type": "object"
+      },
+      "Operator": {
+        "properties": {
+          "known": {
+            "description": "how this operator's answer was arrived at",
+            "title": "Known",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_name": {
+            "title": "Provider Name",
+            "type": "string"
+          },
+          "says": {
+            "description": "what to tell the reader when it is not answering",
+            "title": "Says",
+            "type": "string"
+          },
+          "state": {
+            "description": "healthy, degraded, broken or untried",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "provider_name",
+          "known",
+          "state",
+          "says"
+        ],
+        "title": "Operator",
+        "type": "object"
+      },
+      "Options": {
+        "properties": {
+          "address_id": {
+            "title": "Address Id",
+            "type": "integer"
+          },
+          "known": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "per operator: how the answer was arrived at",
+            "title": "Known",
+            "type": "object"
+          },
+          "need_mbps": {
+            "description": "the bar used, which the caller may move",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Need Mbps",
+            "type": "string"
+          },
+          "operators": {
+            "description": "an operator missing from a comparison is a worse lie than a visible gap",
+            "items": {
+              "$ref": "#/components/schemas/Operator"
+            },
+            "title": "Operators",
+            "type": "array"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/Buyable"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "address_id",
+          "need_mbps",
+          "known",
+          "operators",
+          "options"
+        ],
+        "title": "Options",
+        "type": "object"
+      },
+      "Probed": {
+        "properties": {
+          "asked": {
+            "description": "false when the operator was inside its backoff",
+            "title": "Asked",
+            "type": "boolean"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reached": {
+            "description": "false when the checker could not be reached at all",
+            "title": "Reached",
+            "type": "boolean"
+          },
+          "serviceable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when nothing conclusive came back",
+            "title": "Serviceable"
+          }
+        },
+        "required": [
+          "provider",
+          "asked",
+          "reached",
+          "serviceable",
+          "detail"
+        ],
+        "title": "Probed",
+        "type": "object"
+      },
+      "Report": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "title": "Report",
+        "type": "object"
+      },
+      "ReportIn": {
+        "properties": {
+          "address_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the address it is about",
+            "title": "Address Id"
+          },
+          "contact": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "optional, to reply",
+            "title": "Contact"
+          },
+          "detail": {
+            "description": "what looks wrong",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Detail",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "availability",
+              "price",
+              "address",
+              "other"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "plan_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Id"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          }
+        },
+        "required": [
+          "kind",
+          "detail"
+        ],
+        "title": "ReportIn",
+        "type": "object"
+      },
+      "Result": {
+        "properties": {
+          "best_mbps": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the fastest known to reach here; null is not filed, not zero",
+            "title": "Best Mbps"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "address, street, or proposed",
+            "title": "Kind",
+            "type": "string"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "as the register filed it",
+            "title": "Locality"
+          },
+          "match": {
+            "description": "prefix, word, fuzzy or asked",
+            "title": "Match",
+            "type": "string"
+          },
+          "municipality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "postcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postcode"
+          },
+          "premises": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "dwellings passed, null when not filed",
+            "title": "Premises"
+          },
+          "street_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "for a proposed address, the street to ask for it on",
+            "title": "Street Id"
+          },
+          "street_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street No"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "street_no",
+          "locality",
+          "municipality",
+          "postcode",
+          "premises",
+          "best_mbps",
+          "match"
+        ],
+        "title": "Result",
+        "type": "object"
+      },
+      "Speed": {
+        "properties": {
+          "band": {
+            "title": "Band",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max_mbps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null on the open-ended top band",
+            "title": "Max Mbps"
+          },
+          "min_mbps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null on the open-ended bottom band",
+            "title": "Min Mbps"
+          }
+        },
+        "required": [
+          "band",
+          "min_mbps",
+          "max_mbps",
+          "label"
+        ],
+        "title": "Speed",
+        "type": "object"
+      },
+      "StreetDetail": {
+        "properties": {
+          "highway": {
+            "title": "Highway",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "municipality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Municipality"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "title": "Offers",
+            "type": "array"
+          },
+          "ways": {
+            "description": "OSM ways merged into this street",
+            "title": "Ways",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "municipality",
+          "highway",
+          "ways",
+          "offers"
+        ],
+        "title": "StreetDetail",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "summary": "Greek broadband coverage, from the national register",
+    "title": "speedmap.gr",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/addresses/{address_id}": {
+      "get": {
+        "description": "Everything filed at one address, with each offer's evidence and freshness.",
+        "operationId": "address_addresses__address_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "title": "Address Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Address",
+        "tags": [
+          "address"
+        ]
+      }
+    },
+    "/addresses/{address_id}/options": {
+      "get": {
+        "description": "What can be bought here, best first, from what is already known.\n\nNothing is asked of an operator on this path. A page that waits eight seconds for three\ncheckers is a page nobody sees the end of, so the stored answer is served at once and\n`known` says, per operator, whether asking would add anything.",
+        "operationId": "address_options_addresses__address_id__options_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "title": "Address Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "need_mbps",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0.0,
+                  "maximum": 10000.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                }
+              ],
+              "default": "100",
+              "title": "Need Mbps"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Options"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Address Options",
+        "tags": [
+          "address"
+        ]
+      }
+    },
+    "/addresses/{address_id}/probe": {
+      "post": {
+        "description": "Ask the operators that are due, and keep what they say.\n\nOne operator at a time is the caller's choice, and the reason it exists: a checker takes\nbetween two and eight seconds, and three of them behind one request means the reader\nwaits for the slowest before learning anything. Asked separately, each lands when it\nlands.\n\nThe one path here that leaves the building. It is slow by nature, it is a write, and it\nis rate limited at the proxy for the same reasons the report endpoint is.",
+        "operationId": "address_probe_addresses__address_id__probe_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "address_id",
+            "required": true,
+            "schema": {
+              "title": "Address Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "ask only these; omit to ask every operator that is due",
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ask only these; omit to ask every operator that is due",
+              "title": "Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Probed"
+                  },
+                  "title": "Response Address Probe Addresses  Address Id  Probe Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Address Probe",
+        "tags": [
+          "address"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Whether the database answers, and whether it has been built.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/health/adapters": {
+      "get": {
+        "description": "How each operator's checker is faring, derived from what happened when it was asked.\n\nNot stored anywhere: a status field is one more thing that can be stale while the thing\nit describes has moved on.",
+        "operationId": "adapter_health_health_adapters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Operator"
+                  },
+                  "title": "Response Adapter Health Health Adapters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Adapter Health",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/reports": {
+      "post": {
+        "description": "Record that something here looks wrong.\n\nThe only write in the API. Rate limiting belongs at the reverse proxy rather than in\nprocess, where it would be per worker and reset on deploy.",
+        "operationId": "report_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/search": {
+      "get": {
+        "description": "Addresses and streets, in Greek or Greeklish, folded the way the index was built.",
+        "operationId": "search_search_get",
+        "parameters": [
+          {
+            "description": "street, optionally with a town",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "street, optionally with a town",
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Result"
+                  },
+                  "title": "Response Search Search Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/streets/{street_id}": {
+      "get": {
+        "description": "A street where no address is filed: coverage comes from the cabinets it crosses.",
+        "operationId": "street_streets__street_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "street_id",
+            "required": true,
+            "schema": {
+              "title": "Street Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreetDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Street",
+        "tags": [
+          "street"
+        ]
+      }
+    },
+    "/streets/{street_id}/addresses": {
+      "post": {
+        "description": "Make the address at this number, so it can be probed and kept like any other.\n\nThe register knows the street and not the number, which is the common case rather than\nthe odd one: it files nothing at all on some streets and the Cosmote scrape walked away\nfrom others after five empty numbers in a row. Refusing the reader their own front door\nbecause nobody filed it is the wrong answer when we hold the street it is on.\n\nA write, and the second one in this API, so it is rate limited at the proxy alongside\nthe report and the probe. It is idempotent: the same number on the same street is the\nsame address however many times it is asked for.",
+        "operationId": "ask_for_streets__street_id__addresses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "street_id",
+            "required": true,
+            "schema": {
+              "title": "Street Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Asking"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Result"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask For",
+        "tags": [
+          "street"
+        ]
+      }
+    }
+  }
+}

@@ -28,7 +28,7 @@ EVERYWHERE = frozenset({"satellite"})
 AIRTIME = "MOBILE"
 
 PLANS = """
-select pr.code, pl.name, pl.technology, pl.family, pl.down_mbps,
+select pr.code, pr.display_name, pl.name, pl.technology, pl.family, pl.down_mbps,
        pl.needs_hardware, pl.data_cap_gb, t.max_plausible_mbps,
        pc.monthly_eur, pc.setup_eur, pc.hardware_eur,
        pc.promo_months, pc.promo_monthly_eur,
@@ -95,7 +95,7 @@ def speed(
     if measured is not None:
         reckoned = expected(
             family, advertised, ceiling,
-            median_mbps=measured.down_mbps, tests=measured.tests,
+            median_mbps=measured.down_mbps, tests=measured.tests, filed_mbps=filed,
         )
         # Only claim a measurement where one was used. Fibre delivers what it says and the
         # tempering step ignores the median entirely, so calling that figure measured would
@@ -141,7 +141,7 @@ def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]
     }).fetchall()
 
     found: list[Option] = []
-    for (code, name, technology, family, advertised, needs_hardware, cap, ceiling,
+    for (code, shown, name, technology, family, advertised, needs_hardware, cap, ceiling,
          monthly, setup, hardware, promo_months, promo_monthly,
          quoted, filed) in rows:
         here = filed
@@ -160,6 +160,7 @@ def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]
         )
         found.append(Option(
             provider=str(code),
+            provider_name=str(shown),
             plan=str(name),
             technology=str(technology),
             family=str(family),

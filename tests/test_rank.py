@@ -18,7 +18,8 @@ def option(
         hardware_eur=None if hardware is None else Decimal(str(hardware)),
     ))
     return Option(
-        provider=provider, plan=plan, technology=technology, family=family,
+        provider=provider, provider_name=provider.title(), plan=plan,
+        technology=technology, family=family,
         expected_mbps=None if mbps is None else Decimal(str(mbps)), cost=cost,
     )
 
@@ -133,7 +134,8 @@ def test_the_bar_is_a_judgement_that_can_be_moved() -> None:
 
 def metered(gb: int | None, mbps: int, monthly: str) -> Option:
     return Option(
-        provider="OTE", plan=f"gigamax {gb}", technology="MOBILE", family="wireless",
+        provider="OTE", provider_name="Telekom", plan=f"gigamax {gb}",
+        technology="MOBILE", family="wireless",
         expected_mbps=Decimal(mbps),
         cost=blended(Price(monthly_eur=Decimal(monthly),
                            setup_eur=Decimal(0), hardware_eur=Decimal(0))),

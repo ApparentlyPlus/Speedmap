@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from normalise.text import IDENTITY_WORDS, TYPE_WORDS, fold, street_key
+from normalise.text import IDENTITY_WORDS, TYPE_WORDS, fold, split_number, street_key
 
 # Real addresses from the register, kept verbatim as fixtures.
 REGISTER_SAMPLES = [
@@ -139,3 +139,29 @@ def test_real_register_names_round_trip(sample: str) -> None:
     key = street_key(sample)
     assert key == street_key(key)
     assert key.strip() == key
+
+
+# split_number
+
+
+def test_a_trailing_house_number_comes_off() -> None:
+    assert split_number("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ 8") == ("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", "8")
+
+
+def test_a_number_with_a_letter_comes_off() -> None:
+    assert split_number("ΑΘΗΝΑΣ 12Α") == ("ΑΘΗΝΑΣ", "12Α")
+
+
+def test_a_query_with_no_number_is_left_alone() -> None:
+    assert split_number("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ") == ("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", None)
+
+
+def test_a_lone_number_is_a_street_name() -> None:
+    """Greece files streets named 8 and 100%. Taking the only token away leaves nothing to
+    search for, and an empty key matches every row in the table."""
+    assert split_number("8") == ("8", None)
+
+
+def test_only_the_last_token_counts() -> None:
+    """25ΗΣ ΜΑΡΤΙΟΥ is a date in a name, not a house number."""
+    assert split_number("25ΗΣ ΜΑΡΤΙΟΥ 52") == ("25ΗΣ ΜΑΡΤΙΟΥ", "52")
