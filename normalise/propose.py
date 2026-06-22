@@ -1,0 +1,180 @@
+"""An address the register never filed, made because someone asked for it.
+
+The register holds 1.8M addresses and the street layer holds the streets they sit on, and
+the two do not agree: a street can be known while most of its numbers are not. Τζελίλη is
+one — the register files nothing on it, and the Cosmote scrape stopped at number 1 because
+2, 3 and 4 came back empty. Number 40 is a real front door all the same.
+
+So when the street is known and the number is not, the number is made rather than refused.
+The row is a real address from that moment on: it can be probed, cached against, ranked and
+found again, and every operator answer it collects belongs to it rather than to a session.
+
+What it inherits is only what a street can honestly say about a house on it — the postcode
+and locality its neighbours share, and the point of the neighbour nearest it in numbering.
+What it does not inherit
+is coverage: that is looked up for the new point the same way it is looked up for every
+other address, by which cabinet areas contain it and which grid cell it falls in. A point
+match is a filing against a specific building and this building has none, which is the
+truth and is what the ranker should be told.
+"""
+
+from __future__ import annotations
+
+import re
+
+import psycopg
+from psycopg.rows import TupleRow
+
+from normalise.greeklish import from_greek
+from normalise.text import fold
+
+# The postcode and locality a street's known addresses agree on. Modal rather than any:
+# a long street can cross a postcode boundary, and the commonest is the better guess for a
+# number we have never seen. Null when the street has no known addresses at all, which is
+# honest — the probe adapters take a null postcode and do without it.
+NEIGHBOURS = """
+select a.postcode, a.locality, count(*) as seen
+from address a
+where a.street_fold = %(fold)s
+  and a.municipality_id is not distinct from %(municipality)s
+group by a.postcode, a.locality
+order by seen desc, a.postcode nulls last
+limit 1
+"""
+
+STREET = """
+select s.name, s.name_fold, s.municipality_id,
+       st_lineinterpolatepoint(st_geometryn(s.geom::geometry, 1), 0.5)::geography
+from street s where s.id = %s
+"""
+
+# The neighbour nearest in numbering, and its point.
+#
+# Half way along the street was the first answer and it was wrong: Τζελίλη 40 landed 489 m
+# from Τζελίλη 1, in a different Ookla tile holding two measurements instead of six, and
+# came back expecting 28 Mbps of mobile where its only known neighbour expects 100. Nothing
+# about number 40 justified that; the midpoint did.
+#
+# A filed neighbour is real geometry on the real street, and the nearest one by number is
+# the best guess available about where along it this door sits. Numbering runs in order, so
+# ordering by the distance between the numbers gets nearer the truth than a point chosen for
+# being easy to compute.
+NEAREST = """
+select a.geom
+from address a
+where a.street_fold = %(fold)s
+  and a.municipality_id is not distinct from %(municipality)s
+  and a.geom is not null
+order by abs(
+    coalesce(substring(a.street_no from '^[0-9]+')::int, 0) - %(number)s
+), a.id
+limit 1
+"""
+
+INSERT = """
+insert into address (
+    street, street_fold, street_no, locality, postcode,
+    municipality_id, search_key, latin_key, geom, source
+)
+values (
+    %(street)s, %(fold)s, %(number)s, %(locality)s, %(postcode)s,
+    %(municipality)s, %(key)s, %(latin)s, %(geom)s, 'asked'
+)
+on conflict (postcode, street_fold, street_no, municipality_id) do nothing
+returning id
+"""
+
+EXISTING = """
+select id from address
+where street_fold = %(fold)s and street_no = %(number)s
+  and municipality_id is not distinct from %(municipality)s
+  and postcode is not distinct from %(postcode)s
+"""
+
+# The same two lookups every other address gets, run for one point. Neither invents
+# anything: an area match is a cabinet polygon that contains this point, a cell match is the
+# 100 m square it falls in. A point match would be an operator's filing against this
+# building, and there is none, so there is none here.
+COVER_AREA = """
+insert into address_coverage (
+    address_id, provider_id, technology, infra_provider_id,
+    speed_band_id, family, matched_by, avail_date
+)
+select distinct on (ca.provider_id, ca.technology)
+       a.id, ca.provider_id, ca.technology, ca.infra_provider_id,
+       ca.speed_band_id, ca.family, 'area', ca.avail_date
+from address a
+join coverage_area ca on st_contains(ca.geom_2d, a.geom::geometry)
+where a.id = %s
+order by ca.provider_id, ca.technology, ca.avail_date nulls last
+on conflict (address_id, provider_id, technology) do nothing
+"""
+
+COVER_CELL = """
+with cell as (
+    select a.id, floor(st_x(p.g) / 100)::int || '|' || floor(st_y(p.g) / 100)::int as gridid
+    from address a
+    cross join lateral (select st_transform(a.geom::geometry, 2100) as g) p
+    where a.id = %s
+)
+insert into address_coverage (
+    address_id, provider_id, technology, infra_provider_id,
+    speed_band_id, family, matched_by
+)
+select distinct on (c.id, sp.id)
+    c.id, sp.id,
+    case when g.tech5gf = 1 then 'FWA_5G' else 'FWA_4G' end,
+    ip.id, nullif(g.maxdown, 0), 'wireless', 'cell'
+from cell c
+join raw_wireless_grid g on g.gridid = c.gridid
+join provider sp on sp.register_id = g.servprov
+left join provider ip on ip.register_id = g.infrprov
+where g.tech4gf = 1 or g.tech5gf = 1
+order by c.id, sp.id, g.tech5gf desc, g.maxdown desc nulls last
+on conflict (address_id, provider_id, technology) do nothing
+"""
+
+
+def propose(
+    conn: psycopg.Connection[TupleRow], street_id: int, street_no: str
+) -> int | None:
+    """The id of the address at this number on this street, creating it if it is new.
+
+    Idempotent by the same unique key the register load uses, so asking twice returns the
+    same address rather than a second one, and an address the register happens to file
+    later collides with this one instead of duplicating it.
+    """
+    found = conn.execute(STREET, (street_id,)).fetchone()
+    if found is None:
+        return None
+    name, folded, municipality, midpoint = found
+
+    near = conn.execute(
+        NEIGHBOURS, {"fold": folded, "municipality": municipality}
+    ).fetchone()
+    postcode, locality = (near[0], near[1]) if near is not None else (None, None)
+
+    digits = re.match(r"^\d+", street_no)
+    anchor = conn.execute(NEAREST, {
+        "fold": folded, "municipality": municipality,
+        "number": int(digits.group()) if digits else 0,
+    }).fetchone()
+    # Half way along the street only when the street has no filed address at all to stand by.
+    geom = midpoint if anchor is None else anchor[0]
+
+    key = folded if locality is None else f"{folded} {fold(locality)}"
+    fields = {
+        "street": name, "fold": folded, "number": street_no,
+        "locality": locality, "postcode": postcode, "municipality": municipality,
+        "key": key, "latin": from_greek(key), "geom": geom,
+    }
+
+    row = conn.execute(INSERT, fields).fetchone()
+    if row is None:
+        held = conn.execute(EXISTING, fields).fetchone()
+        return None if held is None else int(held[0])
+
+    address_id = int(row[0])
+    conn.execute(COVER_AREA, (address_id,))
+    conn.execute(COVER_CELL, (address_id,))
+    return address_id

@@ -98,3 +98,15 @@ def test_fibre_on_the_street_needs_no_asking() -> None:
 
 def test_copper_on_the_street_is_still_asked() -> None:
     assert verdict(None, now=NOW, street_fibre=False, street_best_mbps=Decimal(100)) == UNKNOWN
+
+
+def test_a_refusal_is_not_the_same_as_silence() -> None:
+    """They were asked outright and said no. That leaves no row in availability to find, so
+    without this the answer looks like one nobody has ever sought, and gets sought again."""
+    assert verdict(None, now=NOW, refused=True) == REFUSED
+    assert verdict(None, now=NOW, refused=False) == UNKNOWN
+
+
+def test_a_refusal_does_not_survive_a_fibre_street() -> None:
+    """A door not yet connected on a fibre street is worth offering, not writing off."""
+    assert verdict(None, now=NOW, refused=True, street_fibre=True) == INFERRED

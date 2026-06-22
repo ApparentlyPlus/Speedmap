@@ -1,0 +1,922 @@
+/*
+ * A near-black ground, matte surfaces, hairlines, and type.
+ *
+ * Nothing glows. A surface is told from the page behind it by its value and by a single
+ * hairline, the way a printed page tells one block from the next — which costs nothing and
+ * survives being looked at for an hour. Violet appears where something is chosen or focused
+ * and nowhere else, so that when it does appear it means something.
+ *
+ * The one light left is the lamp under the landing, and it is there because an unlit room
+ * and a lit one are the same screenshot: the difference is what says the page is ready
+ * rather than empty. It does not follow the reader into the results.
+ */
+
+:root {
+  /*
+   * Neutral throughout. A slate-blue grey reads as a colour choice; this reads as absence.
+   *
+   * Not #000: pure black is a hole rather than a surface, it gives a hairline nothing to be
+   * a hairline against, and on an OLED phone it smears when the page scrolls. A few points
+   * up and the same design has somewhere to sit.
+   */
+  --ground: #08080a;
+  --raised: #101013;
+  --raised-high: #161619;
+  --edge: rgb(255 255 255 / 8%);
+
+  --ink: #f4f4f5;
+  --ink-dim: #a1a1aa;
+  --ink-faint: #71717a;
+
+  --accent: #fff;
+  --accent-far: #e4e4e7;
+
+  /* The only two ways a surface is bounded. A rule divides, a line encloses; both are the
+   * same hairline, because a design with one border weight has one border weight. */
+  --rule: rgb(255 255 255 / 7%);
+  --rule-lit: rgb(255 255 255 / 14%);
+
+  /* Plain black, for depth without colour. Nothing on the page casts a coloured shadow. */
+  --lift: 0 10px 30px rgb(0 0 0 / 50%);
+  --lift-high: 0 18px 44px rgb(0 0 0 / 60%);
+
+  /* Long enough to read as a filament warming rather than a fade. */
+  --warmup: 1500ms;
+
+  --radius: 12px;
+  --settle: 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * One focus treatment for the whole page.
+ *
+ * Keyboard only: a mouse user who just clicked a card does not need to be told which card
+ * they clicked. The offset keeps the ring off the hairline it would otherwise sit on top of.
+ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(255 255 255 / 30%);
+}
+
+/* The default thumb is a light grey slab against a near-black page. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 22%);
+  background-clip: content-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 14%) transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font:
+    400 16px/1.5 "DM Sans Variable",
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizelegibility;
+}
+
+.landing {
+  display: grid;
+  position: relative;
+  place-items: center;
+  min-height: 100%;
+  isolation: isolate;
+}
+
+/*
+ * The lamp. Fixed to the bottom of the viewport, warm, and very blurred: two pools, a broad
+ * amber wash and a tighter orange core inside it, which is what stops it reading as a flat
+ * gradient. It sits behind everything and catches nothing.
+ */
+.network {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.34;
+  pointer-events: none;
+  /* Dimmed towards the middle so the type is never read against a line, and towards the
+   * edges so the field has no border of its own making. */
+  mask-image: radial-gradient(ellipse 78% 62% at 50% 42%, transparent 8%, #000 62%);
+  animation: lights-on calc(var(--warmup) * 1.4) ease-out both;
+}
+
+.lamp {
+  position: fixed;
+  z-index: -1;
+  inset: auto 0 -18% 0;
+  height: 96vh;
+  /* Three pools rather than one: a wide low wash, a warmer core inside it, and a tall
+   * faint bloom that reaches the type. One ellipse either lights the floor and nothing
+   * else, or washes the whole page flat. */
+  background:
+    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(255 255 255 / 13%), transparent 70%),
+    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(255 255 255 / 7%), transparent 66%),
+    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(255 255 255 / 6%), transparent 72%);
+  filter: blur(52px);
+  pointer-events: none;
+  animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Rising as it brightens, so the light arrives from somewhere rather than simply appearing. */
+@keyframes lights-on {
+  from {
+    opacity: 0;
+    transform: translateY(16%) scaleY(0.72);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Optical centre, not true centre: a block centred at 50% reads low.
+ *
+ * Lifted from the middle rather than pushed down from the top, because a percentage of the
+ * viewport and a percentage of the element are different numbers and mixing them was how
+ * this ended up at 8% on the first try.
+ */
+.landing-centre {
+  position: relative;
+  width: min(560px, calc(100% - 48px));
+  /* Both ends carry the offset, or the lift would fight the optical centre. */
+  animation: rise 900ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-8vh + 14px));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-8vh);
+  }
+}
+
+/* The signature small label: tiny, spaced, quiet. Says what this is without a heading. */
+.eyebrow {
+  margin: 0 0 18px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.tagline {
+  margin: 0;
+  font-size: clamp(30px, 4.6vw, 46px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.sub {
+  margin: 14px 0 36px;
+  color: var(--ink-dim);
+  font-size: 15px;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.search {
+  position: relative;
+}
+
+.search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/*
+ * The field is the shell, not the input. The input inside it is stripped to nothing so the
+ * glyph, the light and the text sit in one surface rather than a box inside a box.
+ */
+.search-shell {
+  display: grid;
+  position: relative;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 0 20px;
+  border: 1px solid var(--rule-lit);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 3%);
+  transition:
+    border-color var(--settle),
+    background var(--settle);
+}
+
+.search-glyph {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  transition: stroke var(--settle);
+}
+
+.search-shell:focus-within .search-glyph {
+  stroke: var(--accent);
+}
+
+.search-field {
+  width: 100%;
+  padding: 19px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.search-field:focus {
+  outline: none;
+}
+
+.search-field::placeholder {
+  color: var(--ink-faint);
+}
+
+/* The browser's own clear button is a blue cross in the middle of a dark field. */
+.search-field::-webkit-search-cancel-button,
+.search-field::-webkit-search-decoration {
+  appearance: none;
+}
+
+/* Focus states the colour once, as a line. It does not need to be announced twice. */
+.search-shell:focus-within {
+  border-color: rgb(255 255 255 / 62%);
+  background: rgb(255 255 255 / 5%);
+}
+
+.suggestions {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 10px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--raised);
+  box-shadow: var(--lift-high);
+  list-style: none;
+  /* The room actually left under the field, measured on open and on every viewport change,
+   * because a phone keyboard takes half the screen and no fraction of vh knows that. The
+   * last row is the one worth reaching: a fuzzy match is where the near-misses land. */
+  max-height: min(var(--room, 46dvh), 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 14%) transparent;
+}
+
+.suggestion-note {
+  padding: 13px 14px;
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+
+.suggestion-hit {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 14px;
+  align-items: center;
+  width: 100%;
+  padding: 13px 15px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--settle);
+}
+
+.suggestion-hit:hover,
+.suggestion-hit:focus-visible {
+  background: rgb(255 255 255 / 5%);
+}
+
+.suggestion-name {
+  grid-column: 1;
+  font-size: 15px;
+}
+
+.suggestion-kind {
+  margin-inline-start: 9px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.suggestion-where {
+  grid-row: 2;
+  grid-column: 1;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+/* A lit point, not a swatch: it is the same ramp the network behind the page is drawn in. */
+.suggestion-dot {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* A door being made, and the one case where that fails. */
+.making {
+  margin: 18px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.making-failed {
+  color: #f87171;
+}
+
+/* The register never filed this one, so it is offered rather than held. */
+.suggestion-ask {
+  color: var(--ink-dim);
+}
+
+.browse {
+  display: block;
+  margin-top: 30px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color var(--settle);
+}
+
+.browse:hover {
+  color: var(--accent);
+}
+
+/* The lit room, arrived at rather than animated into. Someone who asked for less motion
+ * still gets the light; they just do not watch it come on. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    /* Without this a looping animation becomes a strobe at 1ms a lap. */
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/*
+ * The address, and what can be had at it.
+ *
+ * Scrolls, unlike the landing, so the block is placed rather than centred. The lamp does
+ * not come along: a light rising through a column of prices lights nothing and reads as a
+ * smudge under the last card.
+ */
+/*
+ * The network drops back further here.
+ *
+ * The cards are barely-there fills bounded by hairlines, so a mesh at landing strength
+ * draws its lines straight through them and the card stops being a surface. On the landing
+ * it is the only thing on the page and can afford to be seen.
+ */
+.landing-open .network {
+  opacity: 0.13;
+}
+
+.landing-open {
+  align-items: start;
+  place-items: start center;
+  padding: 56px 24px 110px;
+}
+
+/*
+ * No panel.
+ *
+ * A box around the whole answer says the answer is a thing sitting on a page, when it is
+ * the page. The address heads it, one rule closes the heading, and the cards stand on the
+ * ground with nothing behind them — which is also the only way the cards' own hairlines
+ * read as edges rather than as lines inside a bigger line.
+ */
+.place {
+  width: min(760px, 100%);
+  animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.place-head {
+  margin-bottom: 30px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--settle);
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.place-name {
+  margin: 14px 0 5px;
+  font-size: clamp(26px, 3.8vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.place-where {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.empty {
+  padding: 30px 0;
+  color: var(--ink-faint);
+  font-size: 15px;
+}
+
+.group {
+  margin-bottom: 30px;
+}
+
+.group:last-of-type {
+  margin-bottom: 10px;
+}
+
+/*
+ * A numbered marker with a rule running out of it, said once over the cards it covers.
+ *
+ * The ranker's verdict is identical for every card in a band, so printing it on each one
+ * put the same sentence on the page twelve times. Up here it is information; down there it
+ * was wallpaper. The rule takes the leftover width, which is what stops a short heading and
+ * a long one from looking like two different designs.
+ */
+.group-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 14px;
+  color: var(--ink-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.group-index {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.group-rule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--rule);
+}
+
+/*
+ * The rest of the band, on request.
+ *
+ * Full width and quiet, so it reads as the bottom edge of the list rather than as a control
+ * competing with the cards above it.
+ */
+.expand {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    border-color var(--settle),
+    color var(--settle);
+}
+
+.expand:hover,
+.expand:focus-visible {
+  border-color: var(--rule-lit);
+  color: var(--ink-dim);
+}
+
+.expand-arrow {
+  display: inline-block;
+  transition: transform var(--settle);
+}
+
+.expand-arrow-up {
+  transform: rotate(180deg);
+}
+
+.offers {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * One offer: who is selling, how fast, what it costs.
+ *
+ * Three bands divided by rules rather than by space, because space between bands and space
+ * around the card are the same gap and the card stops reading as one thing. Matte, bounded
+ * by a single hairline, and casting nothing: twenty cards each glowing in their seller's
+ * colour read as twenty posters rather than as one list.
+ */
+.offer {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 1.6%);
+  overflow: hidden;
+  animation: card-up 400ms cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
+  transition:
+    transform var(--settle),
+    border-color var(--settle),
+    background var(--settle);
+}
+
+.offer:hover {
+  transform: translateY(-2px);
+  border-color: var(--rule-lit);
+  background: rgb(255 255 255 / 3.2%);
+}
+
+/* The one the ranker put first. */
+.offer-best {
+  border-color: rgb(255 255 255 / 30%);
+  background: rgb(255 255 255 / 4.5%);
+}
+
+@keyframes card-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.offer-head {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* One box, every mark centred in it, so a glyph and a wordmark start the row in the
+ * same place and no logo hangs off the left of the card. */
+.logo {
+  flex: none;
+  width: 40px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.logo-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 30px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--brand) 24%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.offer-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.offer-plan {
+  margin: 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offer-sub {
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+/* The brand named, in its own colour, once. Outlined, so it states rather than shouts. */
+.offer-brand {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--brand) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+  color: color-mix(in srgb, var(--brand) 58%, white);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/*
+ * The number the reader came for, in a well of its own.
+ *
+ * Everything else on the card qualifies this line, so it gets the only large type and the
+ * only recess. The well is darker than the card rather than lighter, because a reader
+ * scanning a column of these needs the number to sit still, not to advance.
+ */
+.offer-rate {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 14px 18px;
+  padding: 11px 15px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: rgb(0 0 0 / 34%);
+}
+
+.offer-upto {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.offer-speed {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.offer-unit {
+  margin-inline-start: 5px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.offer-tech {
+  margin-inline-start: auto;
+  color: var(--ink-dim);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.offer-foot {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid var(--rule);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  padding: 3px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.tag-best {
+  border-color: rgb(255 255 255 / 28%);
+  color: var(--ink);
+  letter-spacing: 0.06em;
+}
+
+.offer-cost {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.offer-price {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.offer-per {
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.offer-unpriced {
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+/* The answer's outline while the answer is on its way. */
+.ghost {
+  border: 1px solid var(--rule);
+  background: rgb(255 255 255 / 1.6%);
+  pointer-events: none;
+}
+
+.ghost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgb(255 255 255 / 5%) 50%,
+    transparent 80%
+  );
+  animation: sweep 1.6s ease-in-out infinite;
+}
+
+.offer.ghost {
+  position: relative;
+  min-height: 138px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Closed by the same rule that opens the answer, so the page has two edges and not one. */
+.disclaimer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.disclaimer p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.report {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+@media (width <= 560px) {
+  .offer-head,
+  .offer-foot {
+    padding-inline: 14px;
+  }
+
+  .offer-rate {
+    margin-inline: 14px;
+  }
+
+  .offer-speed {
+    font-size: 25px;
+  }
+
+  .offer-price {
+    font-size: 19px;
+  }
+
+  /* The pill would cost the plan name half its room on a phone; the mark already says it. */
+  .offer-brand {
+    display: none;
+  }
+}

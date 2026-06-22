@@ -14,6 +14,7 @@ from ranking.speed import (
     clamp,
     confidence,
     expected,
+    tempered,
 )
 
 # The ceilings as seeded in the technology table.
@@ -145,3 +146,71 @@ def test_copper_never_exceeds_its_ceiling(advertised: Decimal, median: Decimal) 
     result = expected("copper", advertised, ceiling=ADSL, median_mbps=median, tests=10)
     assert result.mbps is not None
     assert result.mbps <= ADSL
+
+
+# how much a thin measurement is allowed to move the answer
+
+
+def test_a_thin_measurement_does_not_overturn_the_filed_band() -> None:
+    """Two tests measuring 36 against a band filed at 300 land between them, nearer 300."""
+    result = expected(
+        "mobile", mbps("1000"), median_mbps=mbps("35.7"), tests=2, filed_mbps=mbps("300")
+    )
+    assert result.mbps is not None
+    assert mbps("100") < result.mbps < mbps("300")
+
+
+def test_a_thick_measurement_overturns_it_completely() -> None:
+    """At twenty five tests the tile is the answer and the filing is not consulted."""
+    result = expected(
+        "mobile", mbps("1000"), median_mbps=mbps("35.7"),
+        tests=FULL_CONFIDENCE_TESTS, filed_mbps=mbps("300"),
+    )
+    assert result.mbps == mbps("35.7") * Decimal("0.8")
+
+
+def test_more_tests_never_move_the_answer_back_toward_the_filing() -> None:
+    """The curve is monotonic: evidence only ever counts for more."""
+    seen: list[Decimal] = []
+    for n in (1, 2, 6, 12, 25):
+        result = expected(
+            "mobile", mbps("1000"), median_mbps=mbps("30"), tests=n, filed_mbps=mbps("300")
+        )
+        assert result.mbps is not None
+        seen.append(result.mbps)
+    assert seen == sorted(seen, reverse=True)
+
+
+def test_a_filed_band_with_nothing_to_temper_against_is_the_measurement() -> None:
+    """Mobile off the grid files no band, and a tile is then all there is."""
+    result = expected("mobile", mbps("1000"), median_mbps=mbps("50"), tests=2)
+    assert result.mbps == mbps("50") * Decimal("0.8")
+
+
+def test_copper_is_held_toward_what_it_is_sold_as() -> None:
+    """Two tests measuring 20 do not make a 100 Mbps line a 25 Mbps line."""
+    thin = expected("copper", mbps("100"), ceiling=mbps("100"), median_mbps=mbps("20"), tests=2)
+    thick = expected(
+        "copper", mbps("100"), ceiling=mbps("100"), median_mbps=mbps("20"),
+        tests=FULL_CONFIDENCE_TESTS,
+    )
+    assert thin.mbps is not None
+    assert thick.mbps is not None
+    assert thick.mbps < thin.mbps < mbps("100")
+
+
+def test_tempering_against_nothing_changes_nothing() -> None:
+    assert tempered(mbps("42"), None, 0.1) == mbps("42")
+
+
+@given(
+    seen=st.decimals(min_value=1, max_value=1000, allow_nan=False, places=1),
+    filed=st.decimals(min_value=1, max_value=1000, allow_nan=False, places=1),
+    weight=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+)
+def test_tempering_never_leaves_the_two_witnesses(
+    seen: Decimal, filed: Decimal, weight: float
+) -> None:
+    """The answer is always between what was measured and what was filed, never outside."""
+    result = tempered(seen, filed, weight)
+    assert min(seen, filed) - Decimal("0.001") <= result <= max(seen, filed) + Decimal("0.001")
