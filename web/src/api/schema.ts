@@ -61,6 +61,11 @@ export interface paths {
          * Address Probe
          * @description Ask the operators that are due, and keep what they say.
          *
+         *     One operator at a time is the caller's choice, and the reason it exists: a checker takes
+         *     between two and eight seconds, and three of them behind one request means the reader
+         *     waits for the slowest before learning anything. Asked separately, each lands when it
+         *     lands.
+         *
          *     The one path here that leaves the building. It is slow by nature, it is a write, and it
          *     is rate limited at the proxy for the same reasons the report endpoint is.
          */
@@ -177,6 +182,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/streets/{street_id}/addresses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask For
+         * @description Make the address at this number, so it can be probed and kept like any other.
+         *
+         *     The register knows the street and not the number, which is the common case rather than
+         *     the odd one: it files nothing at all on some streets and the Cosmote scrape walked away
+         *     from others after five empty numbers in a row. Refusing the reader their own front door
+         *     because nobody filed it is the wrong answer when we hold the street it is on.
+         *
+         *     A write, and the second one in this API, so it is rate limited at the proxy alongside
+         *     the report and the probe. It is idempotent: the same number on the same street is the
+         *     same address however many times it is asked for.
+         */
+        post: operations["ask_for_streets__street_id__addresses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -211,6 +245,14 @@ export interface components {
             /** Vhcn */
             vhcn: boolean | null;
         };
+        /** Asking */
+        Asking: {
+            /**
+             * Street No
+             * @description as the reader typed it
+             */
+            street_no: string;
+        };
         /** Buyable */
         Buyable: {
             /**
@@ -244,8 +286,16 @@ export interface components {
             family: string;
             /** Plan */
             plan: string;
-            /** Provider */
+            /**
+             * Provider
+             * @description the code every join uses
+             */
             provider: string;
+            /**
+             * Provider Name
+             * @description what the reader is shown
+             */
+            provider_name: string;
             /** Technology */
             technology: string;
             /**
@@ -325,6 +375,8 @@ export interface components {
             known: string;
             /** Provider */
             provider: string;
+            /** Provider Name */
+            provider_name: string;
             /**
              * Says
              * @description what to tell the reader when it is not answering
@@ -430,7 +482,7 @@ export interface components {
             id: number;
             /**
              * Kind
-             * @description address or street
+             * @description address, street, or proposed
              */
             kind: string;
             /**
@@ -440,7 +492,7 @@ export interface components {
             locality: string | null;
             /**
              * Match
-             * @description prefix, word or fuzzy
+             * @description prefix, word, fuzzy or asked
              */
             match: string;
             /** Municipality */
@@ -454,6 +506,11 @@ export interface components {
              * @description dwellings passed, null when not filed
              */
             premises: number | null;
+            /**
+             * Street Id
+             * @description for a proposed address, the street to ask for it on
+             */
+            street_id?: number | null;
             /** Street No */
             street_no: string | null;
         };
@@ -580,7 +637,10 @@ export interface operations {
     };
     address_probe_addresses__address_id__probe_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description ask only these; omit to ask every operator that is due */
+                provider?: string[] | null;
+            };
             header?: never;
             path: {
                 address_id: number;
@@ -733,6 +793,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StreetDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_for_streets__street_id__addresses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                street_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Asking"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Result"];
                 };
             };
             /** @description Validation Error */

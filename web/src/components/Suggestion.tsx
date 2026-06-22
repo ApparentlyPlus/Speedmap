@@ -35,6 +35,10 @@ export function Suggestion({
         <span className="suggestion-name">
           {name}
           {result.kind === "street" && <span className="suggestion-kind">{text.street}</span>}
+          {/* A door the register never filed. Offered, and made only once it is chosen. */}
+          {result.kind === "proposed" && (
+            <span className="suggestion-kind suggestion-ask">{text.askThem}</span>
+          )}
         </span>
         <span className="suggestion-where">{where}</span>
         <span

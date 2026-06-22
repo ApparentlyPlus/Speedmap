@@ -23,14 +23,11 @@ type Strings = {
   readonly searchFailed: string;
   readonly unfiled: string;
   readonly street: string;
+  readonly askThem: string;
+  readonly asking: string;
+  readonly askFailed: string;
   readonly address: string;
   readonly back: string;
-  readonly cached: string;
-  readonly asking: string;
-  readonly answered: string;
-  readonly noReply: string;
-  readonly refused: string;
-  readonly checking: string;
   readonly nothingHere: string;
   readonly perMonth: string;
   readonly upfront: string;
@@ -38,6 +35,16 @@ type Strings = {
   readonly unlimited: string;
   readonly disclaimer: string;
   readonly report: string;
+  readonly bestHere: string;
+  readonly upTo: string;
+  readonly more: string;
+  readonly fewer: string;
+  readonly basis: Readonly<Record<string, string>>;
+  readonly family: Readonly<Record<string, string>>;
+  readonly technology: Readonly<Record<string, string>>;
+  readonly groupEnough: string;
+  readonly groupSlower: string;
+  readonly groupUnpriced: string;
 };
 
 const el: Strings = {
@@ -52,14 +59,11 @@ const el: Strings = {
   searchFailed: "Η αναζήτηση δεν απάντησε",
   unfiled: "χωρίς δηλωμένη ταχύτητα",
   street: "οδός",
+  askThem: "ρώτα",
+  asking: "Ετοιμάζουμε τη διεύθυνση…",
+  askFailed: "Δεν μπορέσαμε να ετοιμάσουμε αυτή τη διεύθυνση",
   address: "διεύθυνση",
   back: "Νέα αναζήτηση",
-  cached: "από πριν",
-  asking: "ρωτάμε…",
-  answered: "απάντησε",
-  noReply: "δεν απάντησε",
-  refused: "δεν εξυπηρετεί",
-  checking: "Έλεγχος διαθεσιμότητας",
   nothingHere: "Δεν βρέθηκε τίποτα για αυτή τη διεύθυνση",
   perMonth: "/μήνα",
   upfront: "αρχικό κόστος",
@@ -68,6 +72,26 @@ const el: Strings = {
   disclaimer:
     "Η διαθεσιμότητα και οι τιμές είναι κατά προσέγγιση. Επιβεβαίωσέ τα πάντα με τον πάροχο.",
   report: "Κάτι δεν φαίνεται σωστό;",
+  bestHere: "καλύτερο εδώ",
+  upTo: "έως",
+  more: "ακόμη",
+  fewer: "λιγότερα",
+  basis: {
+    quoted: "από τον πάροχο",
+    measured: "μετρημένο",
+    filed: "δηλωμένο",
+    advertised: "διαφημιζόμενο",
+  },
+  family: {
+    fibre: "οπτική ίνα",
+    copper: "χαλκός",
+    wireless: "ασύρματο",
+    satellite: "δορυφορικό",
+  },
+  technology: { FWA_5G: "5G", FWA_4G: "4G", VECT_VDSL: "VDSL+", MOBILE: "κινητό", SAT: "δορυφόρος" },
+  groupEnough: "Φτάνουν για ένα σπιτικό",
+  groupSlower: "Πιο αργά απ' όσο θέλει ένα σπιτικό",
+  groupUnpriced: "Χωρίς δημοσιευμένη τιμή",
 };
 
 const en: Strings = {
@@ -82,14 +106,11 @@ const en: Strings = {
   searchFailed: "Search did not answer",
   unfiled: "no speed filed",
   street: "street",
+  askThem: "ask",
+  asking: "Preparing the address…",
+  askFailed: "We could not prepare that address",
   address: "address",
   back: "New search",
-  cached: "known",
-  asking: "asking…",
-  answered: "answered",
-  noReply: "no reply",
-  refused: "no service",
-  checking: "Checking availability",
   nothingHere: "Nothing found for this address",
   perMonth: "/month",
   upfront: "up front",
@@ -98,6 +119,26 @@ const en: Strings = {
   disclaimer:
     "Availability and prices are best effort. Always confirm with the provider.",
   report: "Something look wrong?",
+  bestHere: "best here",
+  upTo: "up to",
+  more: "more",
+  fewer: "fewer",
+  basis: {
+    quoted: "quoted",
+    measured: "measured",
+    filed: "filed",
+    advertised: "advertised",
+  },
+  family: {
+    fibre: "fibre",
+    copper: "copper",
+    wireless: "wireless",
+    satellite: "satellite",
+  },
+  technology: { FWA_5G: "5G", FWA_4G: "4G", VECT_VDSL: "VDSL+", MOBILE: "mobile", SAT: "satellite" },
+  groupEnough: "Enough for a household",
+  groupSlower: "Slower than a household wants",
+  groupUnpriced: "No published price",
 };
 
 const TABLE: Record<Language, Strings> = { el, en };

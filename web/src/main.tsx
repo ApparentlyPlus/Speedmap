@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import "@fontsource-variable/dm-sans";
+
 import { Landing } from "./routes/index";
 import "./styles/app.css";
 

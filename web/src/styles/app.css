@@ -1,37 +1,44 @@
 /*
- * True black, neutral greys, and one violet light doing the work that borders usually do.
+ * A near-black ground, matte surfaces, hairlines, and type.
  *
- * Nothing here is outlined. There is a lamp below the fold and everything on the page is
- * either lit by it or in shadow, which is why a surface can be told from the page behind it
- * with no line drawn around either. The light is violet and the far end of it is cyan, which
- * is exactly the range the speed ramp runs through, so the room and the data agree.
+ * Nothing glows. A surface is told from the page behind it by its value and by a single
+ * hairline, the way a printed page tells one block from the next — which costs nothing and
+ * survives being looked at for an hour. Violet appears where something is chosen or focused
+ * and nowhere else, so that when it does appear it means something.
  *
- * It comes on when the page does. Not a flourish: an unlit room and a lit one are the same
- * screenshot, and the difference between them is the only thing that says the page is
- * ready rather than empty.
+ * The one light left is the lamp under the landing, and it is there because an unlit room
+ * and a lit one are the same screenshot: the difference is what says the page is ready
+ * rather than empty. It does not follow the reader into the results.
  */
 
 :root {
-  /* Neutral throughout. A slate-blue grey reads as a colour choice; this reads as absence. */
-  --ground: #000;
-  --raised: #0e0e0e;
-  --raised-high: #161616;
+  /*
+   * Neutral throughout. A slate-blue grey reads as a colour choice; this reads as absence.
+   *
+   * Not #000: pure black is a hole rather than a surface, it gives a hairline nothing to be
+   * a hairline against, and on an OLED phone it smears when the page scrolls. A few points
+   * up and the same design has somewhere to sit.
+   */
+  --ground: #08080a;
+  --raised: #101013;
+  --raised-high: #161619;
   --edge: rgb(255 255 255 / 8%);
 
   --ink: #f4f4f5;
   --ink-dim: #a1a1aa;
   --ink-faint: #71717a;
 
-  --accent: #a855f7;
-  --accent-far: #22d3ee;
+  --accent: #fff;
+  --accent-far: #e4e4e7;
 
-  /* Ambient, not directional. Large and soft, so a surface floats rather than is outlined. */
-  --lift: 0 1px 2px rgb(0 0 0 / 60%), 0 12px 32px rgb(0 0 0 / 45%);
-  --lift-high: 0 2px 4px rgb(0 0 0 / 70%), 0 28px 64px rgb(0 0 0 / 55%);
+  /* The only two ways a surface is bounded. A rule divides, a line encloses; both are the
+   * same hairline, because a design with one border weight has one border weight. */
+  --rule: rgb(255 255 255 / 7%);
+  --rule-lit: rgb(255 255 255 / 14%);
 
-  /* The underside of a surface, catching the lamp. One hairline, not a border: it runs
-   * along the bottom edge only, because that is the edge facing the light. */
-  --lit-below: inset 0 -1px 0 rgb(168 85 247 / 22%);
+  /* Plain black, for depth without colour. Nothing on the page casts a coloured shadow. */
+  --lift: 0 10px 30px rgb(0 0 0 / 50%);
+  --lift-high: 0 18px 44px rgb(0 0 0 / 60%);
 
   /* Long enough to read as a filament warming rather than a fade. */
   --warmup: 1500ms;
@@ -44,10 +51,52 @@
   box-sizing: border-box;
 }
 
+/*
+ * One focus treatment for the whole page.
+ *
+ * Keyboard only: a mouse user who just clicked a card does not need to be told which card
+ * they clicked. The offset keeps the ring off the hairline it would otherwise sit on top of.
+ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(255 255 255 / 30%);
+}
+
+/* The default thumb is a light grey slab against a near-black page. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 22%);
+  background-clip: content-box;
+}
+
 html,
 body,
 #root {
   height: 100%;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 14%) transparent;
 }
 
 body {
@@ -55,10 +104,10 @@ body {
   background: var(--ground);
   color: var(--ink);
   font:
-    400 16px/1.5 system-ui,
+    400 16px/1.5 "DM Sans Variable",
+    system-ui,
     "Segoe UI",
     Roboto,
-    "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizelegibility;
@@ -83,7 +132,7 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.5;
+  opacity: 0.34;
   pointer-events: none;
   /* Dimmed towards the middle so the type is never read against a line, and towards the
    * edges so the field has no border of its own making. */
@@ -100,9 +149,9 @@ body {
    * faint bloom that reaches the type. One ellipse either lights the floor and nothing
    * else, or washes the whole page flat. */
   background:
-    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(168 85 247 / 20%), transparent 70%),
-    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(34 211 238 / 16%), transparent 66%),
-    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(168 85 247 / 9%), transparent 72%);
+    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(255 255 255 / 13%), transparent 70%),
+    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(255 255 255 / 7%), transparent 66%),
+    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(255 255 255 / 6%), transparent 72%);
   filter: blur(52px);
   pointer-events: none;
   animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -199,14 +248,11 @@ body {
   gap: 12px;
   align-items: center;
   padding: 0 20px;
-  border-radius: 14px;
-  background: linear-gradient(to top, rgb(168 85 247 / 7%), transparent 62%), var(--raised);
-  box-shadow:
-    var(--lit-below),
-    inset 0 1px 0 rgb(255 255 255 / 4%),
-    var(--lift);
+  border: 1px solid var(--rule-lit);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 3%);
   transition:
-    box-shadow var(--settle),
+    border-color var(--settle),
     background var(--settle);
 }
 
@@ -248,14 +294,10 @@ body {
   appearance: none;
 }
 
-/* Focus turns the lamp up on this one surface rather than drawing a ring around it. */
+/* Focus states the colour once, as a line. It does not need to be announced twice. */
 .search-shell:focus-within {
-  background: linear-gradient(to top, rgb(168 85 247 / 12%), transparent 62%), var(--raised-high);
-  box-shadow:
-    inset 0 -1px 0 rgb(168 85 247 / 55%),
-    inset 0 1px 0 rgb(255 255 255 / 6%),
-    0 0 34px -8px rgb(168 85 247 / 40%),
-    var(--lift-high);
+  border-color: rgb(255 255 255 / 62%);
+  background: rgb(255 255 255 / 5%);
 }
 
 .suggestions {
@@ -266,10 +308,10 @@ body {
   left: 0;
   margin: 0;
   padding: 5px;
-  border: 0;
-  border-radius: 14px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
   background: var(--raised);
-  box-shadow: var(--lit-below), var(--lift-high);
+  box-shadow: var(--lift-high);
   list-style: none;
   /* The room actually left under the field, measured on open and on every viewport change,
    * because a phone keyboard takes half the screen and no fraction of vh knows that. The
@@ -306,7 +348,6 @@ body {
 
 .suggestion-hit:hover,
 .suggestion-hit:focus-visible {
-  outline: none;
   background: rgb(255 255 255 / 5%);
 }
 
@@ -338,7 +379,25 @@ body {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  box-shadow: 0 0 10px -1px currentcolor;
+}
+
+/* A door being made, and the one case where that fails. */
+.making {
+  margin: 18px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.making-failed {
+  color: #f87171;
+}
+
+/* The register never filed this one, so it is offered rather than held. */
+.suggestion-ask {
+  color: var(--ink-dim);
 }
 
 .browse {
@@ -364,23 +423,45 @@ body {
     transition-duration: 0ms !important;
     animation-duration: 1ms !important;
     animation-delay: 0ms !important;
+    /* Without this a looping animation becomes a strobe at 1ms a lap. */
+    animation-iteration-count: 1 !important;
   }
 }
 
 /*
  * The address, and what can be had at it.
  *
- * Scrolls, unlike the landing, so the block is placed rather than centred and the lamp
- * stays fixed behind it.
+ * Scrolls, unlike the landing, so the block is placed rather than centred. The lamp does
+ * not come along: a light rising through a column of prices lights nothing and reads as a
+ * smudge under the last card.
  */
+/*
+ * The network drops back further here.
+ *
+ * The cards are barely-there fills bounded by hairlines, so a mesh at landing strength
+ * draws its lines straight through them and the card stops being a surface. On the landing
+ * it is the only thing on the page and can afford to be seen.
+ */
+.landing-open .network {
+  opacity: 0.13;
+}
+
 .landing-open {
   align-items: start;
   place-items: start center;
-  padding: 48px 24px 96px;
+  padding: 56px 24px 110px;
 }
 
+/*
+ * No panel.
+ *
+ * A box around the whole answer says the answer is a thing sitting on a page, when it is
+ * the page. The address heads it, one rule closes the heading, and the cards stand on the
+ * ground with nothing behind them — which is also the only way the cards' own hairlines
+ * read as edges rather than as lines inside a bigger line.
+ */
 .place {
-  width: min(720px, 100%);
+  width: min(760px, 100%);
   animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -397,7 +478,9 @@ body {
 }
 
 .place-head {
-  margin-bottom: 26px;
+  margin-bottom: 30px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .back {
@@ -418,10 +501,11 @@ body {
 }
 
 .place-name {
-  margin: 16px 0 4px;
-  font-size: clamp(24px, 3.6vw, 34px);
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  margin: 14px 0 5px;
+  font-size: clamp(26px, 3.8vw, 36px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
 }
 
 .place-where {
@@ -432,170 +516,368 @@ body {
   text-transform: uppercase;
 }
 
-/* One row per operator, because eight seconds of silence reads as breakage. */
-.operators {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 24px;
-  padding: 0;
-  list-style: none;
+.empty {
+  padding: 30px 0;
+  color: var(--ink-faint);
+  font-size: 15px;
 }
 
-.operator {
+.group {
+  margin-bottom: 30px;
+}
+
+.group:last-of-type {
+  margin-bottom: 10px;
+}
+
+/*
+ * A numbered marker with a rule running out of it, said once over the cards it covers.
+ *
+ * The ranker's verdict is identical for every card in a band, so printing it on each one
+ * put the same sentence on the page twelve times. Up here it is information; down there it
+ * was wallpaper. The rule takes the leftover width, which is what stops a short heading and
+ * a long one from looking like two different designs.
+ */
+.group-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 14px;
+  color: var(--ink-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.group-index {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.group-rule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--rule);
+}
+
+/*
+ * The rest of the band, on request.
+ *
+ * Full width and quiet, so it reads as the bottom edge of the list rather than as a control
+ * competing with the cards above it.
+ */
+.expand {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: var(--raised);
-  box-shadow: var(--lit-below), var(--lift);
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
   font-size: 12px;
-}
-
-.operator-name {
-  color: var(--ink-dim);
   letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    border-color var(--settle),
+    color var(--settle);
 }
 
-.chip {
-  color: var(--ink-faint);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+.expand:hover,
+.expand:focus-visible {
+  border-color: var(--rule-lit);
+  color: var(--ink-dim);
 }
 
-.chip-asking {
-  color: var(--accent);
-  animation: pulse 1.4s ease-in-out infinite;
+.expand-arrow {
+  display: inline-block;
+  transition: transform var(--settle);
 }
 
-.chip-answered {
-  color: var(--accent-far);
-}
-
-/* Never "not available": a checker that could not be reached has said nothing at all. */
-.chip-no-reply {
-  color: #f87171;
-}
-
-@keyframes pulse {
-  50% {
-    opacity: 0.45;
-  }
-}
-
-.operator-note {
-  color: var(--ink-faint);
-  font-size: 11px;
-}
-
-.empty {
-  padding: 28px 0;
-  color: var(--ink-faint);
+.expand-arrow-up {
+  transform: rotate(180deg);
 }
 
 .offers {
+  display: grid;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+ * One offer: who is selling, how fast, what it costs.
+ *
+ * Three bands divided by rules rather than by space, because space between bands and space
+ * around the card are the same gap and the card stops reading as one thing. Matte, bounded
+ * by a single hairline, and casting nothing: twenty cards each glowing in their seller's
+ * colour read as twenty posters rather than as one list.
+ */
 .offer {
-  display: grid;
-  position: relative;
-  grid-template-areas:
-    "head speed price"
-    "why  why   why";
-  grid-template-columns: 1fr auto auto;
-  gap: 6px 20px;
-  align-items: center;
-  margin-bottom: 8px;
-  padding: 16px 18px 16px 22px;
+  border: 1px solid var(--rule);
   border-radius: 12px;
-  background: var(--raised);
-  box-shadow: var(--lit-below), var(--lift);
+  background: rgb(255 255 255 / 1.6%);
   overflow: hidden;
+  animation: card-up 400ms cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
+  transition:
+    transform var(--settle),
+    border-color var(--settle),
+    background var(--settle);
 }
 
-/* The ramp again, as a lit edge. Same colour as the dot that led the reader here. */
-.offer-bar {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
+.offer:hover {
+  transform: translateY(-2px);
+  border-color: var(--rule-lit);
+  background: rgb(255 255 255 / 3.2%);
 }
 
-.offer-first {
-  background: linear-gradient(to top, rgb(168 85 247 / 9%), transparent 70%), var(--raised-high);
+/* The one the ranker put first. */
+.offer-best {
+  border-color: rgb(255 255 255 / 30%);
+  background: rgb(255 255 255 / 4.5%);
+}
+
+@keyframes card-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .offer-head {
-  grid-area: head;
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* One box, every mark centred in it, so a glyph and a wordmark start the row in the
+ * same place and no logo hangs off the left of the card. */
+.logo {
+  flex: none;
+  width: 40px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.logo-initial {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 30px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--brand) 24%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.offer-title {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.offer-provider {
-  display: block;
-  color: var(--ink-faint);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .offer-plan {
-  display: block;
+  margin: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.offer-speed {
-  grid-area: speed;
-  font-size: 20px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+.offer-sub {
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.06em;
 }
 
-.offer-price {
-  grid-area: price;
-  font-size: 20px;
+/* The brand named, in its own colour, once. Outlined, so it states rather than shouts. */
+.offer-brand {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--brand) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+  color: color-mix(in srgb, var(--brand) 58%, white);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/*
+ * The number the reader came for, in a well of its own.
+ *
+ * Everything else on the card qualifies this line, so it gets the only large type and the
+ * only recess. The well is darker than the card rather than lighter, because a reader
+ * scanning a column of these needs the number to sit still, not to advance.
+ */
+.offer-rate {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 14px 18px;
+  padding: 11px 15px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: rgb(0 0 0 / 34%);
+}
+
+.offer-upto {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.offer-speed {
+  font-size: 28px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  text-align: end;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
 }
 
 .offer-unit {
-  margin-inline-start: 3px;
+  margin-inline-start: 5px;
   color: var(--ink-faint);
   font-size: 11px;
+  font-weight: 400;
   letter-spacing: 0.04em;
 }
 
-.offer-unpriced {
-  color: var(--ink-faint);
-  font-size: 13px;
+.offer-tech {
+  margin-inline-start: auto;
+  color: var(--ink-dim);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.offer-why {
-  grid-area: why;
+.offer-foot {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid var(--rule);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  padding: 3px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.tag-best {
+  border-color: rgb(255 255 255 / 28%);
+  color: var(--ink);
+  letter-spacing: 0.06em;
+}
+
+.offer-cost {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.offer-price {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.offer-per {
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.offer-unpriced {
+  flex: none;
   color: var(--ink-faint);
   font-size: 12px;
 }
 
-.offer-basis {
-  color: var(--ink-faint);
-  opacity: 0.7;
+/* The answer's outline while the answer is on its way. */
+.ghost {
+  border: 1px solid var(--rule);
+  background: rgb(255 255 255 / 1.6%);
+  pointer-events: none;
 }
 
+.ghost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgb(255 255 255 / 5%) 50%,
+    transparent 80%
+  );
+  animation: sweep 1.6s ease-in-out infinite;
+}
+
+.offer.ghost {
+  position: relative;
+  min-height: 138px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Closed by the same rule that opens the answer, so the page has two edges and not one. */
 .disclaimer {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
   align-items: baseline;
-  margin-top: 26px;
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
   color: var(--ink-faint);
   font-size: 12px;
+  line-height: 1.6;
 }
 
 .disclaimer p {
@@ -616,11 +898,25 @@ body {
 }
 
 @media (width <= 560px) {
-  .offer {
-    grid-template-areas:
-      "head  head"
-      "speed price"
-      "why   why";
-    grid-template-columns: 1fr auto;
+  .offer-head,
+  .offer-foot {
+    padding-inline: 14px;
+  }
+
+  .offer-rate {
+    margin-inline: 14px;
+  }
+
+  .offer-speed {
+    font-size: 25px;
+  }
+
+  .offer-price {
+    font-size: 19px;
+  }
+
+  /* The pill would cost the plan name half its room on a phone; the mark already says it. */
+  .offer-brand {
+    display: none;
   }
 }
