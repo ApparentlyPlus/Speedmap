@@ -1,62 +1,94 @@
 /**
  * One thing that can be bought here.
  *
- * The speed carries where it came from, because an operator's own figure for this line, a
- * tile of measurements around it and a band filed for the area are three different claims
- * and the reader deserves to know which one they are looking at.
+ * Three bands: who is selling, how fast, what it costs. The speed sits in a recessed panel
+ * of its own because it is the number the reader came for and the one they compare across
+ * a dozen cards — everything else on the card exists to qualify it. The brand appears twice,
+ * as a mark and as a pill, and nowhere else: the card itself stays neutral so that twenty
+ * of them read as one list rather than as twenty posters.
  */
 
 import type { Buyable } from "../api/client";
 import { strings, type Language } from "../i18n";
-import { bandFor, colourFor, mbps } from "../tokens";
+import { brandOf } from "../brands";
+import { colourFor, mbps } from "../tokens";
+import { Logo } from "./Logo";
 
 export function Offer({
   option,
   language,
-  first,
+  best,
+  rank,
 }: {
   readonly option: Buyable;
   readonly language: Language;
-  readonly first: boolean;
+  readonly best: boolean;
+  readonly rank: number;
 }): React.ReactElement {
   const text = strings(language);
   const speed = option.expected_mbps === null ? null : mbps(Number(option.expected_mbps));
-  const band = bandFor(speed);
 
   return (
-    <li className={`offer${first ? " offer-first" : ""}`}>
-      <span className="offer-bar" style={{ background: colourFor(speed) }} aria-hidden="true" />
+    <li
+      className={`offer${best ? " offer-best" : ""}`}
+      // Staggered so the list assembles rather than appearing, capped so a long one does
+      // not keep the reader waiting on an animation they did not ask for.
+      style={
+        {
+          "--brand": brandOf(option.provider).colour,
+          "--delay": `${Math.min(rank, 8) * 45}ms`,
+        } as React.CSSProperties
+      }
+    >
+      <header className="offer-head">
+        <Logo provider={option.provider} />
+        <div className="offer-title">
+          <h3 className="offer-plan">{shorten(option.plan, option.provider_name)}</h3>
+          <p className="offer-sub">{text.family[option.family] ?? option.family}</p>
+        </div>
+        <span className="offer-brand">{option.provider_name}</span>
+      </header>
 
-      <div className="offer-head">
-        <span className="offer-provider">{option.provider}</span>
-        <span className="offer-plan">{option.plan}</span>
+      <div className="offer-rate">
+        <span className="offer-upto">{text.upTo}</span>
+        <span className="offer-speed" style={{ color: colourFor(speed) }}>
+          {speed === null ? "—" : Math.round(speed)}
+          <span className="offer-unit">Mbps</span>
+        </span>
+        <span className="offer-tech">
+          {text.technology[option.technology] ?? option.technology}
+        </span>
       </div>
 
-      <div className="offer-speed" style={{ color: colourFor(speed) }}>
-        {speed === null ? "—" : `${Math.round(speed)}`}
-        <span className="offer-unit">Mbps</span>
-      </div>
-
-      <div className="offer-price">
+      <footer className="offer-foot">
+        <ul className="tags">
+          <li className="tag">{text.basis[option.basis] ?? option.basis}</li>
+          <li className="tag">
+            {option.data_cap_gb === null ? text.unlimited : `${option.data_cap_gb} GB`}
+          </li>
+          {best && <li className="tag tag-best">{text.bestHere}</li>}
+        </ul>
         {option.cost === null ? (
           <span className="offer-unpriced">{text.notPriced}</span>
         ) : (
-          <>
-            <span className="offer-monthly">{option.cost.total}€</span>
-            <span className="offer-unit">{text.perMonth}</span>
-          </>
-        )}
-      </div>
-
-      <p className="offer-why">
-        {option.why}
-        {band !== null && option.tests > 0 && (
-          <span className="offer-basis">
-            {" · "}
-            {option.basis} · {option.tests}
+          <span className="offer-cost">
+            <span className="offer-price">{option.cost.total}€</span>
+            <span className="offer-per">{text.perMonth}</span>
           </span>
         )}
-      </p>
+      </footer>
     </li>
   );
+}
+
+/**
+ * The plan name without the brand the mark and the pill already carry.
+ *
+ * Every operator names its plans after itself, so the card would otherwise say the brand
+ * three times over, and the part that distinguishes one plan from the next would be pushed
+ * to the end of the line.
+ */
+function shorten(plan: string, brand: string): string {
+  const rest = plan.slice(brand.length).trim();
+  return plan.toUpperCase().startsWith(brand.toUpperCase()) && rest !== "" ? rest : plan;
 }

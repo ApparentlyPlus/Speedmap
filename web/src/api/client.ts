@@ -27,11 +27,20 @@ export class ApiError extends Error {
   }
 }
 
-async function send<T>(method: string, path: string, signal?: AbortSignal): Promise<T> {
+async function send<T>(
+  method: string,
+  path: string,
+  signal?: AbortSignal,
+  body?: unknown,
+): Promise<T> {
   const answer = await fetch(`${BASE}${path}`, {
     method,
     signal: signal ?? null,
-    headers: { Accept: "application/json" },
+    headers:
+      body === undefined
+        ? { Accept: "application/json" }
+        : { Accept: "application/json", "Content-Type": "application/json" },
+    body: body === undefined ? null : JSON.stringify(body),
   });
   if (!answer.ok) {
     throw new ApiError(answer.status, `${path} answered ${answer.status}`);
@@ -70,4 +79,21 @@ export function probe(
 ): Promise<Probed[]> {
   const where = `/addresses/${addressId}/probe?provider=${encodeURIComponent(provider)}`;
   return send<Probed[]>("POST", where, signal);
+}
+
+/**
+ * Ask for a number the register never filed, on a street it did.
+ *
+ * The street is known and the door is not, which is the common case rather than the odd
+ * one. Made once and kept: from here it is an address like any other, and the answers the
+ * operators give about it belong to it rather than to this visit.
+ */
+export function askFor(
+  streetId: number,
+  streetNo: string,
+  signal?: AbortSignal,
+): Promise<Result> {
+  return send<Result>("POST", `/streets/${streetId}/addresses`, signal, {
+    street_no: streetNo,
+  });
 }

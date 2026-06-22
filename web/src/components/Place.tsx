@@ -6,8 +6,9 @@
  * request the reader waits for the slowest before learning anything, and silence for eight
  * seconds reads as breakage rather than work.
  *
- * An operator that could not be reached says so. It never renders as having no service —
- * that is a different fact, and the one the whole cache design exists to keep apart.
+ * What an operator answered is not narrated. A row of chips saying "asking", "known",
+ * "no reply" reports on the machinery rather than on the address, and the reader cannot act
+ * on any of it. The list simply grows as answers land.
  */
 
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ import { useEffect, useState } from "react";
 import { options, probe, type Options, type Result } from "../api/client";
 import { strings, type Language } from "../i18n";
 import { Offer } from "./Offer";
+import { Waiting } from "./Waiting";
 
 /**
  * Verdicts that mean nothing would be learned by asking.
@@ -25,7 +27,40 @@ import { Offer } from "./Offer";
  */
 const SETTLED = new Set(["fresh", "inferred", "refused"]);
 
-type Asking = "asking" | "answered" | "no-reply" | "refused";
+/**
+ * How many of a band to show before asking.
+ *
+ * A band can hold twelve near-identical mobile plans, and a reader who wanted the cheapest
+ * has already found it in the first three — the rest are there to be checked, not read. The
+ * ranker put them in order, so the three at the top are the three that matter.
+ */
+const SHOWN = 3;
+
+type Group = {
+  readonly heading: "groupEnough" | "groupSlower" | "groupUnpriced";
+  readonly options: readonly Options["options"][number][];
+};
+
+/**
+ * The same three sentences, said once each instead of twenty times.
+ *
+ * The ranker already explains every option, and its explanation is identical for every
+ * option in the same band — twelve rows all reading "short of what a household wants" is
+ * noise standing where the offer should be. Said once, over the rows it covers, it is
+ * information again.
+ */
+function groups(options: Options["options"]): readonly Group[] {
+  const enough = options.filter((o) => o.cost !== null && o.enough);
+  const slower = options.filter((o) => o.cost !== null && !o.enough);
+  const unpriced = options.filter((o) => o.cost === null);
+  return (
+    [
+      { heading: "groupEnough", options: enough },
+      { heading: "groupSlower", options: slower },
+      { heading: "groupUnpriced", options: unpriced },
+    ] as const
+  ).filter((group) => group.options.length > 0);
+}
 
 export function Place({
   result,
@@ -37,9 +72,8 @@ export function Place({
   readonly onBack: () => void;
 }): React.ReactElement {
   const text = strings(language);
-  const [known_, setKnown] = useState<Options | null>(null);
-  const known = known_;
-  const [asking, setAsking] = useState<Record<string, Asking>>({});
+  const [known, setKnown] = useState<Options | null>(null);
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const stop = new AbortController();
@@ -51,34 +85,12 @@ export function Place({
 
       const due = first.operators.filter((o) => !SETTLED.has(o.known));
       if (due.length === 0) return;
-      setAsking(Object.fromEntries(due.map((o) => [o.provider, "asking" as const])));
 
       // Each lands when it lands, and each refreshes the list on its own.
       await Promise.all(
         due.map(async (operator) => {
-          const answer = await probe(result.id, operator.provider, stop.signal).catch(
-            () => null,
-          );
+          await probe(result.id, operator.provider, stop.signal).catch(() => null);
           if (stop.signal.aborted) return;
-          // An empty answer is the server declining to ask, not an operator failing to
-          // reply: it is inside a backoff, and the chip should say what it already knew.
-          const one = answer?.[0];
-          const state: Asking | null =
-            answer === null
-              ? "no-reply"
-              : one === undefined
-                ? null
-                : !one.reached
-                  ? "no-reply"
-                  : one.serviceable === false
-                    ? "refused"
-                    : "answered";
-          setAsking((held) => {
-            const next = { ...held };
-            if (state === null) delete next[operator.provider];
-            else next[operator.provider] = state;
-            return next;
-          });
           const fresher = await options(result.id, stop.signal).catch(() => null);
           if (fresher !== null && !stop.signal.aborted) setKnown(fresher);
         }),
@@ -87,16 +99,6 @@ export function Place({
 
     return () => stop.abort();
   }, [result.id]);
-
-  const label = (provider: string): string => {
-    const state = asking[provider];
-    if (state === "asking") return text.asking;
-    if (state === "answered") return text.answered;
-    if (state === "no-reply") return text.noReply;
-    if (state === "refused") return text.refused;
-    const known = (known_?.operators ?? []).find((o) => o.provider === provider)?.known;
-    return known === "refused" ? text.refused : text.cached;
-  };
 
   const where = [result.locality, result.municipality].filter(Boolean).join(" · ");
   const name = result.street_no === null ? result.name : `${result.name} ${result.street_no}`;
@@ -109,36 +111,55 @@ export function Place({
         </button>
         <h1 className="place-name">{name}</h1>
         <p className="place-where">{where}</p>
+
       </header>
 
-      <ul className="operators" aria-label={text.checking}>
-        {(known?.operators ?? []).map((operator) => (
-          <li className="operator" key={operator.provider}>
-            <span className="operator-name">{operator.provider}</span>
-            <span className={`chip chip-${asking[operator.provider] ?? "cached"}`}>
-              {label(operator.provider)}
-            </span>
-            {operator.state !== "healthy" && (
-              <span className="operator-note">{operator.says}</span>
-            )}
-          </li>
-        ))}
-      </ul>
+      {known === null && <Waiting />}
 
       {known !== null && known.options.length === 0 && (
         <p className="empty">{text.nothingHere}</p>
       )}
 
-      <ol className="offers">
-        {(known?.options ?? []).map((option, index) => (
-          <Offer
-            key={`${option.provider}-${option.plan}`}
-            option={option}
-            language={language}
-            first={index === 0}
-          />
-        ))}
-      </ol>
+      {groups(known?.options ?? []).map((group, band) => {
+        const open = opened[group.heading] === true;
+        const shown = open ? group.options : group.options.slice(0, SHOWN);
+        const held = group.options.length - shown.length;
+        return (
+          <section className="group" key={group.heading}>
+            <h2 className="group-head">
+              <span className="group-index">/{String(band + 1).padStart(2, "0")}</span>
+              {text[group.heading]}
+              <span className="group-rule" aria-hidden="true" />
+            </h2>
+            <ol className="offers">
+              {shown.map((option, index) => (
+                <Offer
+                  key={`${option.provider}-${option.plan}`}
+                  option={option}
+                  language={language}
+                  best={band === 0 && index === 0}
+                  rank={index}
+                />
+              ))}
+            </ol>
+            {(held > 0 || open) && (
+              <button
+                className="expand"
+                type="button"
+                aria-expanded={open}
+                onClick={() =>
+                  setOpened((was) => ({ ...was, [group.heading]: !open }))
+                }
+              >
+                <span className={`expand-arrow${open ? " expand-arrow-up" : ""}`} aria-hidden="true">
+                  ↓
+                </span>
+                {open ? text.fewer : `+${held} ${text.more}`}
+              </button>
+            )}
+          </section>
+        );
+      })}
 
       <footer className="disclaimer">
         <p>{text.disclaimer}</p>

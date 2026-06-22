@@ -29,16 +29,19 @@ export type Band = {
  * The thresholds are the ones the rest of the system already reasons in: a hundred is what
  * a household needs, three hundred is where copper cannot follow, a gigabit is settled.
  *
- * Deep violet through to pale cyan. It climbs in lightness the whole way, so it survives
- * being read by someone who cannot separate the hues at all, and it stays inside the
- * page's own two colours rather than importing a third.
+ * Red, amber, green, blue, violet. The order everyone already knows from a signal. The
+ * page's own colour is white and is spent on chrome — what is focused, what was chosen —
+ * so the ramp keeps every hue to itself and the two can never be told apart by accident.
+ *
+ * Five hues rather than a gradient, because the bands are the point. An address is in one
+ * of them, and a reader should be able to say which from across a room.
  */
 export const RAMP: readonly Band[] = [
-  { floor: mbps(1000), colour: "#a5f3fc", name: "gigabit" },
-  { floor: mbps(300), colour: "#22d3ee", name: "fast" },
-  { floor: mbps(100), colour: "#c4b5fd", name: "enough" },
-  { floor: mbps(30), colour: "#a855f7", name: "slow" },
-  { floor: mbps(0), colour: "#6d28d9", name: "poor" },
+  { floor: mbps(1000), colour: "#a855f7", name: "gigabit" },
+  { floor: mbps(300), colour: "#3b82f6", name: "fast" },
+  { floor: mbps(100), colour: "#22c55e", name: "enough" },
+  { floor: mbps(30), colour: "#eab308", name: "slow" },
+  { floor: mbps(0), colour: "#ef4444", name: "poor" },
 ];
 
 /**
@@ -59,8 +62,9 @@ export function colourFor(speed: Mbps | null): string {
   return bandFor(speed)?.colour ?? UNFILED;
 }
 
-/** The accent everything else is lit by: one light source, from below. */
-export const ACCENT = "#a855f7";
+/** The colour of the place: what is focused, what was chosen, and the lamp under the fold.
+ * White, because five operators already own five hues and a sixth would read as a brand. */
+export const ACCENT = "#ffffff";
 
-/** The far end of the ramp, and the second colour the network behind the page is drawn in. */
-export const FAR = "#22d3ee";
+/** Its cooler half, for the second strand of the network behind the page. */
+export const FAR = "#6366f1";
