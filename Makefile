@@ -21,9 +21,10 @@ fmt: # apply the autofixable lint rules
 	.venv/bin/ruff check --fix .
 
 .PHONY: lint
-lint: # ruff, plus the numeric fallback ban
+lint: # ruff, the numeric fallback ban, and the tile contract
 	.venv/bin/ruff check .
 	$(PY) tools/lint_numeric_fallback.py .
+	$(PY) tools/codegen_tiles.py --check
 
 .PHONY: typecheck
 typecheck: # mypy --strict
@@ -57,6 +58,14 @@ migrate-status: # list pending migrations
 .PHONY: build
 build: # rebuild the derived tables from raw_*
 	$(PY) -m normalise.build
+
+.PHONY: tiles
+tiles: # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
+	$(PY) -m publish.run
+
+.PHONY: codegen
+codegen: # regenerate both sides of the tile contract
+	$(PY) tools/codegen_tiles.py
 
 .PHONY: api
 api: # run the read-only API on :8000

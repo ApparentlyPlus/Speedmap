@@ -38,6 +38,13 @@ EXPIRED_BEFORE_OBSERVED = (
     "'FTTH', true, 'register', 'declared', now(), now() - interval '1 day')"
 )
 
+# A street whose overall best disagrees with every operator filed on it.
+DISAGREEING_STREET = (
+    "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom, "
+    "best_mbps) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'TEST', 'ΤΕΣΤ', 'residential', 1, "
+    "'SRID=4326;MULTILINESTRING((23.0 40.7, 23.01 40.71))', 999)"
+)
+
 CONTROLS: dict[str, tuple[str, ...]] = {
     "coverage_family_matches_technology": (MISLABELLED_COVERAGE.format(table="coverage"),),
     "coverage_area_family_matches_technology": (
@@ -45,6 +52,7 @@ CONTROLS: dict[str, tuple[str, ...]] = {
     ),
     "availability_expires_after_observed": (FOLDED_ADDRESS, EXPIRED_BEFORE_OBSERVED),
     "address_search_key_is_folded": (UNFOLDED_ADDRESS,),
+    "street_best_is_the_best_operator": (DISAGREEING_STREET,),
 }
 
 

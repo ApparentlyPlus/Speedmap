@@ -7,6 +7,7 @@ asks three times what the market charges — so there is somewhere to say we got
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -30,6 +31,7 @@ from probe.lookup import verdicts
 from probe.nova import Nova
 from probe.run import refresh, target_for
 from probe.vodafone import Vodafone
+from publish.fields import STREETS_BY_PROVIDER
 from ranking.offer import options as buyable
 from ranking.rank import ENOUGH_MBPS, rank
 
@@ -43,6 +45,21 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         pool.close()
+
+
+def tile_operators() -> str:
+    """The per-operator columns, named by the tile contract rather than by this file.
+
+    The map filters by operator, and a filter over a single best paints a street in one
+    operator's colour while claiming another's. Generated on both sides so a renamed field
+    stops the build rather than the map.
+    """
+    return "".join(
+        f", '{field}', (select max(sp.mbps) from street_provider sp "
+        f"join provider p on p.id = sp.provider_id "
+        f"where sp.street_id = s.id and p.code = '{code}')"
+        for code, field in STREETS_BY_PROVIDER.items()
+    )
 
 
 app = FastAPI(
@@ -59,7 +76,9 @@ class Health(BaseModel):
     offers: int = Field(description="rows in address_coverage")
 
 
-def rows(sql: str, params: tuple[object, ...] = ()) -> list[tuple[Any, ...]]:
+def rows(
+    sql: str, params: tuple[object, ...] | dict[str, object] = ()
+) -> list[tuple[Any, ...]]:
     with pool.connection() as conn:
         return conn.execute(sql, params).fetchall()
 
@@ -517,6 +536,75 @@ def ask_for(street_id: int, asked: Asking) -> Result:
     if found is None:
         raise HTTPException(404, "no such address")
     return results([found], "asked")[0]
+
+
+# The most a viewport may hand back. A map that tries to draw a country of streets as
+# GeoJSON stops being a map; past this the caller is told to zoom rather than sent 80,000
+# features it cannot paint.
+MAX_FEATURES = 4000
+
+# Below this a viewport is a country, and the answer is the same either way: nothing useful.
+MIN_MAP_ZOOM = 9
+
+STREETS_IN = f"""
+select json_build_object(
+    'type', 'Feature',
+    'geometry', st_asgeojson(st_transform(s.geom::geometry, 4326), 5)::json,
+    'properties', json_build_object(
+        'id', s.id,
+        'best_mbps', s.best_mbps,
+        'nprov', (select count(*) from street_provider sp where sp.street_id = s.id)
+        {{operators}}
+    )
+)::text
+from street s
+where s.geom is not null
+  and s.geom && st_makeenvelope(%(west)s, %(south)s, %(east)s, %(north)s, 4326)::geography
+order by s.best_mbps desc nulls last, s.ways desc, s.id
+limit {MAX_FEATURES}
+"""
+
+
+class Drawn(BaseModel):
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    features: list[dict[str, Any]]
+    truncated: bool = Field(
+        description="more streets are in view than were sent; the reader should zoom in"
+    )
+
+
+@app.get("/streets.geojson", response_model=Drawn, tags=["map"])
+def streets_in(
+    west: float = Query(ge=-180, le=180),
+    south: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180),
+    north: float = Query(ge=-90, le=90),
+    zoom: int = Query(ge=0, le=22),
+) -> Drawn:
+    """The streets in a viewport, in the shape the tiles use.
+
+    The map is meant to be served from a PMTiles archive, which is one file a web server can
+    range-request and is what should be in front of real traffic. This is the same data by
+    the other road: it needs no build step, so the renderer can be worked on and checked
+    against a live database before any tiles are cut, and it is the fallback where an
+    archive has not been copied across yet.
+
+    Both paths carry the fields the tile schema names, because a renderer that works against
+    one and not the other is worth nothing.
+    """
+    if zoom < MIN_MAP_ZOOM:
+        return Drawn(features=[], truncated=True)
+    if west >= east or south >= north:
+        raise HTTPException(422, "the viewport has no area")
+
+    corners: dict[str, object] = {
+        "west": west, "south": south, "east": east, "north": north,
+    }
+    found = rows(STREETS_IN.format(operators=tile_operators()), corners)
+    return Drawn(
+        features=[json.loads(row[0]) for row in found],
+        truncated=len(found) >= MAX_FEATURES,
+    )
 
 
 @app.post("/reports", response_model=Report, status_code=201, tags=["report"])

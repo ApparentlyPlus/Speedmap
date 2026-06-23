@@ -269,6 +269,35 @@
         "title": "Cost",
         "type": "object"
       },
+      "Drawn": {
+        "properties": {
+          "features": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "truncated": {
+            "description": "more streets are in view than were sent; the reader should zoom in",
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "type": {
+            "const": "FeatureCollection",
+            "default": "FeatureCollection",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "features",
+          "truncated"
+        ],
+        "title": "Drawn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1187,6 +1216,95 @@
         "summary": "Search",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/streets.geojson": {
+      "get": {
+        "description": "The streets in a viewport, in the shape the tiles use.\n\nThe map is meant to be served from a PMTiles archive, which is one file a web server can\nrange-request and is what should be in front of real traffic. This is the same data by\nthe other road: it needs no build step, so the renderer can be worked on and checked\nagainst a live database before any tiles are cut, and it is the fallback where an\narchive has not been copied across yet.\n\nBoth paths carry the fields the tile schema names, because a renderer that works against\none and not the other is worth nothing.",
+        "operationId": "streets_in_streets_geojson_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "west",
+            "required": true,
+            "schema": {
+              "maximum": 180,
+              "minimum": -180,
+              "title": "West",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "south",
+            "required": true,
+            "schema": {
+              "maximum": 90,
+              "minimum": -90,
+              "title": "South",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "east",
+            "required": true,
+            "schema": {
+              "maximum": 180,
+              "minimum": -180,
+              "title": "East",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "north",
+            "required": true,
+            "schema": {
+              "maximum": 90,
+              "minimum": -90,
+              "title": "North",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "zoom",
+            "required": true,
+            "schema": {
+              "maximum": 22,
+              "minimum": 0,
+              "title": "Zoom",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drawn"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Streets In",
+        "tags": [
+          "map"
         ]
       }
     },
