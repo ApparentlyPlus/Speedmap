@@ -797,6 +797,27 @@
       },
       "StreetDetail": {
         "properties": {
+          "bbox": {
+            "description": "west, south, east, north — a street has no point, only an extent",
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Bbox",
+            "type": "array"
+          },
           "highway": {
             "title": "Highway",
             "type": "string"
@@ -839,6 +860,7 @@
           "municipality",
           "highway",
           "ways",
+          "bbox",
           "offers"
         ],
         "title": "StreetDetail",

@@ -978,6 +978,78 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* The same index the landing searches: two search boxes that disagreed about what exists
+ * would be two products. */
+.atlas-search input {
+  width: 100%;
+  margin: 6px 0 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--rule-lit);
+  border-radius: 9px;
+  background: rgb(255 255 255 / 3%);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+.atlas-search input:focus {
+  border-color: rgb(255 255 255 / 45%);
+  outline: none;
+}
+
+.atlas-search input::placeholder {
+  color: var(--ink-faint);
+}
+
+.atlas-found {
+  display: grid;
+  gap: 1px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.atlas-hit {
+  display: grid;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--settle);
+}
+
+.atlas-hit:hover,
+.atlas-hit:focus-visible {
+  background: rgb(255 255 255 / 6%);
+}
+
+.atlas-hit-name {
+  font-size: 12px;
+}
+
+.atlas-hit-where {
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* Present for a screen reader, absent for everyone else. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .atlas-head {
   margin: 12px 0 8px;
   color: var(--ink-faint);

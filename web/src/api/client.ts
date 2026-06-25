@@ -13,6 +13,8 @@ export type Options = components["schemas"]["Options"];
 export type Buyable = components["schemas"]["Buyable"];
 export type Operator = components["schemas"]["Operator"];
 export type Probed = components["schemas"]["Probed"];
+export type StreetDetail = components["schemas"]["StreetDetail"];
+export type AddressDetail = components["schemas"]["AddressDetail"];
 
 /** Same origin in production behind Caddy, and proxied to the same place in development. */
 const BASE = "/api";
@@ -117,4 +119,12 @@ export function streetsIn(
     `/streets.geojson?west=${west}&south=${south}&east=${east}&north=${north}` +
     `&zoom=${Math.round(zoom)}`;
   return get<Drawn>(where, signal);
+}
+
+export function street(streetId: number, signal?: AbortSignal): Promise<StreetDetail> {
+  return get<StreetDetail>(`/streets/${streetId}`, signal);
+}
+
+export function address(addressId: number, signal?: AbortSignal): Promise<AddressDetail> {
+  return get<AddressDetail>(`/addresses/${addressId}`, signal);
 }
