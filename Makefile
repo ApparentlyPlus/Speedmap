@@ -35,9 +35,9 @@ test: # pytest
 	$(PY) -m pytest -q
 
 .PHONY: web-check
-web-check: # typecheck the frontend, when it has been installed
+web-check: # typecheck and test the frontend, when it has been installed
 	@test -d web/node_modules \
-		&& (cd web && npm run --silent typecheck) \
+		&& (cd web && npm run --silent typecheck && npm run --silent test) \
 		|| echo "  web: no node_modules, skipped"
 
 .PHONY: check

@@ -920,3 +920,171 @@ body {
     display: none;
   }
 }
+
+/*
+ * The map.
+ *
+ * Full bleed, with one panel floating over it. The panel is the only chrome: a map that
+ * spends its edges on a header has less map in it, and the map is the page.
+ */
+.atlas {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.atlas-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.atlas-panel {
+  display: flex;
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  left: 18px;
+  flex-direction: column;
+  gap: 6px;
+  width: 232px;
+  max-height: calc(100% - 36px);
+  padding: 18px;
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: rgb(10 10 12 / 82%);
+  backdrop-filter: blur(20px);
+}
+
+.atlas-back {
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color var(--settle);
+}
+
+.atlas-back:hover {
+  color: var(--ink);
+}
+
+.atlas-name {
+  margin: 8px 0 14px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.atlas-head {
+  margin: 12px 0 8px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.atlas-operators,
+.atlas-ramp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.atlas-operator {
+  padding: 5px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    border-color var(--settle),
+    color var(--settle);
+}
+
+.atlas-operator:hover {
+  border-color: var(--rule-lit);
+  color: var(--ink-dim);
+}
+
+/* The chosen one wears its own colour, which is also the colour its streets are about to
+ * be filtered to. */
+.atlas-operator-on {
+  border-color: color-mix(in srgb, var(--brand, #fff) 60%, transparent);
+  background: color-mix(in srgb, var(--brand, #fff) 12%, transparent);
+  color: var(--ink);
+}
+
+.atlas-ramp {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.atlas-band {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-swatch {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/*
+ * Which silence this is.
+ *
+ * Four per cent of the country has ever been speed-tested and half its streets have no
+ * filed speed, so an empty view is the normal case and the reader has to be told which
+ * empty they are looking at — otherwise the map reads as broken every time it is right.
+ */
+.atlas-state {
+  margin: 14px 0 0;
+  min-height: 2.6em;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.atlas-state-failed {
+  color: #f87171;
+}
+
+/* MapLibre's own controls, brought into the page rather than left as the library's. */
+.maplibregl-ctrl-group {
+  border: 1px solid var(--rule) !important;
+  border-radius: 10px !important;
+  background: rgb(10 10 12 / 82%) !important;
+  box-shadow: none !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--rule) !important;
+}
+
+.maplibregl-ctrl-group button span {
+  filter: invert(1);
+}
+
+@media (width <= 560px) {
+  .atlas-panel {
+    top: 12px;
+    left: 12px;
+    width: calc(100% - 24px);
+    max-height: 46%;
+  }
+}
