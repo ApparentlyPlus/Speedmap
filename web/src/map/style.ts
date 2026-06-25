@@ -1,0 +1,146 @@
+/**
+ * The map style, as typed code rather than a JSON file.
+ *
+ * MapLibre rejects an entire style on one bad paint expression: the map does not load at
+ * all, and the error says which layer without saying what about it. A JSON file gets that
+ * wrong at runtime in front of a reader; a builder gets it wrong at compile time in front of
+ * whoever wrote it.
+ *
+ * Every field name here comes from the generated tile contract and every colour from the
+ * one speed ramp, so the map and the suggestion list cannot teach different colours for the
+ * same speed.
+ */
+
+import type {
+  DataDrivenPropertyValueSpecification,
+  ExpressionSpecification,
+  LayerSpecification,
+  StyleSpecification,
+} from "maplibre-gl";
+
+import { RAMP, UNFILED } from "../tokens";
+import { STREETS_BY_PROVIDER, STREETS_LAYER, type Street } from "./tiles";
+
+export const SOURCE = "speedmap";
+
+/** Greece, with room for Crete and the north in the same view. */
+export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
+
+/**
+ * The ramp as a step expression over the same floors the rest of the system reasons in.
+ *
+ * A missing speed becomes one below the bottom of the ramp rather than being compared
+ * against null: `==` promises to compare strings to strings and numbers to numbers, and
+ * nothing about null, so the arithmetic says it without leaning on that.
+ *
+ * Not filed is not slow. It is the commonest state in the register, and painting it red
+ * would invent a fact about six operators in one stroke.
+ */
+function ramp(field: keyof Street): ExpressionSpecification {
+  // The ramp is written fastest first and `step` wants ascending stops: the one place the
+  // two orders meet, and a good place to get it wrong.
+  const rising = [...RAMP].reverse();
+  const stops = rising.flatMap((band) => [band.floor as number, band.colour]);
+  return [
+    "step",
+    ["coalesce", ["get", field], -1],
+    UNFILED,
+    ...stops,
+  ] as ExpressionSpecification;
+}
+
+/** Thin where the country is in view, wide enough to click where a street is. */
+const WIDTH: DataDrivenPropertyValueSpecification<number> = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  9, 0.6,
+  12, 1.6,
+  15, 3.4,
+  18, 7,
+];
+
+/**
+ * A filter for one operator, or none at all.
+ *
+ * Filtering on the street's overall best would paint a street in an operator's colour on
+ * the strength of a different operator's filing, which is the whole reason the per-operator
+ * fields exist.
+ */
+export function only(provider: string | null): ExpressionSpecification | undefined {
+  if (provider === null) return undefined;
+  const field = STREETS_BY_PROVIDER[provider];
+  // An operator with no field of its own reaches nothing rather than everything.
+  if (field === undefined) return ["boolean", false] as ExpressionSpecification;
+  // `has` is the test that works on a missing property; `!= null` is not a legal comparison.
+  return ["has", field] as ExpressionSpecification;
+}
+
+/**
+ * Whether the streets arrive in a vector tile or as plain GeoJSON.
+ *
+ * The distinction is one property: a vector tile carries named layers inside it and a layer
+ * must say which one it draws, while a GeoJSON source is the layer. Setting `source-layer`
+ * on GeoJSON matches nothing and paints nothing, silently — which is exactly the class of
+ * failure the generated contract exists to stop, arriving by a different door.
+ */
+export type Carried = "vector" | "geojson";
+
+export function streetLayers(
+  provider: string | null,
+  carried: Carried = "geojson",
+): LayerSpecification[] {
+  const named = carried === "vector" ? { "source-layer": STREETS_LAYER } : {};
+  // An operator with no field of its own is not painted as though it had one.
+  const field: keyof Street =
+    provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
+  const paint = ramp(field);
+  const filter = only(provider);
+
+  return [
+    {
+      // A wide, dim copy under the line. Cheaper than a real glow and it survives a phone.
+      id: "streets-halo",
+      type: "line",
+      source: SOURCE,
+      ...named,
+      ...(filter ? { filter } : {}),
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": paint,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 9, 3, 15, 11],
+        "line-opacity": 0.16,
+        "line-blur": 3,
+      },
+    },
+    {
+      id: "streets",
+      type: "line",
+      source: SOURCE,
+      ...named,
+      ...(filter ? { filter } : {}),
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": paint, "line-width": WIDTH },
+    },
+  ];
+}
+
+/**
+ * The whole style.
+ *
+ * No basemap. This map is about one thing and a street layer on a dark ground says it
+ * without borrowing anyone's cartography, or their tile bill.
+ */
+export function style(
+  source: StyleSpecification["sources"][string],
+  carried: Carried = "geojson",
+): StyleSpecification {
+  return {
+    version: 8,
+    sources: { [SOURCE]: source },
+    layers: [
+      { id: "ground", type: "background", paint: { "background-color": "#08080a" } },
+      ...streetLayers(null, carried),
+    ],
+  };
+}

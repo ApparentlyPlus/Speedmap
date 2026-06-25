@@ -97,3 +97,24 @@ export function askFor(
     street_no: streetNo,
   });
 }
+
+export type Drawn = components["schemas"]["Drawn"];
+
+/**
+ * The streets in a viewport, in the shape the tiles use.
+ *
+ * The map is meant to be served from a PMTiles archive, which is what should be in front of
+ * real traffic. This is the same data by the other road: no build step, so the renderer
+ * works against a live database before any tiles are cut.
+ */
+export function streetsIn(
+  box: readonly [number, number, number, number],
+  zoom: number,
+  signal?: AbortSignal,
+): Promise<Drawn> {
+  const [west, south, east, north] = box;
+  const where =
+    `/streets.geojson?west=${west}&south=${south}&east=${east}&north=${north}` +
+    `&zoom=${Math.round(zoom)}`;
+  return get<Drawn>(where, signal);
+}
