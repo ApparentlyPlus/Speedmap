@@ -21,10 +21,11 @@ fmt: # apply the autofixable lint rules
 	.venv/bin/ruff check --fix .
 
 .PHONY: lint
-lint: # ruff, the numeric fallback ban, and the tile contract
+lint: # ruff, the numeric fallback ban, and the two generated contracts
 	.venv/bin/ruff check .
 	$(PY) tools/lint_numeric_fallback.py .
 	$(PY) tools/codegen_tiles.py --check
+	$(PY) -m tools.openapi_schema --check
 
 .PHONY: typecheck
 typecheck: # mypy --strict
@@ -64,8 +65,10 @@ tiles: # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
 	$(PY) -m publish.run
 
 .PHONY: codegen
-codegen: # regenerate both sides of the tile contract
+codegen: # regenerate the tile contract and the OpenAPI document
 	$(PY) tools/codegen_tiles.py
+	$(PY) -m tools.openapi_schema
+	@test -d web/node_modules && (cd web && npm run --silent api:types) || true
 
 .PHONY: api
 api: # run the read-only API on :8000

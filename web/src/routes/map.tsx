@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { GeoJSONSource, Map as Maplibre, NavigationControl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { streetsIn, type Drawn } from "../api/client";
+import { address, search, street, streetsIn, type Drawn, type Result } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
@@ -35,6 +35,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<Maplibre | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState<Result[]>([]);
   const [showing, setShowing] = useState<Showing>("far");
   const [truncated, setTruncated] = useState(false);
 
@@ -115,6 +117,29 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     };
   }, []);
 
+  /*
+   * The same index the landing searches, because a street is a place on this map as much as
+   * it is a row in a list, and two search boxes that disagree about what exists would be
+   * two products.
+   */
+  useEffect(() => {
+    const asked = query.trim();
+    if (asked.length < 2) {
+      setFound([]);
+      return;
+    }
+    const stop = new AbortController();
+    const timer = window.setTimeout(() => {
+      search(asked, stop.signal)
+        .then((results) => setFound(results.filter((r) => r.kind !== "proposed")))
+        .catch(() => setFound([]));
+    }, SETTLE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      stop.abort();
+    };
+  }, [query]);
+
   // Repainting is swapping two layers, not reloading the data: the features already carry
   // every operator's number, which is why they are on the feature rather than fetched per
   // filter.
@@ -136,6 +161,42 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           <span aria-hidden="true">←</span> {text.back}
         </a>
         <h1 className="atlas-name">{text.mapTitle}</h1>
+
+        <label className="atlas-search">
+          <span className="visually-hidden">{text.searchLabel}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={text.searchPlaceholder}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        {found.length > 0 && (
+          <ul className="atlas-found">
+            {found.slice(0, 6).map((result) => (
+              <li key={`${result.kind}-${result.id}`}>
+                <button
+                  type="button"
+                  className="atlas-hit"
+                  onClick={() => {
+                    void flyTo(map.current, result);
+                    setQuery("");
+                    setFound([]);
+                  }}
+                >
+                  <span className="atlas-hit-name">
+                    {result.street_no === null
+                      ? result.name
+                      : `${result.name} ${result.street_no}`}
+                  </span>
+                  <span className="atlas-hit-where">{result.municipality}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <h2 className="atlas-head">{text.operator}</h2>
         <ul className="atlas-operators">
@@ -186,6 +247,33 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       </section>
     </main>
   );
+}
+
+/**
+ * Take the camera to a result.
+ *
+ * A street is fitted rather than flown to: it has no point of its own, and flying to the
+ * middle of a long one puts most of it off the screen when the street is the thing that was
+ * picked. An address does have a point, and gets one.
+ */
+async function flyTo(drawn: Maplibre | null, result: Result): Promise<void> {
+  if (drawn === null) return;
+  try {
+    if (result.kind === "street") {
+      const found = await street(result.id);
+      const [west, south, east, north] = found.bbox;
+      drawn.fitBounds([west, south, east, north], {
+        padding: 80,
+        maxZoom: 16,
+        duration: 900,
+      });
+      return;
+    }
+    const found = await address(result.id);
+    drawn.flyTo({ center: [found.lon, found.lat], zoom: 16, duration: 900 });
+  } catch {
+    // A camera that cannot be moved is not worth an error message on a map.
+  }
 }
 
 export const LAYER = STREETS_LAYER;
