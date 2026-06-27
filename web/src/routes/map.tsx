@@ -13,15 +13,33 @@ import { useEffect, useRef, useState } from "react";
 import { GeoJSONSource, Map as Maplibre, NavigationControl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { address, search, street, streetsIn, type Drawn, type Result } from "../api/client";
+import {
+  address,
+  search,
+  street,
+  streetsIn,
+  type Drawn,
+  type Result,
+  type StreetDetail,
+} from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, SOURCE, streetLayers, style } from "../map/style";
+import { HOME, SOURCE, streetLayers, style, type Carried } from "../map/style";
 
 /** Below this a viewport is a country, and the answer either way is nothing useful. */
 const MIN_ZOOM = 9;
+
+/*
+ * Where the streets come from, said once.
+ *
+ * The style is built here and the layers are rebuilt on every filter change, and the two
+ * must agree: a vector tile carries named layers and a layer must say which one it draws,
+ * while a GeoJSON source is the layer. Disagreeing means layers that match nothing and
+ * paint nothing, without a word of complaint. One constant, so they cannot.
+ */
+const CARRIED: Carried = "geojson";
 
 /** Long enough that a drag does not become a request per frame. */
 const SETTLE_MS = 250;
@@ -37,6 +55,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const [provider, setProvider] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Result[]>([]);
+  const [picked, setPicked] = useState<StreetDetail | null>(null);
   const [showing, setShowing] = useState<Showing>("far");
   const [truncated, setTruncated] = useState(false);
 
@@ -45,7 +64,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
 
     const drawn = new Maplibre({
       container: holder.current,
-      style: style({ type: "geojson", data: EMPTY }),
+      style: style({ type: "geojson", data: EMPTY }, CARRIED),
       center: HOME.centre,
       zoom: HOME.zoom,
       attributionControl: false,
@@ -107,6 +126,26 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       }, SETTLE_MS);
     };
 
+    /*
+     * A street is the only thing on this map, so it is the only thing to click. What comes
+     * back is the cabinets it runs through rather than a quote for a door on it: a street
+     * has no address of its own, and pretending otherwise would be inventing one.
+     */
+    drawn.on("click", "streets", (event) => {
+      const hit = event.features?.[0];
+      const id = hit?.properties?.["id"];
+      if (typeof id !== "number") return;
+      street(id)
+        .then(setPicked)
+        .catch(() => setPicked(null));
+    });
+    drawn.on("mouseenter", "streets", () => {
+      drawn.getCanvas().style.cursor = "pointer";
+    });
+    drawn.on("mouseleave", "streets", () => {
+      drawn.getCanvas().style.cursor = "";
+    });
+
     drawn.on("load", look);
     drawn.on("moveend", look);
     return () => {
@@ -140,16 +179,34 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     };
   }, [query]);
 
-  // Repainting is swapping two layers, not reloading the data: the features already carry
-  // every operator's number, which is why they are on the feature rather than fetched per
-  // filter.
+  /*
+   * Repainting is swapping two layers, not reloading the data: the features already carry
+   * every operator's number, which is why they are on the feature rather than fetched per
+   * filter.
+   *
+   * Deferred until the style is loaded rather than skipped, because a style that is still
+   * loading when the filter changes would otherwise leave the map showing everyone while
+   * the panel says one operator — and it is the panel the reader believes.
+   */
   useEffect(() => {
     const drawn = map.current;
-    if (drawn === null || !drawn.isStyleLoaded()) return;
-    for (const layer of ["streets-halo", "streets"]) {
-      if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+    if (drawn === null) return;
+
+    const repaint = (): void => {
+      for (const layer of ["streets-halo", "streets"]) {
+        if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+      }
+      for (const layer of streetLayers(provider, CARRIED)) drawn.addLayer(layer);
+    };
+
+    if (drawn.isStyleLoaded()) {
+      repaint();
+      return;
     }
-    for (const layer of streetLayers(provider)) drawn.addLayer(layer);
+    drawn.once("styledata", repaint);
+    return () => {
+      drawn.off("styledata", repaint);
+    };
   }, [provider]);
 
   return (
@@ -236,6 +293,40 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
             {text.unfiled}
           </li>
         </ul>
+
+        {picked !== null && (
+          <section className="atlas-picked">
+            <button
+              type="button"
+              className="atlas-shut"
+              onClick={() => setPicked(null)}
+              aria-label={text.back}
+            >
+              ×
+            </button>
+            <h2 className="atlas-picked-name">{picked.name}</h2>
+            <p className="atlas-picked-where">{picked.municipality}</p>
+            {picked.offers.length === 0 ? (
+              <p className="atlas-picked-none">{text.mapNothingHere}</p>
+            ) : (
+              <ul className="atlas-offers">
+                {picked.offers.map((offer) => (
+                  <li className="atlas-offer" key={`${offer.provider}-${offer.technology}`}>
+                    <span
+                      className="atlas-offer-dot"
+                      style={{ background: brandOf(offer.provider).colour }}
+                    />
+                    <span className="atlas-offer-name">{offer.provider_name}</span>
+                    <span className="atlas-offer-tech">{offer.technology}</span>
+                    <span className="atlas-offer-speed">
+                      {offer.speed === null ? text.unfiled : offer.speed.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <p className={`atlas-state atlas-state-${showing}`}>
           {showing === "far" && text.mapZoomIn}
