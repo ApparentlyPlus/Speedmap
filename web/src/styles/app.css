@@ -1117,6 +1117,90 @@ body {
   border-radius: 2px;
 }
 
+/* What runs under one street: the cabinets it crosses, not a quote for a door on it. */
+.atlas-picked {
+  position: relative;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.atlas-shut {
+  position: absolute;
+  top: 10px;
+  right: 0;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.atlas-shut:hover {
+  color: var(--ink);
+}
+
+.atlas-picked-name {
+  margin: 0;
+  padding-inline-end: 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.atlas-picked-where {
+  margin: 2px 0 8px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.atlas-picked-none {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.atlas-offers {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.atlas-offer {
+  display: grid;
+  grid-template-columns: 6px 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+  font-size: 11px;
+}
+
+.atlas-offer-dot {
+  grid-row: 1 / span 2;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.atlas-offer-tech {
+  grid-row: 2;
+  grid-column: 2;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.atlas-offer-speed {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 /*
  * Which silence this is.
  *
