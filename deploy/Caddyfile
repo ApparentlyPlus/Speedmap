@@ -1,0 +1,74 @@
+# The one process in front of everything: the built pages, the API, and the tiles.
+#
+# Three jobs with three different caching stories, which is the whole reason they are not
+# one rule. The pages change on every deploy and must never be held; the hashed assets
+# beside them never change and should be held forever; the tile archive changes weekly, is
+# tens of megabytes, and is read by range requests rather than whole.
+#
+# Replace the site address with the real host. Caddy gets its own certificate for it.
+
+speedmap.gr {
+	encode zstd gzip
+
+	# The API, on the same origin, so there is no CORS to configure and nothing to get
+	# wrong about credentials. The path is stripped because the app does not know it is
+	# mounted anywhere.
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:8000 {
+			# A live probe waits on an operator's own checker, which is slow by nature and
+			# occasionally silent. The app gives up before this does.
+			transport http {
+				response_header_timeout 30s
+			}
+		}
+	}
+
+	# One file, read by range requests. The archive is replaced by an atomic rename, so a
+	# reader gets the old one or the new one and never half of either — but a client that
+	# cached a range of the old one would splice two archives together, which is why this
+	# is a week rather than a year and why the file name carries no hash.
+	handle /tiles/* {
+		header Cache-Control "public, max-age=604800"
+		header Access-Control-Allow-Origin "*"
+		root * /srv/speedmap/tiles
+		file_server {
+			precompressed
+		}
+	}
+
+	# Everything the build hashed into its name. Same bytes forever, so hold it forever.
+	handle /assets/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		root * /srv/speedmap/web
+		file_server
+	}
+
+	# The pages. Every route is served by the same document — /, /en/, /map, /en/map — so
+	# a reader who arrives at a route directly, or reloads on one, gets the app rather than
+	# a 404 from a file that was never going to exist.
+	handle {
+		header Cache-Control "no-cache"
+		root * /srv/speedmap/web
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		# The pages load nothing from anywhere else: no basemap, no fonts, no analytics.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/speedmap.log
+		# The query string carries what people searched for, which is a street they live on.
+		format json
+	}
+}
+
+# Rate limiting the two endpoints that leave the building — POST /api/addresses/*/probe and
+# POST /api/reports — needs caddy-ratelimit, which is a build-time plugin rather than a
+# directive that ships with Caddy. Until that build exists the app is the only thing
+# refusing, which it does per operator and per address rather than per caller.

@@ -60,6 +60,10 @@ migrate-status: # list pending migrations
 build: # rebuild the derived tables from raw_*
 	$(PY) -m normalise.build
 
+.PHONY: web-build
+web-build: # build the frontend for deployment
+	cd web && npm ci && npm run build
+
 .PHONY: tiles
 tiles: # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
 	$(PY) -m publish.run
