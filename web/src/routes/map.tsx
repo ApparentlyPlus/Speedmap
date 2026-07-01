@@ -10,12 +10,12 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { GeoJSONSource, Map as Maplibre, NavigationControl } from "maplibre-gl";
+import { GeoJSONSource, Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
+import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   address,
-  regions,
   search,
   street,
   streetsIn,
@@ -27,10 +27,16 @@ import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, REGIONS, SOURCE, streetLayers, style, type Carried } from "../map/style";
+import { HOME, SOURCE, streetLayers, style, type Carried } from "../map/style";
 
-/** Below this a viewport is a country, and the answer either way is nothing useful. */
-const MIN_ZOOM = 9;
+/**
+ * Where coverage starts.
+ *
+ * Below this a street is too thin to carry a colour, and there is a basemap underneath
+ * saying where the land, the water and the roads are — so zooming out is a map of Greece
+ * rather than a black rectangle.
+ */
+const MIN_ZOOM = 10;
 
 /*
  * Where the streets come from, said once.
@@ -44,6 +50,26 @@ const CARRIED: Carried = "geojson";
 
 /** Long enough that a drag does not become a request per frame. */
 const SETTLE_MS = 250;
+
+/** How much wider than the screen to ask for, as a share of the viewport. */
+const MARGIN = 0.35;
+
+type Box = readonly [number, number, number, number];
+
+/** Whether one box is wholly within another. */
+function inside(inner: Box, outer: Box): boolean {
+  return (
+    inner[0] >= outer[0] && inner[1] >= outer[1] && inner[2] <= outer[2] && inner[3] <= outer[3]
+  );
+}
+
+/** A box grown by a share of its own size, so a small drag needs no new request. */
+function grown(box: Box, share: number): Box {
+  const [west, south, east, north] = box;
+  const wide = (east - west) * share;
+  const tall = (north - south) * share;
+  return [west - wide, south - tall, east + wide, north + tall];
+}
 
 const EMPTY: Drawn = { type: "FeatureCollection", features: [], truncated: false };
 
@@ -71,6 +97,14 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
 
   useEffect(() => {
     if (holder.current === null || map.current !== null) return;
+
+    /*
+     * One archive per basemap layer, read by range request rather than as a directory of a
+     * million small files. Registered before any map is built, because a source naming a
+     * protocol nobody has registered fails quietly.
+     */
+    const pmtiles = new Protocol();
+    addProtocol("pmtiles", pmtiles.tile);
 
     /*
      * The camera in the URL, so a view of one neighbourhood is a link to it.
@@ -112,32 +146,48 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
 
     let timer = 0;
     let stop = new AbortController();
-    // Its own controller: `look` aborts and replaces the viewport one on every move, and the
-    // country's outline is fetched once and is not a viewport request.
-    const shape = new AbortController();
+
+    /*
+     * What was asked for last time, and how far out it reached.
+     *
+     * A pan inside ground already fetched asks for nothing: the answer is already on the
+     * screen. Without this every drag re-fetched a megabyte and a half and handed it to
+     * the map's worker to be cut into tiles again, which is what made it crawl.
+     */
+    let held: { box: Box; zoom: number } | null = null;
 
     const look = (): void => {
       window.clearTimeout(timer);
+
+      if (drawn.getZoom() < MIN_ZOOM) {
+        stop.abort();
+        setShowing("far");
+        return;
+      }
+
+      const view = drawn.getBounds();
+      const seen: Box = [view.getWest(), view.getSouth(), view.getEast(), view.getNorth()];
+      // A zoom band rather than a zoom: the geometry is simplified per zoom, and refetching
+      // because the number moved by a tenth would undo the point of holding it at all.
+      const band = Math.round(drawn.getZoom());
+      if (held !== null && held.zoom === band && inside(seen, held.box)) return;
+
       stop.abort();
       stop = new AbortController();
       const here = stop;
 
-      if (drawn.getZoom() < MIN_ZOOM) {
-        setShowing("far");
-        return;
-      }
       timer = window.setTimeout(() => {
         setShowing("asking");
-        const bounds = drawn.getBounds();
-        streetsIn(
-          [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-          drawn.getZoom(),
-          here.signal,
-        )
+        // Fetched wider than the screen, so a small drag stays inside what is already held.
+        const asked = grown(seen, MARGIN);
+        streetsIn(asked, band, here.signal)
           .then((found) => {
             if (here.signal.aborted) return;
             const source = drawn.getSource(SOURCE);
             if (source instanceof GeoJSONSource) source.setData(found);
+            // Truncated means there is more out there than was sent, so what is held is not
+            // the whole of that box and must not be treated as covering a later pan.
+            held = found.truncated ? null : { box: asked, zoom: band };
             setTruncated(found.truncated);
             setShowing(found.features.length === 0 ? "empty" : "drawn");
           })
@@ -168,27 +218,11 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       drawn.getCanvas().style.cursor = "";
     });
 
-    /*
-     * The country's shape, fetched once and kept. Without it the first thing anyone sees is
-     * a black rectangle and a panel telling them to zoom in, somewhere, with no clue where.
-     */
-    drawn.on("load", () => {
-      regions(shape.signal)
-        .then((shapes) => {
-          const source = drawn.getSource(REGIONS);
-          if (source instanceof GeoJSONSource) source.setData(shapes);
-        })
-        .catch(() => {
-          // The streets are the point; a missing outline is not worth an error over them.
-        });
-    });
-
     drawn.on("load", look);
     drawn.on("moveend", look);
     return () => {
       window.clearTimeout(timer);
       stop.abort();
-      shape.abort();
       drawn.remove();
       map.current = null;
     };
@@ -317,15 +351,6 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
             </li>
           ))}
         </ul>
-
-        <h2 className="atlas-head">{text.byRegion}</h2>
-        <div className="atlas-scale">
-          <span className="atlas-scale-bar" aria-hidden="true" />
-          <span className="atlas-scale-ends">
-            <span>{text.noFibre}</span>
-            <span>{text.allFibre}</span>
-          </span>
-        </div>
 
         <h2 className="atlas-head">{text.legend}</h2>
         <ul className="atlas-ramp">

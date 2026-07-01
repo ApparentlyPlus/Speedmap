@@ -532,16 +532,30 @@ def ask_for(street_id: int, asked: Asking) -> Result:
 
 # The most a viewport may hand back. A map that tries to draw a country of streets as
 # GeoJSON stops being a map; past this the caller is told to zoom rather than sent 80,000
-# features it cannot paint.
-MAX_FEATURES = 4000
+# features it cannot paint. Twelve thousand is a whole city at zoom ten, which is where the
+# coverage starts, and about two and a half megabytes once the geometry is simplified.
+MAX_FEATURES = 12000
 
-# Below this a viewport is a country, and the answer is the same either way: nothing useful.
-MIN_MAP_ZOOM = 9
+# Below this a viewport is a region, and there is a basemap underneath saying where the
+# land is. Coverage starts where a street is wide enough to have a colour.
+MIN_MAP_ZOOM = 10
+
+# How much detail is worth sending at a given zoom, in degrees.
+#
+# A tile is 512 pixels and the world is 360 degrees across, so one pixel at zoom z is
+# 360 / (2^z · 512) degrees. Simplifying to about a pixel and a half throws away only what
+# could not have been drawn: at zoom 11 it takes the viewport from 2.9 MB to a fraction of
+# that, and 2.9 MB is re-parsed into tiles on the map's worker every time anyone pans.
+def detail(zoom: int) -> float:
+    return 360.0 / float(2**zoom * 512) * 1.5
+
 
 STREETS_IN = f"""
 select json_build_object(
     'type', 'Feature',
-    'geometry', st_asgeojson(st_transform(s.geom::geometry, 4326), 5)::json,
+    'geometry', st_asgeojson(
+        st_simplifypreservetopology(st_transform(s.geom::geometry, 4326), %(detail)s), 5
+    )::json,
     'properties', json_build_object(
         'id', s.id,
         'best_mbps', s.best_mbps,
@@ -616,6 +630,7 @@ def streets_in(
 
     corners: dict[str, object] = {
         "west": west, "south": south, "east": east, "north": north,
+        "detail": detail(zoom),
     }
     found = rows(STREETS_IN.format(operators=tile_operators()), corners)
     return Drawn(
