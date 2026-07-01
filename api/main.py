@@ -572,6 +572,31 @@ limit {MAX_FEATURES}
 """
 
 
+# All 333 of them, once. Small enough to send whole and cache, and simplified to the
+# tolerance a country-wide view can tell apart: the full outlines are 30 MB of coastline
+# nobody can see at this zoom.
+REGIONS = """
+select json_build_object(
+    'type', 'Feature',
+    'geometry', st_asgeojson(
+        st_simplifypreservetopology(st_transform(m.geom::geometry, 4326), 0.002), 5
+    )::json,
+    'properties', json_build_object(
+        'id', m.id,
+        'name', m.name,
+        'addresses', coalesce(mc.addresses, 0),
+        'fibre', coalesce(mc.fibre, 0),
+        'fibre_share', case when coalesce(mc.addresses, 0) = 0 then 0
+                            else round(mc.fibre::numeric / mc.addresses, 4) end,
+        'best_mbps', mc.best_mbps
+    )
+)::text
+from municipality m
+left join municipality_coverage mc on mc.municipality_id = m.id
+where m.geom is not null
+"""
+
+
 class Drawn(BaseModel):
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[dict[str, Any]]
@@ -612,6 +637,18 @@ def streets_in(
         features=[json.loads(row[0]) for row in found],
         truncated=len(found) >= MAX_FEATURES,
     )
+
+
+@app.get("/municipalities.geojson", response_model=Drawn, tags=["map"])
+def regions() -> Drawn:
+    """Every municipality, with how much of it fibre reaches.
+
+    The zooms where the country fits on the screen are the zooms where a street is a
+    fraction of a pixel, and this map has no basemap under it. Without these the first thing
+    anyone sees is a black rectangle. All 333 go at once because 333 is small, and they are
+    simplified to a tolerance a country-wide view cannot tell from the truth.
+    """
+    return Drawn(features=[json.loads(row[0]) for row in rows(REGIONS)], truncated=False)
 
 
 @app.post("/reports", response_model=Report, status_code=201, tags=["report"])

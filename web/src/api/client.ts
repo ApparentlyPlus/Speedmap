@@ -128,3 +128,8 @@ export function street(streetId: number, signal?: AbortSignal): Promise<StreetDe
 export function address(addressId: number, signal?: AbortSignal): Promise<AddressDetail> {
   return get<AddressDetail>(`/addresses/${addressId}`, signal);
 }
+
+/** Every municipality, with how much of it fibre reaches. Fetched once and kept. */
+export function regions(signal?: AbortSignal): Promise<Drawn> {
+  return get<Drawn>("/municipalities.geojson", signal);
+}

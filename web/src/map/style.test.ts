@@ -14,7 +14,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { RAMP } from "../tokens";
-import { SOURCE, only, streetLayers, style } from "./style";
+import { HANDOVER, REGIONS, SOURCE, only, regionLayers, streetLayers, style } from "./style";
 import { STREETS_BY_PROVIDER } from "./tiles";
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
@@ -40,6 +40,45 @@ describe("the style MapLibre is given", () => {
   it("is valid filtered to an operator it has never heard of", () => {
     const filtered = { ...style(GEOJSON), layers: streetLayers("WHOEVER") };
     expect(validateStyleMin(filtered)).toEqual([]);
+  });
+});
+
+describe("no reachable zoom is empty", () => {
+  it("draws the country before it draws streets", () => {
+    // A map with no basemap and nothing at low zoom is a black rectangle telling the reader
+    // to zoom in, somewhere, with no clue where.
+    const layers = style(GEOJSON).layers.map((layer) => layer.id);
+    expect(layers).toContain("regions");
+    expect(layers).toContain("streets");
+  });
+
+  it("puts the streets above the country", () => {
+    const layers = style(GEOJSON).layers.map((layer) => layer.id);
+    expect(layers.indexOf("regions")).toBeLessThan(layers.indexOf("streets"));
+  });
+
+  it("hands over rather than switching", () => {
+    // Both are drawn either side of the handover, so there is no zoom with nothing in it.
+    const [fill] = regionLayers();
+    const opacity = (fill as { paint: { "fill-opacity": unknown[] } }).paint["fill-opacity"];
+    const stops = opacity.slice(3).filter((_, index) => index % 2 === 0) as number[];
+    expect(Math.min(...stops)).toBeLessThan(HANDOVER);
+    expect(Math.max(...stops)).toBeGreaterThan(HANDOVER);
+    const shown = opacity.slice(3).filter((_, index) => index % 2 === 1) as number[];
+    expect(Math.min(...shown)).toBeGreaterThan(0);
+  });
+
+  it("shades the country from its own source", () => {
+    for (const layer of regionLayers()) {
+      expect(layer).toMatchObject({ source: REGIONS });
+    }
+  });
+
+  it("shades a municipality with nothing filed rather than dropping it", () => {
+    // 204 of 333 have no fibre at all. Dropping them would put holes in the coastline.
+    const [fill] = regionLayers();
+    const colour = (fill as { paint: { "fill-color": unknown[] } }).paint["fill-color"];
+    expect(JSON.stringify(colour)).toContain('["coalesce",["get","fibre_share"],0]');
   });
 });
 

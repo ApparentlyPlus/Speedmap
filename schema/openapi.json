@@ -1137,6 +1137,28 @@
         ]
       }
     },
+    "/municipalities.geojson": {
+      "get": {
+        "description": "Every municipality, with how much of it fibre reaches.\n\nThe zooms where the country fits on the screen are the zooms where a street is a\nfraction of a pixel, and this map has no basemap under it. Without these the first thing\nanyone sees is a black rectangle. All 333 go at once because 333 is small, and they are\nsimplified to a tolerance a country-wide view cannot tell from the truth.",
+        "operationId": "regions_municipalities_geojson_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drawn"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Regions",
+        "tags": [
+          "map"
+        ]
+      }
+    },
     "/reports": {
       "post": {
         "description": "Record that something here looks wrong.\n\nThe only write in the API. Rate limiting belongs at the reverse proxy rather than in\nprocess, where it would be per worker and reset on deploy.",

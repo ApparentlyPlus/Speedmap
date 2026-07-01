@@ -22,6 +22,16 @@ import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Street } from "./tiles";
 
 export const SOURCE = "speedmap";
+export const REGIONS = "regions";
+
+/**
+ * Where the streets take over from the municipalities.
+ *
+ * Below this a street is a fraction of a pixel and there is nothing to see; above it the
+ * regions would be a wash over the thing the reader came for. They cross rather than
+ * switch, so neither zoom has a moment with nothing in it.
+ */
+export const HANDOVER = 9;
 
 /** Greece, with room for Crete and the north in the same view. */
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
@@ -126,10 +136,52 @@ export function streetLayers(
 }
 
 /**
+ * The country, shaded by how much of each municipality fibre reaches.
+ *
+ * Greyscale on purpose. This is a density and not a speed, and the speed ramp owns every
+ * hue on this map: two colour languages on one screen is one too many, and a share painted
+ * in the ramp would read as a band. Shape first, then streets.
+ */
+export function regionLayers(): LayerSpecification[] {
+  const shade: ExpressionSpecification = [
+    "interpolate",
+    ["linear"],
+    ["coalesce", ["get", "fibre_share"], 0],
+    0, "#17171b",
+    0.25, "#2b2b33",
+    0.5, "#4a4a57",
+    1, "#8b8b9c",
+  ];
+  return [
+    {
+      id: "regions",
+      type: "fill",
+      source: REGIONS,
+      paint: {
+        "fill-color": shade,
+        // Handed over to the streets rather than switched off, so no zoom is ever empty.
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], HANDOVER - 1, 1, HANDOVER + 2, 0.35],
+      },
+    },
+    {
+      id: "regions-edge",
+      type: "line",
+      source: REGIONS,
+      paint: {
+        "line-color": "#000",
+        "line-width": 0.6,
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], HANDOVER - 1, 0.7, HANDOVER + 2, 0.25],
+      },
+    },
+  ];
+}
+
+/**
  * The whole style.
  *
- * No basemap. This map is about one thing and a street layer on a dark ground says it
- * without borrowing anyone's cartography, or their tile bill.
+ * No basemap: this map is about one thing, and its own layers say it without borrowing
+ * anyone's cartography or their tile bill. The municipalities are what gives the country a
+ * shape at the zooms where a street cannot.
  */
 export function style(
   source: StyleSpecification["sources"][string],
@@ -137,9 +189,13 @@ export function style(
 ): StyleSpecification {
   return {
     version: 8,
-    sources: { [SOURCE]: source },
+    sources: {
+      [SOURCE]: source,
+      [REGIONS]: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+    },
     layers: [
       { id: "ground", type: "background", paint: { "background-color": "#08080a" } },
+      ...regionLayers(),
       ...streetLayers(null, carried),
     ],
   };
