@@ -8,6 +8,7 @@
  */
 
 import {
+  featureFilter,
   validateStyleMin,
   type StyleSpecification,
 } from "@maplibre/maplibre-gl-style-spec";
@@ -131,10 +132,38 @@ describe("what the layers say", () => {
     }
   });
 
-  it("asks whether a field is there rather than comparing it to null", () => {
-    // `has` is the documented way to ask; `!= null` leans on `==` accepting a type it does
-    // not promise to accept.
-    expect(only("OTE")).toEqual(["has", STREETS_BY_PROVIDER.OTE]);
+  it("filters on the value and not on the key", () => {
+    /*
+     * The filter is run, not read, because reading it is how the last one got through: it
+     * was `["has", field]`, which looks right, asks whether the property is present, and is
+     * true on every street — the builder writes every operator's field on every one of
+     * them. Every filter matched everything and the map looked fine.
+     *
+     * Three states: null does not reach here, -1 reaches here and filed no speed, and a
+     * number is the speed. The middle is 49,897 street-operator pairs, so it has to pass.
+     */
+    const field = String(STREETS_BY_PROVIDER.OTE);
+    const run = featureFilter(only("OTE") as never);
+    const asked = (value: number | null): boolean =>
+      run.filter(
+        { zoom: 13 } as never,
+        { type: 2, properties: { [field]: value } } as never,
+        undefined as never,
+      );
+
+    expect(asked(300)).toBe(true);
+    expect(asked(-1)).toBe(true);
+    expect(asked(null)).toBe(false);
+
+    // And the one that was here, shown failing, so this test cannot quietly stop catching
+    // the thing it was written for.
+    const byKey = featureFilter(["has", field] as never);
+    const wrongly = byKey.filter(
+      { zoom: 13 } as never,
+      { type: 2, properties: { [field]: null } } as never,
+      undefined as never,
+    );
+    expect(wrongly).toBe(true);
   });
 
   it("offers nothing for an operator with no field of its own", () => {
