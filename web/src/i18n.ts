@@ -22,6 +22,9 @@ type Strings = {
   readonly operator: string;
   readonly anyOperator: string;
   readonly legend: string;
+  readonly byRegion: string;
+  readonly noFibre: string;
+  readonly allFibre: string;
   readonly mapZoomIn: string;
   readonly mapNothingHere: string;
   readonly mapTruncated: string;
@@ -64,8 +67,11 @@ const el: Strings = {
   mapTitle: "Ο χάρτης κάλυψης",
   operator: "Πάροχος",
   anyOperator: "Όλοι",
-  legend: "Ταχύτητα",
-  mapZoomIn: "Κάνε ζουμ για να δεις δρόμους",
+  legend: "Ταχύτητα δρόμου",
+  byRegion: "Οπτική ίνα ανά δήμο",
+  noFibre: "καθόλου",
+  allFibre: "παντού",
+  mapZoomIn: "Οπτική ίνα ανά δήμο. Κάνε ζουμ για δρόμους.",
   mapNothingHere: "Κανένας δρόμος εδώ με δηλωμένη κάλυψη",
   mapTruncated: "Πολλοί δρόμοι στην οθόνη — κάνε ζουμ για όλους",
   noResults: "Καμία διεύθυνση",
@@ -118,8 +124,11 @@ const en: Strings = {
   mapTitle: "The coverage map",
   operator: "Operator",
   anyOperator: "Anyone",
-  legend: "Speed",
-  mapZoomIn: "Zoom in to see streets",
+  legend: "Street speed",
+  byRegion: "Fibre by municipality",
+  noFibre: "none",
+  allFibre: "everywhere",
+  mapZoomIn: "Fibre by municipality. Zoom in for streets.",
   mapNothingHere: "No street here has coverage filed",
   mapTruncated: "More streets in view than shown — zoom in for all of them",
   noResults: "No address found",

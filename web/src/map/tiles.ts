@@ -53,6 +53,37 @@ export const STREETS_BY_PROVIDER: Readonly<
 };
 
 /**
+ * One feature per municipality, for the zooms where a street is a fraction of a pixel. A
+ * map with no basemap and nothing drawn at low zoom is a black rectangle telling the reader
+ * to zoom in, somewhere, with no clue where — so the country has to have a shape before it
+ * has streets. Fibre rather than the fastest anything: the fastest anything is 5G, which
+ * reaches nearly every address, and a map of it is one colour.
+ */
+export type Region = {
+  /** the municipality row this was built from */
+  readonly id: number;
+  readonly name: string;
+  /** filed addresses in it, which is the denominator of the share */
+  readonly addresses: number;
+  /** how many of them fibre reaches */
+  readonly fibre: number;
+  /** nought to one; what the map is painted by */
+  readonly fibre_share: number;
+  /** held to what the technology can carry, as the ranker holds it */
+  readonly best_mbps: Mbps | null;
+};
+
+export const REGIONS_LAYER = "regions" as const;
+export const REGIONS_FIELDS = [
+  "id",
+  "name",
+  "addresses",
+  "fibre",
+  "fibre_share",
+  "best_mbps",
+] as const;
+
+/**
  * One feature per Ookla tile that has ever been tested, drawn as the square that was
  * measured rather than the centroid they publish. About 600 m across, and only a few per
  * cent of the country has any at all, so an empty view is the normal case and must never be

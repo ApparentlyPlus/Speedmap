@@ -41,6 +41,35 @@ layers:
       p_hcn: {type: number, nullable: true, unit: mbps, provider: HCN}
       p_metadosis: {type: number, nullable: true, unit: mbps, provider: METADOSIS}
 
+  regions:
+    description: >
+      One feature per municipality, for the zooms where a street is a fraction of a pixel.
+      A map with no basemap and nothing drawn at low zoom is a black rectangle telling the
+      reader to zoom in, somewhere, with no clue where — so the country has to have a shape
+      before it has streets. Fibre rather than the fastest anything: the fastest anything is
+      5G, which reaches nearly every address, and a map of it is one colour.
+    geometry: polygon
+    fields:
+      id:
+        type: integer
+        description: the municipality row this was built from
+      name:
+        type: string
+      addresses:
+        type: integer
+        description: filed addresses in it, which is the denominator of the share
+      fibre:
+        type: integer
+        description: how many of them fibre reaches
+      fibre_share:
+        type: number
+        description: nought to one; what the map is painted by
+      best_mbps:
+        type: number
+        nullable: true
+        unit: mbps
+        description: held to what the technology can carry, as the ranker holds it
+
   cells:
     description: >
       One feature per Ookla tile that has ever been tested, drawn as the square that was

@@ -15,6 +15,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import {
   address,
+  regions,
   search,
   street,
   streetsIn,
@@ -26,7 +27,7 @@ import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, SOURCE, streetLayers, style, type Carried } from "../map/style";
+import { HOME, REGIONS, SOURCE, streetLayers, style, type Carried } from "../map/style";
 
 /** Below this a viewport is a country, and the answer either way is nothing useful. */
 const MIN_ZOOM = 9;
@@ -93,6 +94,9 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
 
     let timer = 0;
     let stop = new AbortController();
+    // Its own controller: `look` aborts and replaces the viewport one on every move, and the
+    // country's outline is fetched once and is not a viewport request.
+    const shape = new AbortController();
 
     const look = (): void => {
       window.clearTimeout(timer);
@@ -146,11 +150,27 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       drawn.getCanvas().style.cursor = "";
     });
 
+    /*
+     * The country's shape, fetched once and kept. Without it the first thing anyone sees is
+     * a black rectangle and a panel telling them to zoom in, somewhere, with no clue where.
+     */
+    drawn.on("load", () => {
+      regions(shape.signal)
+        .then((shapes) => {
+          const source = drawn.getSource(REGIONS);
+          if (source instanceof GeoJSONSource) source.setData(shapes);
+        })
+        .catch(() => {
+          // The streets are the point; a missing outline is not worth an error over them.
+        });
+    });
+
     drawn.on("load", look);
     drawn.on("moveend", look);
     return () => {
       window.clearTimeout(timer);
       stop.abort();
+      shape.abort();
       drawn.remove();
       map.current = null;
     };
@@ -279,6 +299,15 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
             </li>
           ))}
         </ul>
+
+        <h2 className="atlas-head">{text.byRegion}</h2>
+        <div className="atlas-scale">
+          <span className="atlas-scale-bar" aria-hidden="true" />
+          <span className="atlas-scale-ends">
+            <span>{text.noFibre}</span>
+            <span>{text.allFibre}</span>
+          </span>
+        </div>
 
         <h2 className="atlas-head">{text.legend}</h2>
         <ul className="atlas-ramp">
