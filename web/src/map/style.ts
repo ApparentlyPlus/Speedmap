@@ -22,6 +22,12 @@ import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Street } from "./tiles";
 
 export const SOURCE = "speedmap";
+
+/** Reaches this street and filed no speed for it: below the ramp, but served. */
+export const SERVED = -1;
+
+/** Does not reach this street at all. Below that, so a filter can tell them apart. */
+export const NOT_SERVED = -2;
 export const REGIONS = "regions";
 
 /**
@@ -82,8 +88,16 @@ export function only(provider: string | null): ExpressionSpecification | undefin
   const field = STREETS_BY_PROVIDER[provider];
   // An operator with no field of its own reaches nothing rather than everything.
   if (field === undefined) return ["boolean", false] as ExpressionSpecification;
-  // `has` is the test that works on a missing property; `!= null` is not a legal comparison.
-  return ["has", field] as ExpressionSpecification;
+  /*
+   * The value, not the key. `has` asks whether the property is present, and the builder
+   * writes every operator's field on every street — so it was true everywhere and the
+   * filter showed the whole country whichever operator was picked.
+   *
+   * Three states to tell apart: null does not reach here, -1 reaches here and filed no
+   * speed, a number is the speed. The middle one is the commonest thing the register says,
+   * so it has to pass.
+   */
+  return [">=", ["coalesce", ["get", field], NOT_SERVED], SERVED] as ExpressionSpecification;
 }
 
 /**

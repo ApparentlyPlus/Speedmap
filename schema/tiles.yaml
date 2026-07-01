@@ -33,6 +33,10 @@ layers:
       nprov:
         type: integer
         description: how many operators reach this street at all, filed speed or not
+      # Three states, not two: null is an operator that does not reach this street, -1 is
+      # one that reaches it and filed no speed, and a number is the speed. The middle state
+      # is 49,897 street-operator pairs and is the commonest thing the register says, so a
+      # filter that cannot see it hides most of what an operator actually sells.
       p_ote: {type: number, nullable: true, unit: mbps, provider: OTE}
       p_vodafone: {type: number, nullable: true, unit: mbps, provider: VODAFONE}
       p_nova: {type: number, nullable: true, unit: mbps, provider: NOVA}

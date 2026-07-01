@@ -53,6 +53,15 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const text = strings(language);
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<Maplibre | null>(null);
+  /*
+   * The camera the reader arrived on, kept from the first render.
+   *
+   * Tearing a map down takes the camera out of the URL, and in development React builds
+   * one, throws it away, and builds another — so the second map read a URL the first had
+   * already emptied, and a link to a neighbourhood opened on the whole country. Held here
+   * and put back, so the link survives however many maps get built.
+   */
+  const arrived = useRef(window.location.hash);
   const [provider, setProvider] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Result[]>([]);
@@ -63,22 +72,31 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   useEffect(() => {
     if (holder.current === null || map.current !== null) return;
 
+    /*
+     * The camera in the URL, so a view of one neighbourhood is a link to it.
+     *
+     * The opening camera is passed only when the reader did not arrive on a link to one.
+     * Handing MapLibre both leaves which wins to the order two things happen in.
+     */
+    const linked = arrived.current.length > 1;
+    if (linked && window.location.hash.length <= 1) {
+      window.history.replaceState(null, "", arrived.current);
+    }
+
     const drawn = new Maplibre({
       container: holder.current,
       style: style({ type: "geojson", data: EMPTY }, CARRIED),
-      center: HOME.centre,
-      zoom: HOME.zoom,
+      ...(linked ? {} : { center: HOME.centre, zoom: HOME.zoom }),
       attributionControl: false,
-      // The camera in the URL, so a view of one neighbourhood is a link to it. Restores on
-      // reload too, which is the half that matters while working on a style.
       hash: true,
     });
     drawn.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     map.current = drawn;
-    // A handle for the console while a style is being worked on. Development only: the
+    // A handle for the console and for the browser test, which is the only thing that can
+    // tell a map that draws from a map that merely has no errors. Development only: the
     // build strips the branch, so nothing reaches a reader.
     if (import.meta.env.DEV) {
-      (window as unknown as { atlas?: Maplibre }).atlas = drawn;
+      window.atlas = drawn;
     }
 
     /*

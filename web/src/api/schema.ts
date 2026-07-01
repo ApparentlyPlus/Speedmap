@@ -119,6 +119,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/municipalities.geojson": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Regions
+         * @description Every municipality, with how much of it fibre reaches.
+         *
+         *     The zooms where the country fits on the screen are the zooms where a street is a
+         *     fraction of a pixel, and this map has no basemap under it. Without these the first thing
+         *     anyone sees is a black rectangle. All 333 go at once because 333 is small, and they are
+         *     simplified to a tolerance a country-wide view cannot tell from the truth.
+         */
+        get: operations["regions_municipalities_geojson_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports": {
         parameters: {
             query?: never;
@@ -762,6 +787,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operator"][];
+                };
+            };
+        };
+    };
+    regions_municipalities_geojson_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Drawn"];
                 };
             };
         };

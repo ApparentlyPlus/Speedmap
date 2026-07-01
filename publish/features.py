@@ -71,16 +71,25 @@ where c.geom is not null
 """
 
 
+# An operator that reaches a street and filed no speed for it, which 49,897 street-operator
+# pairs are. It has to be told apart from an operator that does not reach the street at all:
+# both are an absent number, and only one of them should be drawn when the map is filtered
+# to that operator. So reaching without a speed is one below the bottom of the ramp — where
+# the ramp already paints "not filed" — and not reaching stays null.
+#
+# The `having` is what makes the difference expressible: over no rows the whole subquery
+# yields null, while over a row with a null speed it yields the sentinel.
+SERVED_UNFILED = -1
+
+
 def operators() -> str:
     """The per-operator columns, named by the contract rather than by this file."""
-    lines = []
-    for code, field in fields.STREETS_BY_PROVIDER.items():
-        lines.append(
-            f", '{field}', (select max(sp.mbps) from street_provider sp "
-            f"join provider p on p.id = sp.provider_id "
-            f"where sp.street_id = s.id and p.code = '{code}')"
-        )
-    return "".join(lines)
+    return "".join(
+        f", '{field}', (select coalesce(max(sp.mbps), {SERVED_UNFILED}) "
+        f"from street_provider sp join provider p on p.id = sp.provider_id "
+        f"where sp.street_id = s.id and p.code = '{code}' having count(*) > 0)"
+        for code, field in fields.STREETS_BY_PROVIDER.items()
+    )
 
 
 def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> int:

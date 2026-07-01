@@ -31,7 +31,7 @@ from probe.lookup import verdicts
 from probe.nova import Nova
 from probe.run import refresh, target_for
 from probe.vodafone import Vodafone
-from publish.fields import STREETS_BY_PROVIDER
+from publish.features import operators as tile_operators
 from ranking.offer import options as buyable
 from ranking.rank import ENOUGH_MBPS, rank
 
@@ -45,21 +45,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         pool.close()
-
-
-def tile_operators() -> str:
-    """The per-operator columns, named by the tile contract rather than by this file.
-
-    The map filters by operator, and a filter over a single best paints a street in one
-    operator's colour while claiming another's. Generated on both sides so a renamed field
-    stops the build rather than the map.
-    """
-    return "".join(
-        f", '{field}', (select max(sp.mbps) from street_provider sp "
-        f"join provider p on p.id = sp.provider_id "
-        f"where sp.street_id = s.id and p.code = '{code}')"
-        for code, field in STREETS_BY_PROVIDER.items()
-    )
 
 
 app = FastAPI(
