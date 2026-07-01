@@ -1,10 +1,18 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+import { tiles } from "./tiles-dev";
+
+// Where the tile archives were built. Hundreds of megabytes, built somewhere with a lot of
+// memory, so they are neither in the repository nor copied into the dev server's public
+// directory; they are read where they lie.
+const TILES = process.env.SPEEDMAP_TILES ?? "../../speedmap/tiles";
+
 // The API is same-origin in production behind Caddy, so it is same-origin in development
 // too rather than a second port with CORS: a cookie or a header that works in one and not
 // the other is a class of bug this avoids entirely.
 export default defineConfig({
+  plugins: [react(), tiles(TILES)],
   /*
    * MapLibre parses geometry in a worker, and in development that worker never answered.
    * No error, no request, no tiles: the style stayed unloaded, `load` never fired, and the

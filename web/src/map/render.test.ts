@@ -80,12 +80,27 @@ describe.skipIf(!running)("the map in a browser", () => {
     expect(drawn).toBeGreaterThan(100);
   });
 
-  it("draws the country under them", async () => {
+  it("draws the basemap under them", async () => {
+    // Roads and water come out of an archive read by range request. If that is not wired
+    // up the coverage floats on a black rectangle, which is what it used to do.
     const drawn = await page.evaluate(
-      () => window.atlas.queryRenderedFeatures({ layers: ["regions"] }).length,
+      () => window.atlas.queryRenderedFeatures({ layers: ["road", "water"] }).length,
     );
     expect(drawn).toBeGreaterThan(0);
   });
+
+  it("draws buildings where there are buildings", async () => {
+    // Footprints only start at zoom fourteen, so this one has to go and look. It puts the
+    // camera back: the tests share a page, and the next one counts what is in view.
+    await page.evaluate(() => window.atlas.jumpTo({ center: [22.9444, 40.6401], zoom: 16.5 }));
+    await page.waitForTimeout(6000);
+    const drawn = await page.evaluate(
+      () => window.atlas.queryRenderedFeatures({ layers: ["building"] }).length,
+    );
+    await page.evaluate(() => window.atlas.jumpTo({ center: [22.945, 40.635], zoom: 13 }));
+    await page.waitForTimeout(4000);
+    expect(drawn).toBeGreaterThan(0);
+  }, 40_000);
 
   it("shows fewer streets for one operator than for anyone", async () => {
     const anyone = await page.evaluate(

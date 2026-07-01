@@ -15,7 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { RAMP } from "../tokens";
-import { HANDOVER, REGIONS, SOURCE, only, regionLayers, streetLayers, style } from "./style";
+import { BASE, BUILDINGS, SOURCE, only, streetLayers, style } from "./style";
 import { STREETS_BY_PROVIDER } from "./tiles";
 
 const EMPTY = { type: "FeatureCollection" as const, features: [] };
@@ -45,41 +45,28 @@ describe("the style MapLibre is given", () => {
 });
 
 describe("no reachable zoom is empty", () => {
-  it("draws the country before it draws streets", () => {
-    // A map with no basemap and nothing at low zoom is a black rectangle telling the reader
-    // to zoom in, somewhere, with no clue where.
+  it("has a basemap under the coverage", () => {
+    // Without one the opening view is a black rectangle and a panel telling the reader to
+    // zoom in, somewhere, with no clue where.
+    const sources = Object.keys(style(GEOJSON).sources);
+    expect(sources).toContain(BASE);
+    expect(sources).toContain(BUILDINGS);
+  });
+
+  it("draws the coverage over the roads and under the buildings", () => {
     const layers = style(GEOJSON).layers.map((layer) => layer.id);
-    expect(layers).toContain("regions");
-    expect(layers).toContain("streets");
+    expect(layers.indexOf("road")).toBeLessThan(layers.indexOf("streets"));
+    expect(layers.indexOf("streets")).toBeLessThan(layers.indexOf("building"));
   });
 
-  it("puts the streets above the country", () => {
+  it("lays a shadow under the buildings rather than over them", () => {
     const layers = style(GEOJSON).layers.map((layer) => layer.id);
-    expect(layers.indexOf("regions")).toBeLessThan(layers.indexOf("streets"));
+    expect(layers.indexOf("building-shadow")).toBeLessThan(layers.indexOf("building"));
   });
 
-  it("hands over rather than switching", () => {
-    // Both are drawn either side of the handover, so there is no zoom with nothing in it.
-    const [fill] = regionLayers();
-    const opacity = (fill as { paint: { "fill-opacity": unknown[] } }).paint["fill-opacity"];
-    const stops = opacity.slice(3).filter((_, index) => index % 2 === 0) as number[];
-    expect(Math.min(...stops)).toBeLessThan(HANDOVER);
-    expect(Math.max(...stops)).toBeGreaterThan(HANDOVER);
-    const shown = opacity.slice(3).filter((_, index) => index % 2 === 1) as number[];
-    expect(Math.min(...shown)).toBeGreaterThan(0);
-  });
-
-  it("shades the country from its own source", () => {
-    for (const layer of regionLayers()) {
-      expect(layer).toMatchObject({ source: REGIONS });
-    }
-  });
-
-  it("shades a municipality with nothing filed rather than dropping it", () => {
-    // 204 of 333 have no fibre at all. Dropping them would put holes in the coastline.
-    const [fill] = regionLayers();
-    const colour = (fill as { paint: { "fill-color": unknown[] } }).paint["fill-color"];
-    expect(JSON.stringify(colour)).toContain('["coalesce",["get","fibre_share"],0]');
+  it("lights the buildings from somewhere", () => {
+    // Without a light every extrusion is one flat tone and the city reads as a plan.
+    expect(style(GEOJSON).light).toBeDefined();
   });
 });
 
