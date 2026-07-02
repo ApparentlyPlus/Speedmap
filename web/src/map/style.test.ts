@@ -14,32 +14,29 @@ import {
 } from "@maplibre/maplibre-gl-style-spec";
 import { describe, expect, it } from "vitest";
 
-import { RAMP } from "../tokens";
+import { RAMP, UNFILED } from "../tokens";
 import { BASE, BUILDINGS, SOURCE, only, streetLayers, style } from "./style";
 import { STREETS_BY_PROVIDER } from "./tiles";
 
-const EMPTY = { type: "FeatureCollection" as const, features: [] };
-const GEOJSON = { type: "geojson" as const, data: EMPTY };
-const VECTOR = { type: "vector" as const, tiles: ["https://example.invalid/{z}/{x}/{y}"] };
 
 describe("the style MapLibre is given", () => {
   it("is valid as geojson", () => {
-    expect(validateStyleMin(style(GEOJSON, "geojson"))).toEqual([]);
+    expect(validateStyleMin(style())).toEqual([]);
   });
 
   it("is valid as vector tiles", () => {
-    expect(validateStyleMin(style(VECTOR, "vector"))).toEqual([]);
+    expect(validateStyleMin(style())).toEqual([]);
   });
 
   it("is valid filtered to every operator it offers", () => {
     for (const code of Object.keys(STREETS_BY_PROVIDER)) {
-      const filtered = { ...style(GEOJSON), layers: streetLayers(code) };
+      const filtered = { ...style(), layers: streetLayers(code) };
       expect(validateStyleMin(filtered), code).toEqual([]);
     }
   });
 
   it("is valid filtered to an operator it has never heard of", () => {
-    const filtered = { ...style(GEOJSON), layers: streetLayers("WHOEVER") };
+    const filtered = { ...style(), layers: streetLayers("WHOEVER") };
     expect(validateStyleMin(filtered)).toEqual([]);
   });
 });
@@ -48,25 +45,25 @@ describe("no reachable zoom is empty", () => {
   it("has a basemap under the coverage", () => {
     // Without one the opening view is a black rectangle and a panel telling the reader to
     // zoom in, somewhere, with no clue where.
-    const sources = Object.keys(style(GEOJSON).sources);
+    const sources = Object.keys(style().sources);
     expect(sources).toContain(BASE);
     expect(sources).toContain(BUILDINGS);
   });
 
   it("draws the coverage over the roads and under the buildings", () => {
-    const layers = style(GEOJSON).layers.map((layer) => layer.id);
+    const layers = style().layers.map((layer) => layer.id);
     expect(layers.indexOf("road")).toBeLessThan(layers.indexOf("streets"));
     expect(layers.indexOf("streets")).toBeLessThan(layers.indexOf("building"));
   });
 
   it("lays a shadow under the buildings rather than over them", () => {
-    const layers = style(GEOJSON).layers.map((layer) => layer.id);
+    const layers = style().layers.map((layer) => layer.id);
     expect(layers.indexOf("building-shadow")).toBeLessThan(layers.indexOf("building"));
   });
 
   it("lights the buildings from somewhere", () => {
     // Without a light every extrusion is one flat tone and the city reads as a plan.
-    expect(style(GEOJSON).light).toBeDefined();
+    expect(style().light).toBeDefined();
   });
 });
 
@@ -76,7 +73,7 @@ describe("the validator itself", () => {
     // that is broken, so it is shown a broken one: a line layer painted with a colour that
     // is not a colour, which is the shape most expression mistakes end up taking.
     const broken = {
-      ...style(GEOJSON),
+      ...style(),
       layers: [
         {
           id: "streets",
@@ -94,7 +91,7 @@ describe("the validator itself", () => {
 
   it("rejects a layer drawing from a source that is not there", () => {
     const orphan = {
-      ...style(GEOJSON),
+      ...style(),
       layers: [{ id: "x", type: "line" as const, source: "gone" }],
     };
     expect(validateStyleMin(orphan as unknown as StyleSpecification).length).toBeGreaterThan(0);
@@ -102,13 +99,10 @@ describe("the validator itself", () => {
 });
 
 describe("what the layers say", () => {
-  it("names the tile layer only where there is one to name", () => {
-    // A GeoJSON source is the layer; `source-layer` on one matches nothing and paints
-    // nothing, silently.
-    for (const layer of streetLayers(null, "geojson")) {
-      expect(layer).not.toHaveProperty("source-layer");
-    }
-    for (const layer of streetLayers(null, "vector")) {
+  it("names the layer inside the archive it draws", () => {
+    // A vector tile carries named layers and a layer must say which one it draws. Omitting
+    // it matches nothing and paints nothing, silently.
+    for (const layer of streetLayers(null)) {
       expect(layer).toHaveProperty("source-layer");
     }
   });
@@ -119,38 +113,24 @@ describe("what the layers say", () => {
     }
   });
 
-  it("filters on the value and not on the key", () => {
+  it("filters on whether the operator is there at all", () => {
     /*
-     * The filter is run, not read, because reading it is how the last one got through: it
-     * was `["has", field]`, which looks right, asks whether the property is present, and is
-     * true on every street — the builder writes every operator's field on every one of
-     * them. Every filter matched everything and the map looked fine.
+     * A tile carries no key for an operator that does not reach the street — tippecanoe
+     * writes no attribute for a null — so presence is exactly the question.
      *
-     * Three states: null does not reach here, -1 reaches here and filed no speed, and a
-     * number is the speed. The middle is 49,897 street-operator pairs, so it has to pass.
+     * This was the other way round while the coverage arrived as GeoJSON, where the builder
+     * wrote every operator's key on every feature and `has` was true everywhere. Run rather
+     * than read, because reading it is how that one got through.
      */
     const field = String(STREETS_BY_PROVIDER.OTE);
     const run = featureFilter(only("OTE") as never);
-    const asked = (value: number | null): boolean =>
-      run.filter(
-        { zoom: 13 } as never,
-        { type: 2, properties: { [field]: value } } as never,
-        undefined as never,
-      );
+    const asked = (properties: Record<string, number>): boolean =>
+      run.filter({ zoom: 13 } as never, { type: 2, properties } as never, undefined as never);
 
-    expect(asked(300)).toBe(true);
-    expect(asked(-1)).toBe(true);
-    expect(asked(null)).toBe(false);
-
-    // And the one that was here, shown failing, so this test cannot quietly stop catching
-    // the thing it was written for.
-    const byKey = featureFilter(["has", field] as never);
-    const wrongly = byKey.filter(
-      { zoom: 13 } as never,
-      { type: 2, properties: { [field]: null } } as never,
-      undefined as never,
-    );
-    expect(wrongly).toBe(true);
+    expect(asked({ [field]: 300 })).toBe(true);
+    // Reaches the street, filed no speed: the commonest thing the register says.
+    expect(asked({ [field]: -1 })).toBe(true);
+    expect(asked({ best_mbps: 300 })).toBe(false);
   });
 
   it("offers nothing for an operator with no field of its own", () => {
@@ -158,7 +138,7 @@ describe("what the layers say", () => {
   });
 
   it("filters nothing when no operator is chosen", () => {
-    expect(only(null)).toBeUndefined();
+    expect(only(null)).toBeNull();
   });
 });
 
@@ -168,26 +148,29 @@ describe("the ramp", () => {
     return (streets as { paint: { "line-color": unknown[] } }).paint["line-color"];
   };
 
-  it("steps in ascending order", () => {
-    // The ramp is written fastest first and `step` wants ascending stops: the one place the
-    // two orders meet, and a good place to get it wrong.
-    const stops = paint()
+  it("rises in ascending order", () => {
+    // The ramp is written fastest first and `interpolate` wants ascending stops: the one
+    // place the two orders meet, and a good place to get it wrong.
+    const [, , , , , anchors] = paint() as unknown[];
+    const stops = (anchors as unknown[])
       .slice(3)
       .filter((_, index) => index % 2 === 0) as number[];
     expect(stops).toEqual([...stops].sort((a, b) => a - b));
   });
 
   it("carries every band the rest of the site uses", () => {
-    const colours = paint().filter((value) => typeof value === "string" && value.startsWith("#"));
+    // Nested now: the ramp sits inside a case that takes the two states outside it first.
+    const written = JSON.stringify(paint());
     for (const band of RAMP) {
-      expect(colours).toContain(band.colour);
+      expect(written).toContain(band.colour);
     }
   });
 
   it("paints an unfiled speed as unfiled and not as slow", () => {
-    // Not filed is the commonest state in the register. Painting it red would invent a fact
-    // about six operators in one stroke.
-    const [, , base] = paint();
-    expect(base).not.toEqual(RAMP[RAMP.length - 1]?.colour);
+    // Run through the ramp it interpolated down to near-black and made eight operators
+    // invisible, and it is the commonest thing the register says.
+    const written = JSON.stringify(paint());
+    expect(written).toContain(UNFILED);
+    expect(UNFILED).not.toEqual(RAMP[RAMP.length - 1]?.colour);
   });
 });

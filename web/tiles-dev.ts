@@ -14,8 +14,8 @@ import type { Plugin } from "vite";
 
 const PREFIX = "/tiles/";
 
-export function tiles(directory: string): Plugin {
-  const root = path.resolve(directory);
+export function tiles(directories: readonly string[]): Plugin {
+  const roots = directories.map((where) => path.resolve(where));
   return {
     name: "speedmap-tiles",
     configureServer(server) {
@@ -24,19 +24,28 @@ export function tiles(directory: string): Plugin {
         if (!asked.startsWith(PREFIX)) return next();
 
         const name = path.basename(asked.split("?")[0] ?? "");
-        const file = path.join(root, name);
-        // Only ever the archives, and only ever out of the one directory.
-        if (!name.endsWith(".pmtiles") || path.dirname(file) !== root) {
+        // Only ever an archive, and only ever out of one of the named directories.
+        if (!name.endsWith(".pmtiles")) {
           response.statusCode = 404;
           return response.end();
         }
 
-        let size: number;
-        try {
-          size = fs.statSync(file).size;
-        } catch {
+        let file = "";
+        let size = 0;
+        for (const root of roots) {
+          const candidate = path.join(root, name);
+          if (path.dirname(candidate) !== root) continue;
+          try {
+            size = fs.statSync(candidate).size;
+            file = candidate;
+            break;
+          } catch {
+            continue;
+          }
+        }
+        if (file === "") {
           response.statusCode = 404;
-          return response.end(`no ${name} in ${root}`);
+          return response.end(`no ${name} in ${roots.join(" or ")}`);
         }
 
         response.setHeader("Content-Type", "application/octet-stream");

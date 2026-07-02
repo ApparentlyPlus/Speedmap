@@ -119,31 +119,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/municipalities.geojson": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Regions
-         * @description Every municipality, with how much of it fibre reaches.
-         *
-         *     The zooms where the country fits on the screen are the zooms where a street is a
-         *     fraction of a pixel, and this map has no basemap under it. Without these the first thing
-         *     anyone sees is a black rectangle. All 333 go at once because 333 is small, and they are
-         *     simplified to a tolerance a country-wide view cannot tell from the truth.
-         */
-        get: operations["regions_municipalities_geojson_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/reports": {
         parameters: {
             query?: never;
@@ -179,35 +154,6 @@ export interface paths {
          * @description Addresses and streets, in Greek or Greeklish, folded the way the index was built.
          */
         get: operations["search_search_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/streets.geojson": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Streets In
-         * @description The streets in a viewport, in the shape the tiles use.
-         *
-         *     The map is meant to be served from a PMTiles archive, which is one file a web server can
-         *     range-request and is what should be in front of real traffic. This is the same data by
-         *     the other road: it needs no build step, so the renderer can be worked on and checked
-         *     against a live database before any tiles are cut, and it is the fallback where an
-         *     archive has not been copied across yet.
-         *
-         *     Both paths carry the fields the tile schema names, because a renderer that works against
-         *     one and not the other is worth nothing.
-         */
-        get: operations["streets_in_streets_geojson_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -374,24 +320,6 @@ export interface components {
              * @description setup and equipment, spread over the window
              */
             upfront: string;
-        };
-        /** Drawn */
-        Drawn: {
-            /** Features */
-            features: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Truncated
-             * @description more streets are in view than were sent; the reader should zoom in
-             */
-            truncated: boolean;
-            /**
-             * Type
-             * @default FeatureCollection
-             * @constant
-             */
-            type: "FeatureCollection";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -791,26 +719,6 @@ export interface operations {
             };
         };
     };
-    regions_municipalities_geojson_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drawn"];
-                };
-            };
-        };
-    };
     report_reports_post: {
         parameters: {
             query?: never;
@@ -864,41 +772,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Result"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    streets_in_streets_geojson_get: {
-        parameters: {
-            query: {
-                west: number;
-                south: number;
-                east: number;
-                north: number;
-                zoom: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Drawn"];
                 };
             };
             /** @description Validation Error */
