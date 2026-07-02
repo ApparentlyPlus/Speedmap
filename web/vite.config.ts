@@ -6,7 +6,11 @@ import { tiles } from "./tiles-dev";
 // Where the tile archives were built. Hundreds of megabytes, built somewhere with a lot of
 // memory, so they are neither in the repository nor copied into the dev server's public
 // directory; they are read where they lie.
-const TILES = process.env.SPEEDMAP_TILES ?? "../../speedmap/tiles";
+//
+// Two directories: the basemap and the footprints are built by planetiler on a machine with
+// a lot of memory and change when a new extract is pulled; the coverage is cut from our own
+// database in seventeen seconds and changes whenever the database does.
+const TILES = [process.env.SPEEDMAP_TILES ?? "../../speedmap/tiles", "../tiles"];
 
 // The API is same-origin in production behind Caddy, so it is same-origin in development
 // too rather than a second port with CORS: a cookie or a header that works in one and not

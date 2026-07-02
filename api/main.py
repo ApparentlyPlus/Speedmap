@@ -7,7 +7,6 @@ asks three times what the market charges — so there is somewhere to say we got
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -31,7 +30,6 @@ from probe.lookup import verdicts
 from probe.nova import Nova
 from probe.run import refresh, target_for
 from probe.vodafone import Vodafone
-from publish.features import operators as tile_operators
 from ranking.offer import options as buyable
 from ranking.rank import ENOUGH_MBPS, rank
 
@@ -528,127 +526,6 @@ def ask_for(street_id: int, asked: Asking) -> Result:
     if found is None:
         raise HTTPException(404, "no such address")
     return results([found], "asked")[0]
-
-
-# The most a viewport may hand back. A map that tries to draw a country of streets as
-# GeoJSON stops being a map; past this the caller is told to zoom rather than sent 80,000
-# features it cannot paint. Twelve thousand is a whole city at zoom ten, which is where the
-# coverage starts, and about two and a half megabytes once the geometry is simplified.
-MAX_FEATURES = 12000
-
-# Below this a viewport is a region, and there is a basemap underneath saying where the
-# land is. Coverage starts where a street is wide enough to have a colour.
-MIN_MAP_ZOOM = 10
-
-# How much detail is worth sending at a given zoom, in degrees.
-#
-# A tile is 512 pixels and the world is 360 degrees across, so one pixel at zoom z is
-# 360 / (2^z · 512) degrees. Simplifying to about a pixel and a half throws away only what
-# could not have been drawn: at zoom 11 it takes the viewport from 2.9 MB to a fraction of
-# that, and 2.9 MB is re-parsed into tiles on the map's worker every time anyone pans.
-def detail(zoom: int) -> float:
-    return 360.0 / float(2**zoom * 512) * 1.5
-
-
-STREETS_IN = f"""
-select json_build_object(
-    'type', 'Feature',
-    'geometry', st_asgeojson(
-        st_simplifypreservetopology(st_transform(s.geom::geometry, 4326), %(detail)s), 5
-    )::json,
-    'properties', json_build_object(
-        'id', s.id,
-        'best_mbps', s.best_mbps,
-        'nprov', (select count(*) from street_provider sp where sp.street_id = s.id)
-        {{operators}}
-    )
-)::text
-from street s
-where s.geom is not null
-  and s.geom && st_makeenvelope(%(west)s, %(south)s, %(east)s, %(north)s, 4326)::geography
-order by s.best_mbps desc nulls last, s.ways desc, s.id
-limit {MAX_FEATURES}
-"""
-
-
-# All 333 of them, once. Small enough to send whole and cache, and simplified to the
-# tolerance a country-wide view can tell apart: the full outlines are 30 MB of coastline
-# nobody can see at this zoom.
-REGIONS = """
-select json_build_object(
-    'type', 'Feature',
-    'geometry', st_asgeojson(
-        st_simplifypreservetopology(st_transform(m.geom::geometry, 4326), 0.002), 5
-    )::json,
-    'properties', json_build_object(
-        'id', m.id,
-        'name', m.name,
-        'addresses', coalesce(mc.addresses, 0),
-        'fibre', coalesce(mc.fibre, 0),
-        'fibre_share', case when coalesce(mc.addresses, 0) = 0 then 0
-                            else round(mc.fibre::numeric / mc.addresses, 4) end,
-        'best_mbps', mc.best_mbps
-    )
-)::text
-from municipality m
-left join municipality_coverage mc on mc.municipality_id = m.id
-where m.geom is not null
-"""
-
-
-class Drawn(BaseModel):
-    type: Literal["FeatureCollection"] = "FeatureCollection"
-    features: list[dict[str, Any]]
-    truncated: bool = Field(
-        description="more streets are in view than were sent; the reader should zoom in"
-    )
-
-
-@app.get("/streets.geojson", response_model=Drawn, tags=["map"])
-def streets_in(
-    west: float = Query(ge=-180, le=180),
-    south: float = Query(ge=-90, le=90),
-    east: float = Query(ge=-180, le=180),
-    north: float = Query(ge=-90, le=90),
-    zoom: int = Query(ge=0, le=22),
-) -> Drawn:
-    """The streets in a viewport, in the shape the tiles use.
-
-    The map is meant to be served from a PMTiles archive, which is one file a web server can
-    range-request and is what should be in front of real traffic. This is the same data by
-    the other road: it needs no build step, so the renderer can be worked on and checked
-    against a live database before any tiles are cut, and it is the fallback where an
-    archive has not been copied across yet.
-
-    Both paths carry the fields the tile schema names, because a renderer that works against
-    one and not the other is worth nothing.
-    """
-    if zoom < MIN_MAP_ZOOM:
-        return Drawn(features=[], truncated=True)
-    if west >= east or south >= north:
-        raise HTTPException(422, "the viewport has no area")
-
-    corners: dict[str, object] = {
-        "west": west, "south": south, "east": east, "north": north,
-        "detail": detail(zoom),
-    }
-    found = rows(STREETS_IN.format(operators=tile_operators()), corners)
-    return Drawn(
-        features=[json.loads(row[0]) for row in found],
-        truncated=len(found) >= MAX_FEATURES,
-    )
-
-
-@app.get("/municipalities.geojson", response_model=Drawn, tags=["map"])
-def regions() -> Drawn:
-    """Every municipality, with how much of it fibre reaches.
-
-    The zooms where the country fits on the screen are the zooms where a street is a
-    fraction of a pixel, and this map has no basemap under it. Without these the first thing
-    anyone sees is a black rectangle. All 333 go at once because 333 is small, and they are
-    simplified to a tolerance a country-wide view cannot tell from the truth.
-    """
-    return Drawn(features=[json.loads(row[0]) for row in rows(REGIONS)], truncated=False)
 
 
 @app.post("/reports", response_model=Report, status_code=201, tags=["report"])

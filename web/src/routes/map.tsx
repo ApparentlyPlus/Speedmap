@@ -10,70 +10,21 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { GeoJSONSource, Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
+import { Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import {
-  address,
-  search,
-  street,
-  streetsIn,
-  type Drawn,
-  type Result,
-  type StreetDetail,
-} from "../api/client";
+import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, SOURCE, streetLayers, style, type Carried } from "../map/style";
+import { HOME, only, ramps, style } from "../map/style";
 
-/**
- * Where coverage starts.
- *
- * Below this a street is too thin to carry a colour, and there is a basemap underneath
- * saying where the land, the water and the roads are — so zooming out is a map of Greece
- * rather than a black rectangle.
- */
-const MIN_ZOOM = 10;
-
-/*
- * Where the streets come from, said once.
- *
- * The style is built here and the layers are rebuilt on every filter change, and the two
- * must agree: a vector tile carries named layers and a layer must say which one it draws,
- * while a GeoJSON source is the layer. Disagreeing means layers that match nothing and
- * paint nothing, without a word of complaint. One constant, so they cannot.
- */
-const CARRIED: Carried = "geojson";
-
-/** Long enough that a drag does not become a request per frame. */
+/** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
 
-/** How much wider than the screen to ask for, as a share of the viewport. */
-const MARGIN = 0.35;
-
-type Box = readonly [number, number, number, number];
-
-/** Whether one box is wholly within another. */
-function inside(inner: Box, outer: Box): boolean {
-  return (
-    inner[0] >= outer[0] && inner[1] >= outer[1] && inner[2] <= outer[2] && inner[3] <= outer[3]
-  );
-}
-
-/** A box grown by a share of its own size, so a small drag needs no new request. */
-function grown(box: Box, share: number): Box {
-  const [west, south, east, north] = box;
-  const wide = (east - west) * share;
-  const tall = (north - south) * share;
-  return [west - wide, south - tall, east + wide, north + tall];
-}
-
-const EMPTY: Drawn = { type: "FeatureCollection", features: [], truncated: false };
-
-type Showing = "far" | "asking" | "drawn" | "empty" | "failed";
+type Showing = "ready" | "failed";
 
 export function MapPage({ language }: { readonly language: Language }): React.ReactElement {
   const text = strings(language);
@@ -92,8 +43,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Result[]>([]);
   const [picked, setPicked] = useState<StreetDetail | null>(null);
-  const [showing, setShowing] = useState<Showing>("far");
-  const [truncated, setTruncated] = useState(false);
+  const [showing, setShowing] = useState<Showing>("ready");
 
   useEffect(() => {
     if (holder.current === null || map.current !== null) return;
@@ -119,7 +69,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
 
     const drawn = new Maplibre({
       container: holder.current,
-      style: style({ type: "geojson", data: EMPTY }, CARRIED),
+      style: style(),
       ...(linked ? {} : { center: HOME.centre, zoom: HOME.zoom }),
       attributionControl: false,
       hash: true,
@@ -144,85 +94,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       console.error("map style", fault.error);
     });
 
-    let timer = 0;
-    let stop = new AbortController();
-
-    /*
-     * What was asked for last time, and how far out it reached.
-     *
-     * A pan inside ground already fetched asks for nothing: the answer is already on the
-     * screen. Without this every drag re-fetched a megabyte and a half and handed it to
-     * the map's worker to be cut into tiles again, which is what made it crawl.
-     */
-    let held: { box: Box; zoom: number } | null = null;
-
-    const look = (): void => {
-      window.clearTimeout(timer);
-
-      if (drawn.getZoom() < MIN_ZOOM) {
-        stop.abort();
-        setShowing("far");
-        return;
-      }
-
-      const view = drawn.getBounds();
-      const seen: Box = [view.getWest(), view.getSouth(), view.getEast(), view.getNorth()];
-      // A zoom band rather than a zoom: the geometry is simplified per zoom, and refetching
-      // because the number moved by a tenth would undo the point of holding it at all.
-      const band = Math.round(drawn.getZoom());
-      if (held !== null && held.zoom === band && inside(seen, held.box)) return;
-
-      stop.abort();
-      stop = new AbortController();
-      const here = stop;
-
-      timer = window.setTimeout(() => {
-        setShowing("asking");
-        // Fetched wider than the screen, so a small drag stays inside what is already held.
-        const asked = grown(seen, MARGIN);
-        streetsIn(asked, band, here.signal)
-          .then((found) => {
-            if (here.signal.aborted) return;
-            const source = drawn.getSource(SOURCE);
-            if (source instanceof GeoJSONSource) source.setData(found);
-            // Truncated means there is more out there than was sent, so what is held is not
-            // the whole of that box and must not be treated as covering a later pan.
-            held = found.truncated ? null : { box: asked, zoom: band };
-            setTruncated(found.truncated);
-            setShowing(found.features.length === 0 ? "empty" : "drawn");
-          })
-          .catch((error: unknown) => {
-            if (error instanceof DOMException && error.name === "AbortError") return;
-            setShowing("failed");
-          });
-      }, SETTLE_MS);
-    };
-
-    /*
-     * A street is the only thing on this map, so it is the only thing to click. What comes
-     * back is the cabinets it runs through rather than a quote for a door on it: a street
-     * has no address of its own, and pretending otherwise would be inventing one.
-     */
-    drawn.on("click", "streets", (event) => {
-      const hit = event.features?.[0];
-      const id = hit?.properties?.["id"];
-      if (typeof id !== "number") return;
-      street(id)
-        .then(setPicked)
-        .catch(() => setPicked(null));
-    });
-    drawn.on("mouseenter", "streets", () => {
-      drawn.getCanvas().style.cursor = "pointer";
-    });
-    drawn.on("mouseleave", "streets", () => {
-      drawn.getCanvas().style.cursor = "";
-    });
-
-    drawn.on("load", look);
-    drawn.on("moveend", look);
     return () => {
-      window.clearTimeout(timer);
-      stop.abort();
       drawn.remove();
       map.current = null;
     };
@@ -252,32 +124,30 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   }, [query]);
 
   /*
-   * Repainting is swapping two layers, not reloading the data: the features already carry
-   * every operator's number, which is why they are on the feature rather than fetched per
-   * filter.
-   *
-   * Deferred until the style is loaded rather than skipped, because a style that is still
-   * loading when the filter changes would otherwise leave the map showing everyone while
-   * the panel says one operator — and it is the panel the reader believes.
+   * Switching operator changes two properties on two layers. It used to remove the layers
+   * and add them back, which appended them to the end of the style — above the buildings,
+   * so the coverage drew straight over the roofs and the city looked transparent.
    */
   useEffect(() => {
     const drawn = map.current;
     if (drawn === null) return;
 
-    const repaint = (): void => {
-      for (const layer of ["streets-halo", "streets"]) {
-        if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+    const apply = (): void => {
+      const filter = only(provider);
+      for (const [layer, paint] of Object.entries(ramps(provider))) {
+        if (drawn.getLayer(layer) === undefined) return;
+        drawn.setPaintProperty(layer, "line-color", paint);
+        drawn.setFilter(layer, filter);
       }
-      for (const layer of streetLayers(provider, CARRIED)) drawn.addLayer(layer);
     };
 
     if (drawn.isStyleLoaded()) {
-      repaint();
+      apply();
       return;
     }
-    drawn.once("styledata", repaint);
+    drawn.once("styledata", apply);
     return () => {
-      drawn.off("styledata", repaint);
+      drawn.off("styledata", apply);
     };
   }, [provider]);
 
@@ -357,7 +227,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           {RAMP.map((band) => (
             <li className="atlas-band" key={band.name}>
               <span className="atlas-swatch" style={{ background: band.colour }} />
-              {band.floor} Mbps+
+              {band.name}
             </li>
           ))}
           <li className="atlas-band">
@@ -401,11 +271,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
         )}
 
         <p className={`atlas-state atlas-state-${showing}`}>
-          {showing === "far" && text.mapZoomIn}
-          {showing === "asking" && text.searching}
-          {showing === "empty" && text.mapNothingHere}
           {showing === "failed" && text.searchFailed}
-          {showing === "drawn" && truncated && text.mapTruncated}
         </p>
       </section>
     </main>

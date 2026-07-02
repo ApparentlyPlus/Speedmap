@@ -20,7 +20,7 @@ import type {
   StyleSpecification,
 } from "maplibre-gl";
 
-import { RAMP, UNFILED } from "../tokens";
+import { RAMP, UNFILED, UNSERVED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Street } from "./tiles";
 
 export const SOURCE = "speedmap";
@@ -28,12 +28,6 @@ export const SOURCE = "speedmap";
 /** The basemap and the footprints: OpenStreetMap through planetiler, and Overture. */
 export const BASE = "base";
 export const BUILDINGS = "buildings";
-
-/** Reaches this street and filed no speed for it: below the ramp, but served. */
-export const SERVED = -1;
-
-/** Does not reach this street at all. Below that, so a filter can tell them apart. */
-export const NOT_SERVED = -2;
 
 /** Greece, with room for Crete and the north in the same view. */
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
@@ -60,37 +54,27 @@ const C = {
 } as const;
 
 /**
- * The ramp as a step expression over the same floors the rest of the system reasons in.
+ * The ramp, interpolated rather than stepped.
  *
- * Three states, not two. Null is an operator that does not reach this street; one below the
- * bottom of the ramp is one that reaches it and filed no speed, which is the commonest
- * thing the register says; a number is the speed. The first two are painted alike and the
- * filter tells them apart.
+ * Measured speeds are continuous and advertised ones are not, and both are drawn here, so
+ * both run across the same anchors — the two stay comparable by eye instead of one being
+ * banded and the other smooth.
  *
- * Not filed is not slow: painting it at the bottom of the ramp would invent a fact about
- * six operators in one stroke.
+ * Three states before the ramp is consulted at all. A field that is absent is an operator
+ * that does not reach this street; one at or below zero reaches it and filed no speed, which
+ * is the commonest thing the register says and gets a colour of its own outside the ramp;
+ * anything else is a speed. Running "no speed filed" through the ramp interpolated it down
+ * to near-black and made eight operators invisible.
  */
 function ramp(field: keyof Street): ExpressionSpecification {
-  // The ramp is written fastest first and `step` wants ascending stops: the one place the
-  // two orders meet, and a good place to get it wrong.
   const rising = [...RAMP].reverse();
-  const stops = rising.flatMap((band) => [band.floor as number, band.colour]);
-  return ["step", ["coalesce", ["get", field], SERVED], UNFILED, ...stops] as ExpressionSpecification;
-}
-
-/**
- * A filter for one operator, or none at all.
- *
- * On the value, not the key: `has` asks whether a property is present, and the builder
- * writes every operator's field on every street, so it was true everywhere and the filter
- * showed the whole country whichever operator was picked.
- */
-export function only(provider: string | null): ExpressionSpecification | undefined {
-  if (provider === null) return undefined;
-  const field = STREETS_BY_PROVIDER[provider];
-  // An operator with no field of its own reaches nothing rather than everything.
-  if (field === undefined) return ["boolean", false] as ExpressionSpecification;
-  return [">=", ["coalesce", ["get", field], NOT_SERVED], SERVED] as ExpressionSpecification;
+  const anchors = rising.flatMap((band) => [band.floor as number, band.colour]);
+  return [
+    "case",
+    ["!", ["has", field]], UNSERVED,
+    ["<=", ["to-number", ["get", field], 0], 0], UNFILED,
+    ["interpolate", ["linear"], ["to-number", ["get", field], 0], ...anchors],
+  ] as ExpressionSpecification;
 }
 
 /**
@@ -115,19 +99,21 @@ const ROAD_KINDS: ExpressionSpecification = [
 ];
 
 /**
- * Whether the streets arrive in a vector tile or as plain GeoJSON.
+ * A filter for one operator, or none at all.
  *
- * One property's worth of difference: a vector tile carries named layers inside it and a
- * layer must say which one it draws, while a GeoJSON source is the layer. Setting
- * `source-layer` on GeoJSON matches nothing and paints nothing, silently.
+ * Presence, because a tile carries no key at all for an operator that does not reach the
+ * street. The GeoJSON this used to read wrote every operator's key on every feature, so
+ * asking whether one was present was true everywhere and every filter matched everything.
  */
-export type Carried = "vector" | "geojson";
+export function only(provider: string | null): ExpressionSpecification | null {
+  if (provider === null) return null;
+  const field = STREETS_BY_PROVIDER[provider];
+  // An operator with no field of its own reaches nothing rather than everything.
+  if (field === undefined) return ["boolean", false] as ExpressionSpecification;
+  return ["has", field] as ExpressionSpecification;
+}
 
-export function streetLayers(
-  provider: string | null,
-  carried: Carried = "geojson",
-): LayerSpecification[] {
-  const named = carried === "vector" ? { "source-layer": STREETS_LAYER } : {};
+export function streetLayers(provider: string | null): LayerSpecification[] {
   const field: keyof Street =
     provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
   const paint = ramp(field);
@@ -135,38 +121,61 @@ export function streetLayers(
 
   return [
     {
-      // A wide, dim, blurred copy under the line. Cheaper than a real glow, and it is most
-      // of what makes the coverage read as light on the street rather than paint on it.
+      // A wide, blurred, dim copy under the line. Cheaper than a real glow, and most of
+      // what makes coverage read as light lying on the street rather than paint on it.
       id: "streets-halo",
       type: "line",
       source: SOURCE,
-      ...named,
+      "source-layer": STREETS_LAYER,
+      minzoom: 10,
       ...(filter ? { filter } : {}),
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": paint,
         "line-blur": 5,
-        "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60],
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.08, 13, 0.13, 15, 0.2, 18, 0.09],
+        "line-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          8, 0.06, 13, 0.13, 15, 0.2, 16, 0.15, 18, 0.09,
+        ],
+        "line-width": [
+          "interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60,
+        ],
       },
     },
     {
       id: "streets",
       type: "line",
       source: SOURCE,
-      ...named,
+      "source-layer": STREETS_LAYER,
       ...(filter ? { filter } : {}),
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": paint,
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.5, 13, 0.62, 15, 0.72, 18, 0.5],
+        "line-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          7, 0.4, 11, 0.46, 13, 0.52, 14.5, 0.66, 16, 0.6, 18, 0.45,
+        ],
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
-          9, 0.6, 12, 1.4, 14, 2.8, 16, 7, 20, 26,
+          6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
         ],
       },
     },
   ];
+}
+
+/**
+ * The colour each coverage layer takes for one operator.
+ *
+ * Returned rather than rebuilt into new layers: switching operator is a paint change, and
+ * removing a layer and adding it back moves it to the top of the style, above the
+ * buildings, which drew the coverage straight over the roofs.
+ */
+export function ramps(provider: string | null): Record<string, ExpressionSpecification> {
+  const field: keyof Street =
+    provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
+  const paint = ramp(field);
+  return { "streets-halo": paint, streets: paint };
 }
 
 /**
@@ -176,11 +185,7 @@ export function streetLayers(
  * machine this runs on — and is read by range request out of one file each. The coverage
  * comes from our own database, which is the half that changes.
  */
-export function style(
-  source: StyleSpecification["sources"][string],
-  carried: Carried = "geojson",
-  base = "/tiles",
-): StyleSpecification {
+export function style(base = "/tiles"): StyleSpecification {
   return {
     version: 8,
     name: "speedmap",
@@ -190,7 +195,8 @@ export function style(
       // Overture conflates OSM with footprints derived from imagery, which is the only way
       // to have buildings outside Athens and Thessaloniki at all.
       [BUILDINGS]: { type: "vector", url: `pmtiles://${base}/buildings.pmtiles` },
-      [SOURCE]: source,
+      // Our own coverage, cut from the database by the same tool that cut the basemap.
+      [SOURCE]: { type: "vector", url: `pmtiles://${base}/speedmap.pmtiles` },
     },
     // One light, from the side and above, so extrusions have a lit face and a dark one.
     // Without it every building is the same flat tone and the city reads as a printed plan.
@@ -259,7 +265,7 @@ export function style(
         },
       },
 
-      ...streetLayers(null, carried),
+      ...streetLayers(null),
 
       // A dark flat copy of the footprints, offset a few pixels, sitting under the
       // extrusions. It costs one fill layer and it is most of why an expensive-looking map
