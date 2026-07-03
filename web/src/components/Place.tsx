@@ -13,8 +13,12 @@
 
 import { useEffect, useState } from "react";
 
-import { options, probe, type Options, type Result } from "../api/client";
+import { address, options, probe, type Options, type Result } from "../api/client";
+import { modeOf } from "../house/mode";
 import { strings, type Language } from "../i18n";
+import { colourFor, mbps } from "../tokens";
+import { Anchored } from "./Anchored";
+import { House } from "./House";
 import { Offer } from "./Offer";
 import { Waiting } from "./Waiting";
 
@@ -74,6 +78,8 @@ export function Place({
   const text = strings(language);
   const [known, setKnown] = useState<Options | null>(null);
   const [opened, setOpened] = useState<Record<string, boolean>>({});
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [where, setWhere] = useState<{ lon: number; lat: number } | null>(null);
 
   useEffect(() => {
     const stop = new AbortController();
@@ -100,18 +106,54 @@ export function Place({
     return () => stop.abort();
   }, [result.id]);
 
-  const where = [result.locality, result.municipality].filter(Boolean).join(" · ");
+  // The point to fly the map to. Its own request: the options take as long as the slowest
+  // operator, and the map should not wait on an operator to know where it is.
+  useEffect(() => {
+    const stop = new AbortController();
+    address(result.id, stop.signal)
+      .then((found) => setWhere({ lon: found.lon, lat: found.lat }))
+      .catch(() => setWhere(null));
+    return () => stop.abort();
+  }, [result.id]);
+
+  /*
+   * One selected offer drives the drawing.
+   *
+   * Its colour is the speed's colour and its family decides where the signal comes from, so
+   * choosing a plan changes the picture rather than just a highlight. Until someone chooses,
+   * it is whatever the ranker put first — which is the thing most people are here for.
+   */
+  const offers = known?.options ?? [];
+  const selected =
+    offers.find((o) => `${o.provider}-${o.plan}` === chosen) ?? offers[0] ?? null;
+  const speed =
+    selected?.expected_mbps === undefined || selected?.expected_mbps === null
+      ? mbps(0)
+      : mbps(Number(selected.expected_mbps));
+
+  const place = [result.locality, result.municipality].filter(Boolean).join(", ");
   const name = result.street_no === null ? result.name : `${result.name} ${result.street_no}`;
 
   return (
-    <section className="place">
+    <>
+      <Anchored lon={where?.lon ?? null} lat={where?.lat ?? null} />
+
+      <section className="place">
+        <div className="place-scene">
+          <House
+            mode={modeOf(selected?.family ?? "fibre")}
+            colour={colourFor(speed)}
+            mbps={Number(speed)}
+          />
+        </div>
+
+        <div className="place-body">
       <header className="place-head">
         <button className="back" type="button" onClick={onBack}>
           <span aria-hidden="true">←</span> {text.back}
         </button>
         <h1 className="place-name">{name}</h1>
-        <p className="place-where">{where}</p>
-
+        <p className="place-where">{place}</p>
       </header>
 
       {known === null && <Waiting />}
@@ -139,6 +181,8 @@ export function Place({
                   language={language}
                   best={band === 0 && index === 0}
                   rank={index}
+                  chosen={`${option.provider}-${option.plan}` === `${selected?.provider}-${selected?.plan}`}
+                  onChoose={() => setChosen(`${option.provider}-${option.plan}`)}
                 />
               ))}
             </ol>
@@ -167,6 +211,8 @@ export function Place({
           {text.report}
         </button>
       </footer>
-    </section>
+        </div>
+      </section>
+    </>
   );
 }
