@@ -9,10 +9,14 @@
 -- street and filed no speed, which is the commonest state in the register and is not zero.
 truncate street_provider;
 
+-- Fixed lines only, for the same reason the street's own figure leaves mobile out: an
+-- operator whose 5G reaches everywhere is not an operator that reaches this street, and a
+-- filter that said so would show the whole country under every mobile network.
 insert into street_provider (street_id, provider_id, mbps)
 select s.id, ac.provider_id, max(coalesce(sb.max_mbps, sb.min_mbps))
 from street s
 join address a on a.municipality_id = s.municipality_id and a.street_fold = s.name_fold
 join address_coverage ac on ac.address_id = a.id
 left join speed_band sb on sb.id = ac.speed_band_id
+where ac.family <> 'wireless'
 group by s.id, ac.provider_id;

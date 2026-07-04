@@ -948,6 +948,38 @@ body {
 }
 
 @media (width <= 560px) {
+  /*
+   * The card takes the bottom of the screen and the map keeps the top, so the address is
+   * still somewhere before it is a list of prices. Sized in dvh rather than percent, because
+   * a phone's address bar comes and goes and vh does not know that.
+   */
+  .place {
+    inset: auto 8px 8px 8px;
+    grid-template-rows: 26dvh 1fr;
+    width: auto;
+    height: 76dvh;
+    border-radius: 14px;
+  }
+
+  .place-body {
+    padding: 16px 12px 14px;
+  }
+
+  .place-head {
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .place-name {
+    font-size: 20px;
+  }
+
+  /* The map is only the top quarter here, so it is framed closer in. */
+  .anchored {
+    inset: 0 0 auto 0;
+    height: 34dvh;
+  }
+
   .offer-head,
   .offer-foot {
     padding-inline: 14px;
