@@ -758,6 +758,8 @@ export interface operations {
                 /** @description street, optionally with a town */
                 q: string;
                 limit?: number;
+                /** @description street: streets only, for a map that has no doors on it */
+                kind?: "any" | "street";
             };
             header?: never;
             path?: never;

@@ -286,6 +286,9 @@ def results(found: list[tuple[Any, ...]], match: str) -> list[Result]:
 def search(
     q: str = Query(min_length=MIN_QUERY, description="street, optionally with a town"),
     limit: int = Query(8, ge=1, le=MAX_RESULTS),
+    kind: Literal["any", "street"] = Query(
+        "any", description="street: streets only, for a map that has no doors on it"
+    ),
 ) -> list[Result]:
     """Addresses and streets, in Greek or Greeklish, folded the way the index was built."""
     greeklish = is_greeklish(q)
@@ -295,7 +298,13 @@ def search(
 
     # The two tables spell the same idea differently: an address key carries the locality,
     # a street key is the name alone.
+    #
+    # Asking for streets only is not a filter over the answer: addresses fill the page
+    # first, so a street can be pushed off the end of it and filtering afterwards would
+    # return nothing for a street that certainly exists.
     sources = (
+        (street_sql, "latin_key" if greeklish else "name_fold"),
+    ) if kind == "street" else (
         (address_sql, "latin_key" if greeklish else "search_key"),
         (street_sql, "latin_key" if greeklish else "name_fold"),
     )
@@ -310,6 +319,10 @@ def search(
             found += results(rows(sql, taken), tier)
         if len(found) >= limit:
             break
+    if kind == "street":
+        # A map has no doors on it, so a number the reader typed picks the street it is on
+        # rather than offering to make a door nobody can click.
+        return found[:limit]
     return offer_the_number(found, asked, "latin_key" if greeklish else "name_fold", limit)
 
 
