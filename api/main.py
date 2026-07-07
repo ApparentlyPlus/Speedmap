@@ -59,7 +59,9 @@ class Health(BaseModel):
     offers: int = Field(description="rows in address_coverage")
 
 
-def rows(sql: str, params: tuple[object, ...] = ()) -> list[tuple[Any, ...]]:
+def rows(
+    sql: str, params: tuple[object, ...] | dict[str, object] = ()
+) -> list[tuple[Any, ...]]:
     with pool.connection() as conn:
         return conn.execute(sql, params).fetchall()
 
@@ -372,8 +374,11 @@ order by sb.min_mbps desc nulls last, p.code
 """
 
 STREET_DETAIL = """
-select s.id, s.name, m.name, s.highway, s.ways
-from street s left join municipality m on m.id = s.municipality_id
+select s.id, s.name, m.name, s.highway, s.ways,
+       st_xmin(box), st_ymin(box), st_xmax(box), st_ymax(box)
+from street s
+left join municipality m on m.id = s.municipality_id
+cross join lateral (select st_envelope(s.geom::geometry) as box) extent
 where s.id = %s
 """
 
@@ -431,6 +436,9 @@ class StreetDetail(BaseModel):
     municipality: str | None
     highway: str
     ways: int = Field(description="OSM ways merged into this street")
+    bbox: tuple[float, float, float, float] = Field(
+        description="west, south, east, north — a street has no point, only an extent"
+    )
     offers: list[Offer]
 
 
@@ -480,6 +488,7 @@ def street(street_id: int) -> StreetDetail:
     row = one(STREET_DETAIL, street_id, "no such street")
     return StreetDetail(
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
+        bbox=(row[5], row[6], row[7], row[8]),
         offers=offers(rows(STREET_OFFERS, (street_id,))),
     )
 

@@ -19,18 +19,27 @@ export function Offer({
   language,
   best,
   rank,
+  chosen,
+  onChoose,
 }: {
   readonly option: Buyable;
   readonly language: Language;
   readonly best: boolean;
   readonly rank: number;
+  readonly chosen: boolean;
+  readonly onChoose: () => void;
 }): React.ReactElement {
   const text = strings(language);
   const speed = option.expected_mbps === null ? null : mbps(Number(option.expected_mbps));
 
   return (
     <li
-      className={`offer${best ? " offer-best" : ""}`}
+      // Choosing one redraws the house beside it: its colour is the speed's colour and its
+      // family decides where the signal comes from. So the whole row is the control, and it
+      // is a button because that is what it behaves like.
+      className={`offer${best ? " offer-best" : ""}${chosen ? " offer-chosen" : ""}`}
+      aria-current={chosen}
+      onClick={onChoose}
       // Staggered so the list assembles rather than appearing, capped so a long one does
       // not keep the reader waiting on an animation they did not ask for.
       style={

@@ -4,8 +4,11 @@ Vocabulary and constraints of the reference tables.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from decimal import Decimal
 from itertools import pairwise
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -541,3 +544,20 @@ def test_wireless_tables_exist(db: psycopg.Connection[TupleRow]) -> None:
     for table in ("raw_wireless_cell", "raw_wireless_grid"):
         row = db.execute("select to_regclass(%s)", (table,)).fetchone()
         assert row == (table,)
+
+
+# the document the frontend types come from
+
+
+def test_the_openapi_document_matches_the_server() -> None:
+    """A stale contract is worse than none, because it is believed.
+
+    The TypeScript types are generated from the file in schema/, so a field renamed on the
+    server is supposed to fail the frontend build. That only holds while the file matches,
+    and it is one forgotten command away from describing an API that no longer exists.
+    """
+    done = subprocess.run(
+        [sys.executable, "-m", "tools.openapi_schema", "--check"],
+        cwd=Path(__file__).resolve().parent.parent, capture_output=True, text=True,
+    )
+    assert done.returncode == 0, done.stderr

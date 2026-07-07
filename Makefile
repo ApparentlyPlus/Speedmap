@@ -21,9 +21,11 @@ fmt: # apply the autofixable lint rules
 	.venv/bin/ruff check --fix .
 
 .PHONY: lint
-lint: # ruff, plus the numeric fallback ban
+lint: # ruff, the numeric fallback ban, and the two generated contracts
 	.venv/bin/ruff check .
 	$(PY) tools/lint_numeric_fallback.py .
+	$(PY) tools/codegen_tiles.py --check
+	$(PY) -m tools.openapi_schema --check
 
 .PHONY: typecheck
 typecheck: # mypy --strict
@@ -34,9 +36,9 @@ test: # pytest
 	$(PY) -m pytest -q
 
 .PHONY: web-check
-web-check: # typecheck the frontend, when it has been installed
+web-check: # typecheck and test the frontend, when it has been installed
 	@test -d web/node_modules \
-		&& (cd web && npm run --silent typecheck) \
+		&& (cd web && npm run --silent typecheck && npm run --silent test) \
 		|| echo "  web: no node_modules, skipped"
 
 .PHONY: check
@@ -57,6 +59,20 @@ migrate-status: # list pending migrations
 .PHONY: build
 build: # rebuild the derived tables from raw_*
 	$(PY) -m normalise.build
+
+.PHONY: web-build
+web-build: # build the frontend for deployment
+	cd web && npm ci && npm run build
+
+.PHONY: tiles
+tiles: # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
+	$(PY) -m publish.run
+
+.PHONY: codegen
+codegen: # regenerate the tile contract and the OpenAPI document
+	$(PY) tools/codegen_tiles.py
+	$(PY) -m tools.openapi_schema
+	@test -d web/node_modules && (cd web && npm run --silent api:types) || true
 
 .PHONY: api
 api: # run the read-only API on :8000

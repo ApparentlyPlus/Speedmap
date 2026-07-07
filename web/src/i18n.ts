@@ -18,6 +18,13 @@ type Strings = {
   readonly searchLabel: string;
   readonly searchPlaceholder: string;
   readonly browseMap: string;
+  readonly mapTitle: string;
+  readonly operator: string;
+  readonly anyOperator: string;
+  readonly legend: string;
+  readonly mapZoomIn: string;
+  readonly mapNothingHere: string;
+  readonly mapTruncated: string;
   readonly noResults: string;
   readonly searching: string;
   readonly searchFailed: string;
@@ -54,6 +61,13 @@ const el: Strings = {
   searchLabel: "Διεύθυνση",
   searchPlaceholder: "Οδός και αριθμός, ή περιοχή",
   browseMap: "ή δες τον χάρτη",
+  mapTitle: "Ο χάρτης κάλυψης",
+  operator: "Πάροχος",
+  anyOperator: "Όλοι",
+  legend: "Ταχύτητα δρόμου",
+  mapZoomIn: "Κάνε ζουμ για να δεις κάλυψη ανά δρόμο",
+  mapNothingHere: "Κανένας δρόμος εδώ με δηλωμένη κάλυψη",
+  mapTruncated: "Πολλοί δρόμοι στην οθόνη — κάνε ζουμ για όλους",
   noResults: "Καμία διεύθυνση",
   searching: "Αναζήτηση…",
   searchFailed: "Η αναζήτηση δεν απάντησε",
@@ -101,6 +115,13 @@ const en: Strings = {
   searchLabel: "Address",
   searchPlaceholder: "Street and number, or an area",
   browseMap: "or browse the map",
+  mapTitle: "The coverage map",
+  operator: "Operator",
+  anyOperator: "Anyone",
+  legend: "Street speed",
+  mapZoomIn: "Zoom in for coverage street by street",
+  mapNothingHere: "No street here has coverage filed",
+  mapTruncated: "More streets in view than shown — zoom in for all of them",
   noResults: "No address found",
   searching: "Searching…",
   searchFailed: "Search did not answer",
