@@ -533,6 +533,16 @@ export interface components {
         };
         /** StreetDetail */
         StreetDetail: {
+            /**
+             * Bbox
+             * @description west, south, east, north — a street has no point, only an extent
+             */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ];
             /** Highway */
             highway: string;
             /** Id */

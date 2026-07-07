@@ -26,32 +26,34 @@ export type Band = {
 /**
  * Fastest first, so the first band a speed clears is its band.
  *
- * The thresholds are the ones the rest of the system already reasons in: a hundred is what
- * a household needs, three hundred is where copper cannot follow, a gigabit is settled.
- *
- * Red, amber, green, blue, violet. The order everyone already knows from a signal. The
- * page's own colour is white and is spent on chrome — what is focused, what was chosen —
- * so the ramp keeps every hue to itself and the two can never be told apart by accident.
- *
- * Five hues rather than a gradient, because the bands are the point. An address is in one
- * of them, and a reader should be able to say which from across a room.
+ * The prototype's ramp, kept because it was right: eight anchors rather than five, so the
+ * gap between a 100 Mbps street and a 300 Mbps one is visible at a glance instead of being
+ * two neighbouring greens. It runs warm to cool the way a signal bar does, and the map
+ * interpolates between the anchors while the cards step between them — the same colours
+ * either way, so the map and the list cannot teach different things about the same speed.
  */
 export const RAMP: readonly Band[] = [
-  { floor: mbps(1000), colour: "#a855f7", name: "gigabit" },
-  { floor: mbps(300), colour: "#3b82f6", name: "fast" },
-  { floor: mbps(100), colour: "#22c55e", name: "enough" },
-  { floor: mbps(30), colour: "#eab308", name: "slow" },
-  { floor: mbps(0), colour: "#ef4444", name: "poor" },
+  { floor: mbps(3000), colour: "#a78bfa", name: "3 Gbps" },
+  { floor: mbps(1000), colour: "#38bdf8", name: "1 Gbps" },
+  { floor: mbps(500), colour: "#2dd4bf", name: "500 Mbps" },
+  { floor: mbps(300), colour: "#4ade80", name: "300 Mbps" },
+  { floor: mbps(200), colour: "#b8e04a", name: "200 Mbps" },
+  { floor: mbps(100), colour: "#ffc93c", name: "100 Mbps" },
+  { floor: mbps(50), colour: "#ff8c42", name: "50 Mbps" },
+  { floor: mbps(0), colour: "#f4523b", name: "24 Mbps" },
 ];
 
 /**
- * The colour for a speed nobody has filed.
+ * Serves this street, filed no speed.
  *
- * Deliberately not the bottom of the ramp, and deliberately outside its hue: "serves this
- * street, files no speed" is the most common state for six of the eleven operators, and
- * painting it as slow invents a fact.
+ * Light, and outside the ramp on purpose. Run through the ramp it interpolated down to
+ * near-black and made eight operators invisible — and it is the commonest thing the
+ * register says, so that was most of the map going missing rather than an edge case.
  */
-export const UNFILED = "#3f3f46";
+export const UNFILED = "#9fb3c8";
+
+/** Reaches nothing here. Dark enough to read as absence rather than as a slow street. */
+export const UNSERVED = "#2a3038";
 
 export function bandFor(speed: Mbps | null): Band | null {
   if (speed === null) return null;

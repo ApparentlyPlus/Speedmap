@@ -1,0 +1,99 @@
+# The field names inside a vector tile, written once so both sides cannot drift.
+#
+# These names are an API between the Python that builds the tiles and the TypeScript that
+# paints them, and nothing enforces them at runtime: a renderer asking for a field the
+# builder stopped writing gets undefined, paints the fallback colour, and says nothing. The
+# prototype lost 25.6% of its streets to exactly that and nobody noticed for weeks.
+#
+# So the names live here and both sides are generated from them. Rename one and the build
+# fails; the alternative is a map that is quietly wrong.
+#
+# A nullable field is the difference between "no speed filed" and "no service", which is the
+# distinction the whole ranking rests on and the one a tile is most likely to flatten: a
+# missing number and a zero look identical once they are in a paint expression.
+
+version: 1
+
+layers:
+  streets:
+    description: >
+      One feature per street, carrying the best each operator reaches on it. Painted by
+      best_mbps and filtered by the per-operator fields, which is why both exist: a filter
+      over a single best paints a street in one operator's colour while claiming another's.
+    geometry: line
+    fields:
+      id:
+        type: integer
+        description: the street row this was built from
+      best_mbps:
+        type: number
+        nullable: true
+        unit: mbps
+        description: the fastest anyone reaches here; null is not filed, never zero
+      nprov:
+        type: integer
+        description: how many operators reach this street at all, filed speed or not
+      # Three states, not two: null is an operator that does not reach this street, -1 is
+      # one that reaches it and filed no speed, and a number is the speed. The middle state
+      # is 49,897 street-operator pairs and is the commonest thing the register says, so a
+      # filter that cannot see it hides most of what an operator actually sells.
+      p_ote: {type: number, nullable: true, unit: mbps, provider: OTE}
+      p_vodafone: {type: number, nullable: true, unit: mbps, provider: VODAFONE}
+      p_nova: {type: number, nullable: true, unit: mbps, provider: NOVA}
+      p_dei: {type: number, nullable: true, unit: mbps, provider: DEI}
+      p_inalan: {type: number, nullable: true, unit: mbps, provider: INALAN}
+      p_hcn: {type: number, nullable: true, unit: mbps, provider: HCN}
+      p_metadosis: {type: number, nullable: true, unit: mbps, provider: METADOSIS}
+
+  regions:
+    description: >
+      One feature per municipality, for the zooms where a street is a fraction of a pixel.
+      A map with no basemap and nothing drawn at low zoom is a black rectangle telling the
+      reader to zoom in, somewhere, with no clue where — so the country has to have a shape
+      before it has streets. Fibre rather than the fastest anything: the fastest anything is
+      5G, which reaches nearly every address, and a map of it is one colour.
+    geometry: polygon
+    fields:
+      id:
+        type: integer
+        description: the municipality row this was built from
+      name:
+        type: string
+      addresses:
+        type: integer
+        description: filed addresses in it, which is the denominator of the share
+      fibre:
+        type: integer
+        description: how many of them fibre reaches
+      fibre_share:
+        type: number
+        description: nought to one; what the map is painted by
+      best_mbps:
+        type: number
+        nullable: true
+        unit: mbps
+        description: held to what the technology can carry, as the ranker holds it
+
+  cells:
+    description: >
+      One feature per Ookla tile that has ever been tested, drawn as the square that was
+      measured rather than the centroid they publish. About 600 m across, and only a few per
+      cent of the country has any at all, so an empty view is the normal case and must never
+      be rendered as a failure.
+    geometry: polygon
+    fields:
+      quadkey:
+        type: string
+        description: the zoom 16 tile key, which is also its identity upstream
+      family:
+        type: string
+        description: fixed or mobile; the two measure differently and never mix
+      down_mbps:
+        type: number
+        unit: mbps
+      up_mbps:
+        type: number
+        unit: mbps
+      tests:
+        type: integer
+        description: measurements behind the figure; drawn as opacity, never as deletion
