@@ -20,8 +20,10 @@ type Strings = {
   readonly browseMap: string;
   readonly mapTitle: string;
   readonly operator: string;
+  readonly shown: string;
+  readonly views: Readonly<Record<string, string>>;
   readonly anyOperator: string;
-  readonly legend: string;
+  readonly legend: Readonly<Record<string, string>>;
   readonly mapZoomIn: string;
   readonly mapNothingHere: string;
   readonly mapTruncated: string;
@@ -63,8 +65,10 @@ const el: Strings = {
   browseMap: "ή δες τον χάρτη",
   mapTitle: "Ο χάρτης κάλυψης",
   operator: "Πάροχος",
+  shown: "Τι δείχνει",
+  views: { filed: "Δηλωμένη", measured: "Μετρημένη", mobile: "Κινητή" },
   anyOperator: "Όλοι",
-  legend: "Ταχύτητα δρόμου",
+  legend: { filed: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
   mapZoomIn: "Κάνε ζουμ για να δεις κάλυψη ανά δρόμο",
   mapNothingHere: "Κανένας δρόμος εδώ με δηλωμένη κάλυψη",
   mapTruncated: "Πολλοί δρόμοι στην οθόνη — κάνε ζουμ για όλους",
@@ -117,8 +121,10 @@ const en: Strings = {
   browseMap: "or browse the map",
   mapTitle: "The coverage map",
   operator: "Operator",
+  shown: "Showing",
+  views: { filed: "Filed", measured: "Measured", mobile: "Mobile" },
   anyOperator: "Anyone",
-  legend: "Street speed",
+  legend: { filed: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
   mapZoomIn: "Zoom in for coverage street by street",
   mapNothingHere: "No street here has coverage filed",
   mapTruncated: "More streets in view than shown — zoom in for all of them",
