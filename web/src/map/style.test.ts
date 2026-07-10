@@ -144,7 +144,9 @@ describe("what the layers say", () => {
 
 describe("the ramp", () => {
   const paint = (): unknown[] => {
-    const [, streets] = streetLayers(null);
+    // By id, not by position: the layer list grew an invisible one to click on, and a
+    // positional read of it silently started testing that instead.
+    const streets = streetLayers(null).find((layer) => layer.id === "streets");
     return (streets as { paint: { "line-color": unknown[] } }).paint["line-color"];
   };
 

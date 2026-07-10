@@ -19,7 +19,7 @@ import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, only, ramps, style } from "../map/style";
+import { HOME, VIEWS, only, ramps, style, type View } from "../map/style";
 
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
@@ -43,6 +43,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Result[]>([]);
   const [picked, setPicked] = useState<StreetDetail | null>(null);
+  const [view, setView] = useState<View>("filed");
   const [showing, setShowing] = useState<Showing>("ready");
 
   useEffect(() => {
@@ -88,6 +89,26 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
      * rather than by throwing. Without this the map is simply blank: no error, no tiles, no
      * clue, and the page looks like a slow network.
      */
+    /*
+     * A street is the only thing on this map, so it is the only thing to click. What comes
+     * back is the cabinets it runs through rather than a quote for a door on it: a street
+     * has no address of its own, and pretending otherwise would be inventing one.
+     */
+    drawn.on("click", "streets-hit", (event) => {
+      const hit = event.features?.[0];
+      const id = hit?.properties?.["id"];
+      if (typeof id !== "number") return;
+      street(id)
+        .then(setPicked)
+        .catch(() => setPicked(null));
+    });
+    drawn.on("mouseenter", "streets-hit", () => {
+      drawn.getCanvas().style.cursor = "pointer";
+    });
+    drawn.on("mouseleave", "streets-hit", () => {
+      drawn.getCanvas().style.cursor = "";
+    });
+
     drawn.on("error", (fault) => {
       setShowing("failed");
       // eslint-disable-next-line no-console
@@ -113,8 +134,10 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     }
     const stop = new AbortController();
     const timer = window.setTimeout(() => {
-      search(asked, stop.signal)
-        .then((results) => setFound(results.filter((r) => r.kind !== "proposed")))
+      // Streets only. A number picks the street it is on rather than a door on the map,
+      // because there is nothing on a map for a door to be.
+      search(asked, stop.signal, "street")
+        .then(setFound)
         .catch(() => setFound([]));
     }, SETTLE_MS);
     return () => {
@@ -139,6 +162,38 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
         drawn.setPaintProperty(layer, "line-color", paint);
         drawn.setFilter(layer, filter);
       }
+      // The hit line is filtered with them, so an operator's filter hides what it hides
+      // rather than leaving invisible streets still clickable underneath.
+      if (drawn.getLayer("streets-hit") !== undefined)
+        drawn.setFilter("streets-hit", filter);
+
+      /*
+       * Filed and measured are two claims about different things, so only one is on at a
+       * time: drawn together, a street tinted by what an operator promised and a square
+       * tinted by what somebody got would be read as one figure disagreeing with itself.
+       */
+      const streets = view === "filed";
+      for (const layer of ["streets-halo", "streets", "streets-hit"]) {
+        if (drawn.getLayer(layer) !== undefined) {
+          drawn.setLayoutProperty(
+            layer,
+            "visibility",
+            streets ? "visible" : "none",
+          );
+        }
+      }
+      if (drawn.getLayer("cells") !== undefined) {
+        drawn.setLayoutProperty(
+          "cells",
+          "visibility",
+          streets ? "none" : "visible",
+        );
+        drawn.setFilter("cells", [
+          "==",
+          ["get", "family"],
+          view === "mobile" ? "mobile" : "fixed",
+        ]);
+      }
     };
 
     if (drawn.isStyleLoaded()) {
@@ -149,7 +204,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     return () => {
       drawn.off("styledata", apply);
     };
-  }, [provider]);
+  }, [provider, view]);
 
   return (
     <main className="atlas" lang={language}>
@@ -197,32 +252,53 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           </ul>
         )}
 
-        <h2 className="atlas-head">{text.operator}</h2>
+        <h2 className="atlas-head">{text.shown}</h2>
         <ul className="atlas-operators">
-          <li>
-            <button
-              type="button"
-              className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
-              onClick={() => setProvider(null)}
-            >
-              {text.anyOperator}
-            </button>
-          </li>
-          {Object.keys(STREETS_BY_PROVIDER).map((code) => (
-            <li key={code}>
+          {VIEWS.map((one) => (
+            <li key={one}>
               <button
                 type="button"
-                className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                style={{ "--brand": brandOf(code).colour } as React.CSSProperties}
-                onClick={() => setProvider(provider === code ? null : code)}
+                className={`atlas-operator${view === one ? " atlas-operator-on" : ""}`}
+                onClick={() => setView(one)}
               >
-                {code}
+                {text.views[one]}
               </button>
             </li>
           ))}
         </ul>
 
-        <h2 className="atlas-head">{text.legend}</h2>
+        {view === "filed" && (
+          <>
+            <h2 className="atlas-head">{text.operator}</h2>
+            <ul className="atlas-operators">
+              <li>
+                <button
+                  type="button"
+                  className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
+                  onClick={() => setProvider(null)}
+                >
+                  {text.anyOperator}
+                </button>
+              </li>
+              {Object.keys(STREETS_BY_PROVIDER).map((code) => (
+                <li key={code}>
+                  <button
+                    type="button"
+                    className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
+                    style={
+                      { "--brand": brandOf(code).colour } as React.CSSProperties
+                    }
+                    onClick={() => setProvider(provider === code ? null : code)}
+                  >
+                    {code}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <h2 className="atlas-head">{text.legend[view]}</h2>
         <ul className="atlas-ramp">
           {RAMP.map((band) => (
             <li className="atlas-band" key={band.name}>

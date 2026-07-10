@@ -21,7 +21,7 @@ import type {
 } from "maplibre-gl";
 
 import { RAMP, UNFILED, UNSERVED } from "../tokens";
-import { STREETS_BY_PROVIDER, STREETS_LAYER, type Street } from "./tiles";
+import { CELLS_LAYER, STREETS_BY_PROVIDER, STREETS_LAYER, type Cell, type Street } from "./tiles";
 
 export const SOURCE = "speedmap";
 
@@ -66,7 +66,7 @@ const C = {
  * anything else is a speed. Running "no speed filed" through the ramp interpolated it down
  * to near-black and made eight operators invisible.
  */
-function ramp(field: keyof Street): ExpressionSpecification {
+function ramp(field: keyof Street | keyof Cell): ExpressionSpecification {
   const rising = [...RAMP].reverse();
   const anchors = rising.flatMap((band) => [band.floor as number, band.colour]);
   return [
@@ -143,6 +143,28 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       },
     },
     {
+      /*
+       * An invisible line, wide enough to hit.
+       *
+       * A street is drawn two or three pixels across, and a person aiming at one with a
+       * mouse misses more often than not — with a thumb, almost always. So the thing that
+       * is clicked is not the thing that is drawn: this one is transparent, twenty pixels
+       * wide, and sits under the visible line where it catches everything aimed near it.
+       */
+      id: "streets-hit",
+      type: "line",
+      source: SOURCE,
+      "source-layer": STREETS_LAYER,
+      minzoom: 11,
+      ...(filter ? { filter } : {}),
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#000000",
+        "line-opacity": 0,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 22, 20, 44],
+      },
+    },
+    {
       id: "streets",
       type: "line",
       source: SOURCE,
@@ -176,6 +198,55 @@ export function ramps(provider: string | null): Record<string, ExpressionSpecifi
     provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
   const paint = ramp(field);
   return { "streets-halo": paint, streets: paint };
+}
+
+/**
+ * What the map is painted by.
+ *
+ * Filed is what the operators told the regulator reaches a street. Measured is what people
+ * running a speed test actually got, which is a different claim about a different thing and
+ * is usually lower. Mobile is the same measurement for phones, and is kept apart because a
+ * mobile figure answers a question nobody asked when they were looking at a street.
+ */
+export const VIEWS = ["filed", "measured", "mobile"] as const;
+export type View = (typeof VIEWS)[number];
+
+/**
+ * How much of a claim a measured cell is, drawn as opacity.
+ *
+ * A cell built from two tests is a weaker claim than one built from five hundred, and
+ * showing it faintly is more honest than dropping it — dropping thin cells is what put most
+ * of the holes in the prototype's map, and a hole reads as a broken layer rather than as a
+ * quiet one.
+ */
+const CONFIDENCE: ExpressionSpecification = [
+  "interpolate", ["linear"], ["coalesce", ["get", "tests"], 1],
+  1, 0.4, 5, 0.66, 25, 1,
+];
+
+export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
+  const field: keyof Cell = "down_mbps";
+  return [
+    {
+      id: "cells",
+      type: "fill",
+      source: SOURCE,
+      "source-layer": CELLS_LAYER,
+      filter: ["==", ["get", "family"], family],
+      paint: {
+        "fill-color": ramp(field),
+        // Zoom outermost, because `["zoom"]` has to be the input of a top-level interpolate;
+        // nesting it inside the confidence term makes the whole style invalid and the map
+        // never loads at all.
+        "fill-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          5, ["*", 0.6, CONFIDENCE],
+          11, ["*", 0.46, CONFIDENCE],
+          16, ["*", 0.34, CONFIDENCE],
+        ],
+      },
+    },
+  ];
 }
 
 /**
@@ -266,6 +337,7 @@ export function style(base = "/tiles"): StyleSpecification {
       },
 
       ...streetLayers(null),
+      ...cellLayers("fixed"),
 
       // A dark flat copy of the footprints, offset a few pixels, sitting under the
       // extrusions. It costs one fill layer and it is most of why an expensive-looking map
