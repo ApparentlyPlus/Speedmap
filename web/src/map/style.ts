@@ -47,7 +47,7 @@ const C = {
   water: "#0a1420",
   building: "#171a21",
   // What a wall lightens to once you can see through it.
-  buildingGlass: "#333d52",
+  buildingGlass: "#2a323f",
   occlusion: "#050608",
   road: "#242832",
   roadMinor: "#1b1e26",
@@ -133,23 +133,23 @@ export function onlyStreet(id: number | null): FilterSpecification {
  * exists to show. The further it tilts the more it hides, so the walls give way in the same
  * proportion.
  *
- * They never go entirely: at a quarter opacity the massing still reads, and a street seen
- * through a building should look like a street seen through a building rather than one
- * floating in a hole in the city.
+ * They give way, they do not disappear. A wall thinned until the street behind it is as
+ * bright as the street beside it has stopped being a wall, and the city reads as a haze.
+ * So they stay mostly solid, and what shows through shows through faintly.
  */
 export function buildingOpacity(zoom: number, pitch: number): number {
   // Buildings arrive over a zoom and a half, so they grow rather than appear.
   const arrived = clamp((zoom - 14) / 1.2, 0, 1);
-  return arrived * (1 - 0.55 * tilt(pitch));
+  return arrived * (1 - 0.28 * tilt(pitch));
 }
 
 /**
  * The colour they take as they thin out.
  *
  * Thinning alone is not enough to see through a building, it is enough to lose one: the
- * walls are a shade off the ground they stand on, and at half opacity over near-black
- * there is nothing left to read. So as they give way they are lit — brighter as they get
- * thinner, which is what keeps a translucent wall looking like a wall.
+ * walls are a shade off the ground they stand on, and thinning them over near-black takes
+ * away what little separated the two. So as they give way they are lit a little, which is
+ * what keeps a translucent wall looking like a wall.
  */
 export function buildingTint(pitch: number): string {
   return mix(C.building, C.buildingGlass, tilt(pitch));
