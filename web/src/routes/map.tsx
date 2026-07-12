@@ -19,7 +19,7 @@ import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, VIEWS, only, ramps, style, type View } from "../map/style";
+import { HOME, VIEWS, only, onlyStreet, ramps, style, type View } from "../map/style";
 
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
@@ -205,6 +205,27 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       drawn.off("styledata", apply);
     };
   }, [provider, view]);
+
+  // Light whichever street is selected, and put the light out when none is.
+  useEffect(() => {
+    const drawn = map.current;
+    if (drawn === null) return;
+    const apply = (): void => {
+      const lit = onlyStreet(picked?.id ?? null);
+      for (const layer of ["streets-picked-halo", "streets-picked"]) {
+        if (drawn.getLayer(layer) !== undefined) drawn.setFilter(layer, lit);
+      }
+    };
+
+    if (drawn.isStyleLoaded()) {
+      apply();
+      return;
+    }
+    drawn.once("styledata", apply);
+    return () => {
+      drawn.off("styledata", apply);
+    };
+  }, [picked]);
 
   return (
     <main className="atlas" lang={language}>

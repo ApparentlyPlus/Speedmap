@@ -16,11 +16,12 @@
 import type {
   DataDrivenPropertyValueSpecification,
   ExpressionSpecification,
+  FilterSpecification,
   LayerSpecification,
   StyleSpecification,
 } from "maplibre-gl";
 
-import { RAMP, UNFILED, UNSERVED } from "../tokens";
+import { ACCENT, RAMP, UNFILED, UNSERVED } from "../tokens";
 import { CELLS_LAYER, STREETS_BY_PROVIDER, STREETS_LAYER, type Cell, type Street } from "./tiles";
 
 export const SOURCE = "speedmap";
@@ -113,6 +114,14 @@ export function only(provider: string | null): ExpressionSpecification | null {
   return ["has", field] as ExpressionSpecification;
 }
 
+/** Matches nothing: what the selection layer draws until something is selected. */
+const NOTHING: FilterSpecification = ["==", ["get", "id"], -1];
+
+/** The filter that lights one street, or none. */
+export function onlyStreet(id: number | null): FilterSpecification {
+  return id === null ? NOTHING : ["==", ["get", "id"], id];
+}
+
 export function streetLayers(provider: string | null): LayerSpecification[] {
   const field: keyof Street =
     provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
@@ -180,6 +189,55 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
+        ],
+      },
+    },
+    {
+      /*
+       * The one street that was chosen, drawn white over its own colour.
+       *
+       * Six streets in a city share a name, and naming one in a panel does not say which
+       * of the six it is. White because the ramp owns every other hue on the map: any
+       * colour bright enough to read as chosen would also read as a speed.
+       *
+       * It carries no operator filter. It was picked outright, and a selection that
+       * disappears because a filter was pressed afterwards is a selection that lies.
+       */
+      /*
+       * A glow under the selection, so it survives being zoomed out to.
+       *
+       * A long street is fitted, not flown to, and fitting one puts the camera at a zoom
+       * where every street is a thread and the chosen one is no thicker than its
+       * neighbours. Widest where the map is densest and the line is thinnest.
+       */
+      id: "streets-picked-halo",
+      type: "line",
+      source: SOURCE,
+      "source-layer": STREETS_LAYER,
+      filter: NOTHING,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": ACCENT,
+        "line-blur": 6,
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 0.4, 17, 0.25],
+        "line-width": [
+          "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
+        ],
+      },
+    },
+    {
+      id: "streets-picked",
+      type: "line",
+      source: SOURCE,
+      "source-layer": STREETS_LAYER,
+      filter: NOTHING,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": ACCENT,
+        "line-opacity": 0.9,
+        "line-width": [
+          "interpolate", ["exponential", 1.6], ["zoom"],
+          6, 1.6, 12, 3.4, 14, 5, 15, 7, 16, 9.5, 20, 32,
         ],
       },
     },
