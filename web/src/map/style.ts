@@ -46,6 +46,8 @@ const C = {
   park: "#0f1712",
   water: "#0a1420",
   building: "#171a21",
+  // What a wall lightens to once you can see through it.
+  buildingGlass: "#333d52",
   occlusion: "#050608",
   road: "#242832",
   roadMinor: "#1b1e26",
@@ -120,6 +122,53 @@ const NOTHING: FilterSpecification = ["==", ["get", "id"], -1];
 /** The filter that lights one street, or none. */
 export function onlyStreet(id: number | null): FilterSpecification {
   return id === null ? NOTHING : ["==", ["get", "id"], id];
+}
+
+/**
+ * How solid the buildings are, given where the camera is standing.
+ *
+ * Looking straight down, a roof hides nothing: the street beside it is still on the screen,
+ * and the city should look like a city. Tilt the camera and that stops being true — a wall
+ * comes between the eye and the road behind it, and the map starts hiding the one thing it
+ * exists to show. The further it tilts the more it hides, so the walls give way in the same
+ * proportion.
+ *
+ * They never go entirely: at a quarter opacity the massing still reads, and a street seen
+ * through a building should look like a street seen through a building rather than one
+ * floating in a hole in the city.
+ */
+export function buildingOpacity(zoom: number, pitch: number): number {
+  // Buildings arrive over a zoom and a half, so they grow rather than appear.
+  const arrived = clamp((zoom - 14) / 1.2, 0, 1);
+  return arrived * (1 - 0.55 * tilt(pitch));
+}
+
+/**
+ * The colour they take as they thin out.
+ *
+ * Thinning alone is not enough to see through a building, it is enough to lose one: the
+ * walls are a shade off the ground they stand on, and at half opacity over near-black
+ * there is nothing left to read. So as they give way they are lit — brighter as they get
+ * thinner, which is what keeps a translucent wall looking like a wall.
+ */
+export function buildingTint(pitch: number): string {
+  return mix(C.building, C.buildingGlass, tilt(pitch));
+}
+
+/** How far the camera has tilted, from upright to as far as it goes. */
+function tilt(pitch: number): number {
+  return clamp((pitch - 15) / 40, 0, 1);
+}
+
+function mix(from: string, to: string, amount: number): string {
+  const ends = [from, to].map((hex) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)));
+  const [a, b] = ends as [number[], number[]];
+  const channels = a.map((low, band) => Math.round(low + ((b[band] ?? low) - low) * amount));
+  return `#${channels.map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function clamp(n: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, n));
 }
 
 export function streetLayers(provider: string | null): LayerSpecification[] {
@@ -423,7 +472,8 @@ export function style(base = "/tiles"): StyleSpecification {
           "fill-extrusion-color": C.building,
           "fill-extrusion-height": HEIGHT,
           "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
-          "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, 1],
+          // Set from the camera, not from the zoom: see buildingOpacity.
+          "fill-extrusion-opacity": 1,
           "fill-extrusion-vertical-gradient": true,
         },
       },

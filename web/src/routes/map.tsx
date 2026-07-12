@@ -19,7 +19,17 @@ import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, VIEWS, only, onlyStreet, ramps, style, type View } from "../map/style";
+import {
+  HOME,
+  VIEWS,
+  buildingOpacity,
+  buildingTint,
+  only,
+  onlyStreet,
+  ramps,
+  style,
+  type View,
+} from "../map/style";
 
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
@@ -205,6 +215,39 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       drawn.off("styledata", apply);
     };
   }, [provider, view]);
+
+  /*
+   * Let the buildings give way as the camera tilts.
+   *
+   * Bound to the camera rather than written into the style, because opacity on an
+   * extrusion layer is one number for the whole layer: there is no per-building version
+   * of it to interpolate, and the shader throws away the alpha of a per-building colour.
+   */
+  useEffect(() => {
+    const drawn = map.current;
+    if (drawn === null) return;
+    const apply = (): void => {
+      if (drawn.getLayer("building") === undefined) return;
+      const solid = buildingOpacity(drawn.getZoom(), drawn.getPitch());
+      drawn.setPaintProperty("building", "fill-extrusion-opacity", solid);
+      drawn.setPaintProperty("building", "fill-extrusion-color", buildingTint(drawn.getPitch()));
+      // The ground shadow goes with them. Left alone it stays as a grey smear under
+      // walls that are no longer there to cast it.
+      if (drawn.getLayer("building-shadow") !== undefined) {
+        drawn.setPaintProperty("building-shadow", "fill-opacity", solid * 0.6);
+      }
+    };
+
+    apply();
+    drawn.on("move", apply);
+    drawn.on("pitch", apply);
+    drawn.on("styledata", apply);
+    return () => {
+      drawn.off("move", apply);
+      drawn.off("pitch", apply);
+      drawn.off("styledata", apply);
+    };
+  }, []);
 
   // Light whichever street is selected, and put the light out when none is.
   useEffect(() => {
