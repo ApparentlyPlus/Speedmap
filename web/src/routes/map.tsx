@@ -235,7 +235,10 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                   type="button"
                   className="atlas-hit"
                   onClick={() => {
-                    void flyTo(map.current, result);
+                    // Picking a street selects it. Moving the camera to a street and
+                    // leaving it unselected asks the reader to find it again and click
+                    // the thing they just named.
+                    void flyTo(map.current, result).then(setPicked);
                     setQuery("");
                     setFound([]);
                   }}
@@ -361,8 +364,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
  * middle of a long one puts most of it off the screen when the street is the thing that was
  * picked. An address does have a point, and gets one.
  */
-async function flyTo(drawn: Maplibre | null, result: Result): Promise<void> {
-  if (drawn === null) return;
+async function flyTo(drawn: Maplibre | null, result: Result): Promise<StreetDetail | null> {
+  if (drawn === null) return null;
   try {
     if (result.kind === "street") {
       const found = await street(result.id);
@@ -372,12 +375,14 @@ async function flyTo(drawn: Maplibre | null, result: Result): Promise<void> {
         maxZoom: 16,
         duration: 900,
       });
-      return;
+      return found;
     }
     const found = await address(result.id);
     drawn.flyTo({ center: [found.lon, found.lat], zoom: 16, duration: 900 });
+    return null;
   } catch {
     // A camera that cannot be moved is not worth an error message on a map.
+    return null;
   }
 }
 
