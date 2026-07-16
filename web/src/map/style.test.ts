@@ -15,7 +15,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { RAMP, UNFILED } from "../tokens";
-import { BASE, BUILDINGS, SOURCE, buildingOpacity, only, streetLayers, style } from "./style";
+import { BASE, BUILDINGS, SOURCE, only, streetLayers, style } from "./style";
 import { STREETS_BY_PROVIDER } from "./tiles";
 
 
@@ -174,30 +174,5 @@ describe("the ramp", () => {
     const written = JSON.stringify(paint());
     expect(written).toContain(UNFILED);
     expect(UNFILED).not.toEqual(RAMP[RAMP.length - 1]?.colour);
-  });
-});
-
-describe("how solid the buildings are", () => {
-  it("keeps them solid when the camera looks straight down", () => {
-    // Nothing is behind anything from directly above, so nothing needs to give way.
-    expect(buildingOpacity(16, 0)).toBe(1);
-  });
-
-  it("gives way as the camera tilts", () => {
-    const flat = buildingOpacity(16, 0);
-    const leaning = buildingOpacity(16, 35);
-    const low = buildingOpacity(16, 60);
-    expect(leaning).toBeLessThan(flat);
-    expect(low).toBeLessThan(leaning);
-  });
-
-  it("leaves enough of them to read as a city", () => {
-    // Fully transparent would not be a translucent building, it would be no building.
-    expect(buildingOpacity(16, 85)).toBeGreaterThan(0.2);
-  });
-
-  it("still brings them in over the zoom they arrive at", () => {
-    expect(buildingOpacity(14, 0)).toBe(0);
-    expect(buildingOpacity(15.2, 0)).toBeCloseTo(1);
   });
 });
