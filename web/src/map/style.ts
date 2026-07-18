@@ -423,7 +423,8 @@ export function style(base = "/tiles"): StyleSpecification {
           "fill-extrusion-color": C.building,
           "fill-extrusion-height": HEIGHT,
           "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
-          "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, 1],
+          // Just short of solid, so a road behind a wall is a hint rather than a secret.
+          "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, 0.95],
           "fill-extrusion-vertical-gradient": true,
         },
       },
