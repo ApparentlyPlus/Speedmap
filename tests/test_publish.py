@@ -25,10 +25,17 @@ CELL = (
     "120.5, 20.25, 14, 7, 5, 'SRID=4326;POINT(23.0 40.7)')"
 )
 
+# The cells are clipped to the country, and the municipalities are what the country is made
+# of, so a cell with no municipality under it is a cell in the sea off Albania.
+MUNICIPALITY = (
+    "insert into municipality (id, name, geom) values (1, 'ΤΕΣΤ', "
+    "'SRID=4326;MULTIPOLYGON(((22.9 40.6, 23.1 40.6, 23.1 40.8, 22.9 40.8, 22.9 40.6)))')"
+)
+
 
 @pytest.fixture
 def drawn(seeded: psycopg.Connection[TupleRow]) -> psycopg.Connection[TupleRow]:
-    """One street an operator reaches at a known speed, and one measured cell."""
+    """One street an operator reaches at a known speed, and one measured cell in Greece."""
     row = seeded.execute(STREET).fetchone()
     assert row is not None
     seeded.execute(
@@ -37,6 +44,7 @@ def drawn(seeded: psycopg.Connection[TupleRow]) -> psycopg.Connection[TupleRow]:
         (row[0],),
     )
     seeded.execute("update street set best_mbps = 300 where id = %s", (row[0],))
+    seeded.execute(MUNICIPALITY)
     seeded.execute(CELL)
     return seeded
 
