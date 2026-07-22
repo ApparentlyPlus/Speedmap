@@ -19,7 +19,17 @@ import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
-import { HOME, VIEWS, only, onlyStreet, ramps, style, type View } from "../map/style";
+import {
+  FLOOR_ZOOM,
+  HOME,
+  LIMITS,
+  VIEWS,
+  only,
+  onlyStreet,
+  ramps,
+  style,
+  type View,
+} from "../map/style";
 
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
@@ -74,6 +84,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       ...(linked ? {} : { center: HOME.centre, zoom: HOME.zoom }),
       attributionControl: false,
       hash: true,
+      maxBounds: LIMITS,
+      minZoom: FLOOR_ZOOM,
     });
     drawn.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     map.current = drawn;
