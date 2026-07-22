@@ -34,6 +34,23 @@ export const BUILDINGS = "buildings";
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
 
 /**
+ * As far out and as far afield as the map will go.
+ *
+ * The country runs from Gavdos to the Evros and from Corfu to Kastellorizo; the box is that
+ * with about half a degree of sea around it, so an island on the edge is reachable without
+ * being pinned to the frame. Past it there is nothing this site has measured or asked
+ * about, and a reader who arrives in Bulgaria at zoom 3 has been shown an empty map and
+ * told it is ours.
+ */
+export const LIMITS: [[number, number], [number, number]] = [
+  [18.6, 34.2],
+  [30.4, 42.3],
+];
+
+/** Far enough out to hold the country, and no further. */
+export const FLOOR_ZOOM = 5.6;
+
+/**
  * The ground, and the few things that give it a shape.
  *
  * Nothing here is a colour anyone picked to be pretty: water has to be darker than land or
