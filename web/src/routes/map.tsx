@@ -17,8 +17,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
-import { RAMP, UNFILED } from "../tokens";
-import { STREETS_BY_PROVIDER, STREETS_LAYER } from "../map/tiles";
+import { RAMP, UNFILED, colourFor, mbps } from "../tokens";
+import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
 import {
   FLOOR_ZOOM,
   HOME,
@@ -53,6 +53,14 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<Result[]>([]);
   const [picked, setPicked] = useState<StreetDetail | null>(null);
+  /*
+   * A measured square, read straight off the tile.
+   *
+   * Everything the square says is already in the feature the renderer handed over, so
+   * picking one asks the server nothing. A street needs a request because its offers live
+   * in the database; a measurement is the tile.
+   */
+  const [cell, setCell] = useState<Cell | null>(null);
   const [view, setView] = useState<View>("filed");
   const [showing, setShowing] = useState<Showing>("ready");
 
@@ -106,10 +114,23 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
      * back is the cabinets it runs through rather than a quote for a door on it: a street
      * has no address of its own, and pretending otherwise would be inventing one.
      */
+    drawn.on("click", "cells", (event) => {
+      const hit = event.features?.[0]?.properties;
+      if (hit === undefined) return;
+      setPicked(null);
+      setCell(hit as Cell);
+    });
+    for (const moving of ["mouseenter", "mouseleave"] as const) {
+      drawn.on(moving, "cells", () => {
+        drawn.getCanvas().style.cursor = moving === "mouseenter" ? "pointer" : "";
+      });
+    }
+
     drawn.on("click", "streets-hit", (event) => {
       const hit = event.features?.[0];
       const id = hit?.properties?.["id"];
       if (typeof id !== "number") return;
+      setCell(null);
       street(id)
         .then(setPicked)
         .catch(() => setPicked(null));
@@ -295,7 +316,10 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
               <button
                 type="button"
                 className={`atlas-operator${view === one ? " atlas-operator-on" : ""}`}
-                onClick={() => setView(one)}
+                onClick={() => {
+                  setCell(null);
+                  setView(one);
+                }}
               >
                 {text.views[one]}
               </button>
@@ -347,6 +371,41 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
             {text.unfiled}
           </li>
         </ul>
+
+        {cell !== null && (
+          <section className="atlas-picked">
+            <button
+              type="button"
+              className="atlas-shut"
+              onClick={() => setCell(null)}
+              aria-label={text.back}
+            >
+              ×
+            </button>
+            <h2 className="atlas-picked-name">{text.measuredHere}</h2>
+            <p className="atlas-picked-where">
+              {text.views[cell.family === "mobile" ? "mobile" : "measured"]} · {cell.tests}{" "}
+              {text.tests}
+            </p>
+            <ul className="atlas-measured">
+              <li className="atlas-measure">
+                <span className="atlas-measure-name">{text.down}</span>
+                <span
+                  className="atlas-measure-speed"
+                  style={{ color: colourFor(mbps(Number(cell.down_mbps))) }}
+                >
+                  {Math.round(Number(cell.down_mbps))} Mbps
+                </span>
+              </li>
+              <li className="atlas-measure">
+                <span className="atlas-measure-name">{text.up}</span>
+                <span className="atlas-measure-speed">
+                  {Math.round(Number(cell.up_mbps))} Mbps
+                </span>
+              </li>
+            </ul>
+          </section>
+        )}
 
         {picked !== null && (
           <section className="atlas-picked">

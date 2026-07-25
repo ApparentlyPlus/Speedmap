@@ -308,6 +308,10 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
       source: SOURCE,
       "source-layer": CELLS_LAYER,
       filter: ["==", ["get", "family"], family],
+      // Off unless something turns it on. The map opens on filed coverage and switches to
+      // these, and every other map on the site — the one behind a result, above all — wants
+      // streets and not a grid of squares over them.
+      layout: { visibility: "none" },
       paint: {
         "fill-color": ramp(field),
         // Zoom outermost, because `["zoom"]` has to be the input of a top-level interpolate;
