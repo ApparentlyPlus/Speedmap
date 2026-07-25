@@ -27,10 +27,14 @@ export type Band = {
  * Fastest first, so the first band a speed clears is its band.
  *
  * Seven anchors rather than five, so the gap between a 100 Mbps street and a 300 Mbps one
- * is visible at a glance instead of being two neighbouring greens. It runs warm to cool the
- * way a signal bar does, and the map interpolates between the anchors while the cards step
- * between them — the same colours either way, so the map and the list cannot teach
- * different things about the same speed.
+ * is visible at a glance instead of being two neighbouring greens. The slow end runs red to
+ * yellow the way a signal bar does; the fast end is picked for separation instead, because
+ * the three bands people actually choose between are up there and they have to be told
+ * apart at a glance rather than ranked by hue.
+ *
+ * The map interpolates between the anchors while the cards step between them — the same
+ * colours either way, so the map and the list cannot teach different things about one
+ * speed.
  *
  * It tops out at a gigabit because the register does: its fastest band is open-ended at
  * 1000, so no street can be known to be quicker. A 3 Gbps plan is real and clears this band
@@ -38,8 +42,8 @@ export type Band = {
  */
 export const RAMP: readonly Band[] = [
   { floor: mbps(1000), colour: "#a78bfa", name: "1 Gbps" },
-  { floor: mbps(500), colour: "#38bdf8", name: "500 Mbps" },
-  { floor: mbps(300), colour: "#4ade80", name: "300 Mbps" },
+  { floor: mbps(500), colour: "#4ade80", name: "500 Mbps" },
+  { floor: mbps(300), colour: "#38bdf8", name: "300 Mbps" },
   { floor: mbps(200), colour: "#b8e04a", name: "200 Mbps" },
   { floor: mbps(100), colour: "#ffc93c", name: "100 Mbps" },
   { floor: mbps(50), colour: "#ff8c42", name: "50 Mbps" },
