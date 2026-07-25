@@ -24,6 +24,10 @@ type Strings = {
   readonly views: Readonly<Record<string, string>>;
   readonly anyOperator: string;
   readonly legend: Readonly<Record<string, string>>;
+  readonly measuredHere: string;
+  readonly down: string;
+  readonly up: string;
+  readonly tests: string;
   readonly mapZoomIn: string;
   readonly mapNothingHere: string;
   readonly mapTruncated: string;
@@ -69,6 +73,10 @@ const el: Strings = {
   views: { filed: "Δηλωμένη", measured: "Μετρημένη", mobile: "Κινητή" },
   anyOperator: "Όλοι",
   legend: { filed: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
+  measuredHere: "Μετρήσεις εδώ",
+  down: "Λήψη",
+  up: "Αποστολή",
+  tests: "μετρήσεις",
   mapZoomIn: "Κάνε ζουμ για να δεις κάλυψη ανά δρόμο",
   mapNothingHere: "Κανένας δρόμος εδώ με δηλωμένη κάλυψη",
   mapTruncated: "Πολλοί δρόμοι στην οθόνη — κάνε ζουμ για όλους",
@@ -125,6 +133,10 @@ const en: Strings = {
   views: { filed: "Filed", measured: "Measured", mobile: "Mobile" },
   anyOperator: "Anyone",
   legend: { filed: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
+  measuredHere: "Measured here",
+  down: "Down",
+  up: "Up",
+  tests: "tests",
   mapZoomIn: "Zoom in for coverage street by street",
   mapNothingHere: "No street here has coverage filed",
   mapTruncated: "More streets in view than shown — zoom in for all of them",
