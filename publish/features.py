@@ -46,9 +46,24 @@ where s.geom is not null
 # and not the 600 m the figure is usually quoted as.
 HALF_TILE = 40075016.686 / (1 << 16) / 2
 
+# How far past the coastline a cell may sit and still be Greek, in degrees: about two
+# kilometres. Ookla's grid is square and the coast is not, so a cell covering a seafront
+# street has its centre offshore. Without the slack the map loses the promenade of every
+# island it has measurements for, which is most of the ones anybody asks about.
+SHORE = 0.02
+
 # Only tested cells exist, and the figure is the reason the cell is there, so nothing here
 # is nullable. Greece is about four per cent tested: an empty view is the normal case.
+#
+# Clipped to the country. The measurements arrive as a bounding box around Greece, and that
+# box contains Istanbul, Sofia, Tirana and Skopje — half of every cell on file is a street
+# this site has nothing to say about. The municipalities are the border: they are already
+# here, they are what the rest of the site means by Greece, and unioning them agrees with
+# the coverage register by construction in a way a separately fetched outline would not.
 CELLS = """
+with greece as (
+    select st_buffer(st_union(geom::geometry), {shore}) as area from municipality
+)
 select json_build_object(
     'type', 'Feature',
     'geometry', st_asgeojson(
@@ -66,8 +81,9 @@ select json_build_object(
         'tests', c.tests
     )
 )::text
-from speed_cell c
+from speed_cell c, greece g
 where c.geom is not null
+  and st_intersects(g.area, c.geom::geometry)
 """
 
 
@@ -126,4 +142,4 @@ def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
 
 
 def cells(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    return write(conn, CELLS.format(half=HALF_TILE), out)
+    return write(conn, CELLS.format(half=HALF_TILE, shore=SHORE), out)
