@@ -61,8 +61,13 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await answer.json()) as T;
 }
 
-export function search(query: string, signal?: AbortSignal): Promise<Result[]> {
-  return get<Result[]>(`/search?q=${encodeURIComponent(query)}`, signal);
+export function search(
+  query: string,
+  signal?: AbortSignal,
+  kind?: "street",
+): Promise<Result[]> {
+  const only = kind === undefined ? "" : `&kind=${kind}`;
+  return get<Result[]>(`/search?q=${encodeURIComponent(query)}${only}`, signal);
 }
 
 export function options(addressId: number, signal?: AbortSignal): Promise<Options> {

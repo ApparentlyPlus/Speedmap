@@ -144,7 +144,9 @@ describe("what the layers say", () => {
 
 describe("the ramp", () => {
   const paint = (): unknown[] => {
-    const [, streets] = streetLayers(null);
+    // By id, not by position: the layer list grew an invisible one to click on, and a
+    // positional read of it silently started testing that instead.
+    const streets = streetLayers(null).find((layer) => layer.id === "streets");
     return (streets as { paint: { "line-color": unknown[] } }).paint["line-color"];
   };
 
@@ -172,5 +174,15 @@ describe("the ramp", () => {
     const written = JSON.stringify(paint());
     expect(written).toContain(UNFILED);
     expect(UNFILED).not.toEqual(RAMP[RAMP.length - 1]?.colour);
+  });
+});
+
+describe("what a fresh style draws", () => {
+  it("leaves the measured squares off until something asks for them", () => {
+    // The map page turns them on with the view switch. Every other map that mounts this
+    // style — the one behind a result — shows an address, and a grid of squares over it is
+    // the map page's state following the reader somewhere it does not belong.
+    const cells = style().layers.find((layer) => layer.id === "cells");
+    expect(cells?.layout?.visibility).toBe("none");
   });
 });

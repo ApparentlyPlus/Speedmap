@@ -1326,3 +1326,30 @@ body {
     max-height: 46%;
   }
 }
+
+.atlas-measured {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.atlas-measure {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.atlas-measure-name {
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.atlas-measure-speed {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}

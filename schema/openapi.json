@@ -1178,6 +1178,22 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "street: streets only, for a map that has no doors on it",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "any",
+              "description": "street: streets only, for a map that has no doors on it",
+              "enum": [
+                "any",
+                "street"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
           }
         ],
         "responses": {
