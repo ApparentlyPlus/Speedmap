@@ -13,7 +13,7 @@ import type { Geometry } from "geojson";
 import { Protocol } from "pmtiles";
 
 import { style } from "../map/style";
-import { GLOW, PASS_MS, TRACE, traceGradients, traceLayers } from "../map/trace";
+import { GLOW, PASS_MS, TRACE, extentOf, traceGradients, traceLayers } from "../map/trace";
 
 /** Close enough that the building is a building, far enough that it has neighbours. */
 const ZOOM = 16.6;
@@ -21,6 +21,28 @@ const PITCH = 58;
 const BEARING = -20;
 
 let registered = false;
+
+/**
+ * The part of the map nothing is sitting on.
+ *
+ * The result card is over the map, not beside it, so fitting a street to the whole viewport
+ * can put half of it behind the card. The card is down one side on a wide screen and along
+ * the bottom on a narrow one, so which edge to keep clear is measured rather than assumed.
+ */
+function clear(drawn: Maplibre): { top: number; right: number; bottom: number; left: number } {
+  const edge = 56;
+  const pad = { top: edge, right: edge, bottom: edge, left: edge };
+  const box = drawn.getContainer().getBoundingClientRect();
+  const card = document.querySelector(".place")?.getBoundingClientRect();
+  if (card !== undefined) {
+    if (card.width < box.width * 0.75) pad.left = card.right - box.left + 24;
+    else pad.bottom = box.bottom - card.top + 24;
+  }
+  // MapLibre refuses a fit whose padding leaves no room, and a refused fit is no frame.
+  pad.left = Math.min(pad.left, box.width * 0.6);
+  pad.bottom = Math.min(pad.bottom, box.height * 0.6);
+  return pad;
+}
 
 export function Anchored({
   lon,
@@ -99,6 +121,21 @@ export function Anchored({
         (layer) => drawn.getLayer(layer) !== undefined,
       );
       for (const layer of traceLayers(0)) drawn.addLayer(layer, under);
+
+      /*
+       * Frame the street, not the door.
+       *
+       * A fixed zoom on the address shows the building and a hundred metres of road, and
+       * the light spends most of its pass outside the frame. Fitting the line puts the
+       * whole of what is being talked about on the screen at once — which is what the
+       * light is for.
+       *
+       * Flat, because a long street fitted at a steep pitch is mostly horizon.
+       */
+      const extent = extentOf(shape);
+      if (extent !== null) {
+        drawn.fitBounds(extent, { padding: clear(drawn), pitch: 0, bearing: 0, duration: 900 });
+      }
 
       const began = performance.now();
       const step = (now: number): void => {

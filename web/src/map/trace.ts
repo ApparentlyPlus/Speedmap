@@ -12,9 +12,9 @@
  * stays legible.
  */
 
+import type { Geometry } from "geojson";
 import type { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 
-import { ACCENT } from "../tokens";
 
 export const TRACE = "trace";
 
@@ -24,10 +24,23 @@ const WINDOW = 0.09;
 /** How long one pass takes, in milliseconds. Slow: it is a pointer, not a loading bar. */
 export const PASS_MS = 4200;
 
-const CLEAR = "rgba(255,255,255,0)";
+/** The hair's width that keeps two stops from becoming one. */
+const STEP = 1e-6;
+
+/** How much of the pass is spent arriving and leaving. */
+const FADE = 0.22;
 
 function clamp(n: number): number {
   return Math.min(1, Math.max(0, n));
+}
+
+/** Ease in and out, so the light has no corners in it. */
+function smooth(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+function white(alpha: number): string {
+  return `rgba(255,255,255,${alpha.toFixed(4)})`;
 }
 
 /**
@@ -37,36 +50,49 @@ function clamp(n: number): number {
  * clamped at both ends rather than wrapped: the light leaves by the far end and comes back
  * in at the near one. Stops that collide after clamping are dropped, because a repeated
  * stop makes the whole expression invalid and an invalid expression takes the style with it.
+ *
+ * Everything that varies is alpha, never the number of stops. Switching the light off by
+ * removing its stop changes the shape of the expression between one frame and the next, and
+ * that is a blink rather than an ending — so it dims to nothing instead, and the clamped
+ * stops are free to collapse on top of each other once there is nothing left to see.
  */
-export function bullet(progress: number, peak: string = ACCENT): ExpressionSpecification {
+export function bullet(progress: number, strength = 1): ExpressionSpecification {
   // The pass starts before the street and ends after it, so the light enters and leaves
   // rather than appearing already halfway along.
   const at = progress * (1 + 2 * WINDOW) - WINDOW;
-  // Off the line entirely at either extreme. Clamping the centre alone would pin the light
-  // to whichever end it had run past and leave it burning there.
-  const lit = at > 0 && at < 1;
+  // Brightest well inside the line, nothing at all by the time it reaches either end.
+  const peak = strength * smooth(clamp(Math.min(at, 1 - at) / FADE));
+
   const wanted: [number, string][] = [
-    [0, CLEAR],
-    [clamp(at - WINDOW), CLEAR],
-    ...(lit ? ([[at, peak]] as [number, string][]) : []),
-    [clamp(at + WINDOW), CLEAR],
-    [1, CLEAR],
+    [0, white(0)],
+    [clamp(at - WINDOW), white(0)],
+    [clamp(at - WINDOW * 0.45), white(peak * 0.42)],
+    [clamp(at), white(peak)],
+    [clamp(at + WINDOW * 0.45), white(peak * 0.42)],
+    [clamp(at + WINDOW), white(0)],
+    [1, white(0)],
   ];
 
-  const stops: (number | string)[] = [];
-  let last = -1;
-  for (const [stop, colour] of wanted) {
-    if (stop <= last) continue;
-    stops.push(stop, colour);
-    last = stop;
+  // Nudged apart rather than dropped. Dropping a collided stop changes how many stops the
+  // expression has from one frame to the next, and the frame that gains one is a visible
+  // step however faint the colour on it; a hair's width between two stops is not.
+  const places = wanted.map(([stop]) => stop);
+  for (let at = 1; at < places.length; at++) {
+    places[at] = Math.max(places[at] ?? 0, (places[at - 1] ?? 0) + STEP);
+  }
+  places[places.length - 1] = Math.min(places[places.length - 1] ?? 1, 1);
+  for (let at = places.length - 1; at > 0; at--) {
+    places[at - 1] = Math.min(places[at - 1] ?? 0, (places[at] ?? 1) - STEP);
   }
 
+  const stops = wanted.flatMap(([, colour], at) => [places[at] ?? 0, colour]);
   return ["interpolate", ["linear"], ["line-progress"], ...stops] as ExpressionSpecification;
 }
 
 /** The dimmer, wider copy under the light, which is most of what makes it read as bright. */
 export const GLOW = `${TRACE}-glow`;
-const GLOW_PEAK = "rgba(255,255,255,0.5)";
+/** How bright the blurred copy gets against the crisp one. */
+const GLOW_PEAK = 0.5;
 
 /**
  * The two layers the light is made of.
@@ -113,5 +139,39 @@ export function traceGradients(progress: number): [string, ExpressionSpecificati
   return [
     [GLOW, bullet(progress, GLOW_PEAK)],
     [TRACE, bullet(progress)],
+  ];
+}
+
+/**
+ * The box a street occupies.
+ *
+ * Read off the shape rather than asked for separately: the camera has to frame the same
+ * line the light runs along, and a second source for the extent is a second thing that can
+ * disagree with the first.
+ */
+export function extentOf(shape: Geometry): [[number, number], [number, number]] | null {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+
+  const walk = (part: unknown): void => {
+    if (!Array.isArray(part)) return;
+    if (typeof part[0] === "number" && typeof part[1] === "number") {
+      west = Math.min(west, part[0]);
+      east = Math.max(east, part[0]);
+      south = Math.min(south, part[1]);
+      north = Math.max(north, part[1]);
+      return;
+    }
+    for (const deeper of part) walk(deeper);
+  };
+
+  if (!("coordinates" in shape)) return null;
+  walk(shape.coordinates);
+  if (!Number.isFinite(west) || !Number.isFinite(south)) return null;
+  return [
+    [west, south],
+    [east, north],
   ];
 }
