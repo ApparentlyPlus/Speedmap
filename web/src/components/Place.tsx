@@ -13,7 +13,9 @@
 
 import { useEffect, useState } from "react";
 
-import { address, options, probe, type Options, type Result } from "../api/client";
+import type { Geometry } from "geojson";
+
+import { address, options, probe, street, type Options, type Result } from "../api/client";
 import { modeOf } from "../house/mode";
 import { strings, type Language } from "../i18n";
 import { colourFor, mbps } from "../tokens";
@@ -80,6 +82,14 @@ export function Place({
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [chosen, setChosen] = useState<string | null>(null);
   const [where, setWhere] = useState<{ lon: number; lat: number } | null>(null);
+  /*
+   * The street this door is on, for the light that runs along it.
+   *
+   * Not every address has one: the register files a street name per municipality and our
+   * own street table is drawn from OSM, and the two agree for about two doors in three.
+   * When they do not, the result is the same result without the light.
+   */
+  const [shape, setShape] = useState<Geometry | null>(null);
 
   useEffect(() => {
     const stop = new AbortController();
@@ -110,8 +120,15 @@ export function Place({
   // operator, and the map should not wait on an operator to know where it is.
   useEffect(() => {
     const stop = new AbortController();
+    setShape(null);
     address(result.id, stop.signal)
-      .then((found) => setWhere({ lon: found.lon, lat: found.lat }))
+      .then(async (found) => {
+        if (stop.signal.aborted) return;
+        setWhere({ lon: found.lon, lat: found.lat });
+        if (found.street_id === null || found.street_id === undefined) return;
+        const road = await street(found.street_id, stop.signal).catch(() => null);
+        if (road !== null && !stop.signal.aborted) setShape(road.shape as unknown as Geometry);
+      })
       .catch(() => setWhere(null));
     return () => stop.abort();
   }, [result.id]);
@@ -136,7 +153,7 @@ export function Place({
 
   return (
     <>
-      <Anchored lon={where?.lon ?? null} lat={where?.lat ?? null} />
+      <Anchored lon={where?.lon ?? null} lat={where?.lat ?? null} shape={shape} />
 
       <section className="place">
         <div className="place-scene">

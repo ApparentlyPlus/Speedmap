@@ -82,6 +82,18 @@
             "title": "Street",
             "type": "string"
           },
+          "street_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the street this door is on, when it is one we hold",
+            "title": "Street Id"
+          },
           "street_no": {
             "anyOf": [
               {
@@ -819,6 +831,12 @@
             "title": "Offers",
             "type": "array"
           },
+          "shape": {
+            "additionalProperties": true,
+            "description": "the street as GeoJSON, for drawing along rather than pointing at",
+            "title": "Shape",
+            "type": "object"
+          },
           "ways": {
             "description": "OSM ways merged into this street",
             "title": "Ways",
@@ -832,6 +850,7 @@
           "highway",
           "ways",
           "bbox",
+          "shape",
           "offers"
         ],
         "title": "StreetDetail",

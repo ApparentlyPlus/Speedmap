@@ -7,6 +7,7 @@ asks three times what the market charges — so there is somewhere to say we got
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -369,10 +370,16 @@ OFFER_COLUMNS = """
     ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label
 """
 
+# The street is resolved here rather than in the search, which answers per keystroke and
+# is measured in tenths of a millisecond. A reader looking at one address is not typing.
 ADDRESS_DETAIL = """
 select a.id, a.street, a.street_no, a.locality, m.name, a.postcode,
-       a.premises, a.connected, a.vhcn, st_x(a.geom::geometry), st_y(a.geom::geometry)
-from address a left join municipality m on m.id = a.municipality_id
+       a.premises, a.connected, a.vhcn, st_x(a.geom::geometry), st_y(a.geom::geometry),
+       s.id
+from address a
+left join municipality m on m.id = a.municipality_id
+left join street s
+       on s.municipality_id = a.municipality_id and s.name_fold = a.street_fold
 where a.id = %s
 """
 
@@ -386,9 +393,16 @@ where ac.address_id = %s
 order by sb.min_mbps desc nulls last, p.code
 """
 
+# The shape as well as the box. A box says where to point the camera; the highlight has to
+# run along the street itself, and a street that bends is not its own rectangle.
+#
+# Merged first. A street arrives as the handful of OSM ways it was drawn in, and a highlight
+# that travels along it would restart at every join — one light per way rather than one
+# running the length of the road.
 STREET_DETAIL = """
 select s.id, s.name, m.name, s.highway, s.ways,
-       st_xmin(box), st_ymin(box), st_xmax(box), st_ymax(box)
+       st_xmin(box), st_ymin(box), st_xmax(box), st_ymax(box),
+       st_asgeojson(st_simplify(st_linemerge(s.geom::geometry), 0.00002), 6)
 from street s
 left join municipality m on m.id = s.municipality_id
 cross join lateral (select st_envelope(s.geom::geometry) as box) extent
@@ -440,6 +454,9 @@ class AddressDetail(BaseModel):
     vhcn: bool | None
     lon: float
     lat: float
+    street_id: int | None = Field(
+        default=None, description="the street this door is on, when it is one we hold"
+    )
     offers: list[Offer]
 
 
@@ -451,6 +468,9 @@ class StreetDetail(BaseModel):
     ways: int = Field(description="OSM ways merged into this street")
     bbox: tuple[float, float, float, float] = Field(
         description="west, south, east, north — a street has no point, only an extent"
+    )
+    shape: dict[str, Any] = Field(
+        description="the street as GeoJSON, for drawing along rather than pointing at"
     )
     offers: list[Offer]
 
@@ -482,7 +502,8 @@ def address(address_id: int) -> AddressDetail:
     return AddressDetail(
         id=row[0], street=row[1], street_no=row[2], locality=row[3], municipality=row[4],
         postcode=row[5], premises=row[6], connected=row[7], vhcn=row[8],
-        lon=row[9], lat=row[10], offers=offers(rows(ADDRESS_OFFERS, (address_id,))),
+        lon=row[9], lat=row[10], street_id=row[11],
+        offers=offers(rows(ADDRESS_OFFERS, (address_id,))),
     )
 
 
@@ -502,6 +523,7 @@ def street(street_id: int) -> StreetDetail:
     return StreetDetail(
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         bbox=(row[5], row[6], row[7], row[8]),
+        shape=json.loads(row[9]),
         offers=offers(rows(STREET_OFFERS, (street_id,))),
     )
 

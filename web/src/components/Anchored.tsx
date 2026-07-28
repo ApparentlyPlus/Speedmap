@@ -9,9 +9,11 @@
 
 import { useEffect, useRef } from "react";
 import { Map as Maplibre, addProtocol } from "maplibre-gl";
+import type { Geometry } from "geojson";
 import { Protocol } from "pmtiles";
 
 import { style } from "../map/style";
+import { GLOW, PASS_MS, TRACE, traceGradients, traceLayers } from "../map/trace";
 
 /** Close enough that the building is a building, far enough that it has neighbours. */
 const ZOOM = 16.6;
@@ -23,9 +25,12 @@ let registered = false;
 export function Anchored({
   lon,
   lat,
+  shape,
 }: {
   readonly lon: number | null;
   readonly lat: number | null;
+  /** The street this result is on, when it is one we hold. */
+  readonly shape?: Geometry | null;
 }): React.ReactElement {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<Maplibre | null>(null);
@@ -49,6 +54,11 @@ export function Anchored({
       attributionControl: false,
     });
     map.current = drawn;
+    // The same handle the map page keeps, for the same reason: only a real browser can say
+    // whether a light is running along a street. Development only; the build drops it.
+    if (import.meta.env.DEV) {
+      window.anchored = drawn;
+    }
 
     // MapLibre measures its container once, when it is built, and this one is built while
     // the grid around it is still resolving.
@@ -63,6 +73,56 @@ export function Anchored({
       map.current = null;
     };
   }, [lon, lat]);
+
+  /*
+   * The light, added once the street is known and taken away with it.
+   *
+   * Its own source rather than the street layer already on the map: `line-gradient` reads
+   * `line-progress`, which only exists on a source asked to measure its lines, and a vector
+   * tile is not asked anything.
+   */
+  useEffect(() => {
+    const drawn = map.current;
+    if (drawn === null || shape === null || shape === undefined) return;
+    let running = 0;
+
+    const add = (): void => {
+      if (drawn.getSource(TRACE) !== undefined) return;
+      drawn.addSource(TRACE, {
+        type: "geojson",
+        lineMetrics: true,
+        data: { type: "Feature", properties: {}, geometry: shape },
+      });
+      // Under the city, with the streets it belongs to. Added plainly it goes on top of
+      // everything, and then the light climbs whatever roof the street runs behind.
+      const under = ["building-shadow", "building", "place-label"].find(
+        (layer) => drawn.getLayer(layer) !== undefined,
+      );
+      for (const layer of traceLayers(0)) drawn.addLayer(layer, under);
+
+      const began = performance.now();
+      const step = (now: number): void => {
+        if (drawn.getLayer(TRACE) === undefined) return;
+        const along = ((now - began) % PASS_MS) / PASS_MS;
+        for (const [layer, gradient] of traceGradients(along)) {
+          drawn.setPaintProperty(layer, "line-gradient", gradient);
+        }
+        running = requestAnimationFrame(step);
+      };
+      running = requestAnimationFrame(step);
+    };
+
+    if (drawn.isStyleLoaded()) add();
+    else drawn.once("load", add);
+
+    return () => {
+      cancelAnimationFrame(running);
+      for (const layer of [TRACE, GLOW]) {
+        if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+      }
+      if (drawn.getSource(TRACE) !== undefined) drawn.removeSource(TRACE);
+    };
+  }, [shape, lon, lat]);
 
   return <div className="anchored" ref={holder} aria-hidden="true" />;
 }
