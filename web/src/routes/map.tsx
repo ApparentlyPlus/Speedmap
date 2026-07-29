@@ -25,11 +25,30 @@ import {
   LIMITS,
   VIEWS,
   only,
+  LIT,
   onlyStreet,
   ramps,
   style,
   type View,
 } from "../map/style";
+
+/**
+ * How long the map takes to arrive somewhere that was asked for.
+ *
+ * Long enough to be followed. The camera crossing a city in under a second is a cut rather
+ * than a journey: the reader arrives without having seen where they came from, and has to
+ * work out from scratch where the street sits relative to anything they already knew.
+ */
+const TRAVEL_MS = 2200;
+
+/**
+ * Slow at both ends, quick through the middle.
+ *
+ * Linear travel starts and stops at full speed, which reads as a jolt at each end however
+ * long the journey is. The cubic is the same curve a drawer runs on.
+ */
+const EASE = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
@@ -244,9 +263,14 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     const drawn = map.current;
     if (drawn === null) return;
     const apply = (): void => {
-      const lit = onlyStreet(picked?.id ?? null);
+      const chosen = picked?.id ?? null;
+      const lit = onlyStreet(chosen);
       for (const layer of ["streets-picked-halo", "streets-picked"]) {
-        if (drawn.getLayer(layer) !== undefined) drawn.setFilter(layer, lit);
+        if (drawn.getLayer(layer) === undefined) continue;
+        drawn.setFilter(layer, lit);
+        // Filters do not transition, opacity does: the street is always drawn, and what
+        // fades is how much of it there is to see.
+        drawn.setPaintProperty(layer, "line-opacity", chosen === null ? 0 : LIT[layer]);
       }
     };
 
@@ -465,12 +489,18 @@ async function flyTo(drawn: Maplibre | null, result: Result): Promise<StreetDeta
       drawn.fitBounds([west, south, east, north], {
         padding: 80,
         maxZoom: 16,
-        duration: 900,
+        duration: TRAVEL_MS,
+        easing: EASE,
       });
       return found;
     }
     const found = await address(result.id);
-    drawn.flyTo({ center: [found.lon, found.lat], zoom: 16, duration: 900 });
+    drawn.flyTo({
+      center: [found.lon, found.lat],
+      zoom: 16,
+      duration: TRAVEL_MS,
+      easing: EASE,
+    });
     return null;
   } catch {
     // A camera that cannot be moved is not worth an error message on a map.

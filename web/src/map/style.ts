@@ -131,6 +131,23 @@ export function only(provider: string | null): ExpressionSpecification | null {
   return ["has", field] as ExpressionSpecification;
 }
 
+/**
+ * How the selection arrives.
+ *
+ * It used to appear the instant the street was chosen, which is while the camera is still
+ * crossing the city — so the light was already burning on a street somewhere off the edge
+ * of the screen by the time the reader got there. It waits for the journey instead, and
+ * comes up rather than switching on.
+ */
+const LIGHT_MS = 800;
+const LIGHT_WAIT = 500;
+
+/** What each selection layer fades up to, once there is something to show. */
+export const LIT: Record<string, DataDrivenPropertyValueSpecification<number>> = {
+  "streets-picked-halo": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 0.4, 17, 0.25],
+  "streets-picked": 0.9,
+};
+
 /** Matches nothing: what the selection layer draws until something is selected. */
 const NOTHING: FilterSpecification = ["==", ["get", "id"], -1];
 
@@ -236,7 +253,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       paint: {
         "line-color": ACCENT,
         "line-blur": 6,
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 0.4, 17, 0.25],
+        "line-opacity": 0,
+        "line-opacity-transition": { duration: LIGHT_MS, delay: LIGHT_WAIT },
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
         ],
@@ -251,7 +269,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-opacity": 0.9,
+        "line-opacity": 0,
+        "line-opacity-transition": { duration: LIGHT_MS, delay: LIGHT_WAIT },
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 1.6, 12, 3.4, 14, 5, 15, 7, 16, 9.5, 20, 32,
