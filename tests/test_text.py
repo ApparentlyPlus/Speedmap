@@ -6,7 +6,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from normalise.text import IDENTITY_WORDS, TYPE_WORDS, fold, split_number, street_key
+from normalise.text import IDENTITY_WORDS, TYPE_WORDS, fold, split_number, street_key, strip_marks
 
 # Real addresses from the register, kept verbatim as fixtures.
 REGISTER_SAMPLES = [
@@ -129,8 +129,16 @@ def test_folding_never_empties_a_non_blank_name(text: str) -> None:
 
 @given(st.text())
 def test_fold_leaves_no_combining_marks(text: str) -> None:
+    """Unless the marks are all there is.
+
+    A name of nothing but combining marks has no accent-free form, and folding it to the
+    empty string would produce a key that matches every row in the table. fold() keeps the
+    characters instead, which is the one case where a mark survives it.
+    """
     import unicodedata
 
+    if not strip_marks(text).strip():
+        return
     assert not any(unicodedata.combining(c) for c in fold(text))
 
 
