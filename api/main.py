@@ -134,6 +134,11 @@ STREET_COLUMNS = """
 # 0.3ms, a word-start match 11ms, and similarity ordering 445ms over 1.5M rows.
 TIERS = ("prefix", "word", "fuzzy")
 
+# How many streets a name with no number is answered with before the doors on it. One is
+# too few: the same street name is in several municipalities and the reader may want any of
+# them, and which one is meant cannot be told from a name alone.
+STREET_SLOTS = 2
+
 # How many streets a bare number is offered on. More than two is a list of guesses.
 PROPOSALS = 2
 
@@ -311,13 +316,36 @@ def search(
     )
 
     found: list[Result] = []
+
+    # A name with no number on it is a question about the street, so the street answers
+    # first. Left to the loop below it never answers at all: the doors fill the page on the
+    # first tier and the street source is asked for the nothing that is left, which is how
+    # a road with 900 addresses on it became unclickable.
+    if kind == "any" and asked.number is None:
+        for tier in TIERS:
+            sql, taken = street_sql(
+                "latin_key" if greeklish else "name_fold", tier, asked, STREET_SLOTS
+            )
+            found += results(rows(sql, taken), tier)
+            # The best tier that answered at all, and no further. Falling through to look
+            # for a second street offers a fuzzy match from the far side of the country
+            # above the exact doors the reader was almost certainly after.
+            if found:
+                break
+        found = found[:STREET_SLOTS]
+
+    seen = {(row.kind, row.id) for row in found}
     for tier in TIERS:
         for builder, column in sources:
             remaining = limit - len(found)
             if remaining <= 0:
                 break
             sql, taken = builder(column, tier, asked, remaining)
-            found += results(rows(sql, taken), tier)
+            for row in results(rows(sql, taken), tier):
+                if (row.kind, row.id) in seen:
+                    continue
+                seen.add((row.kind, row.id))
+                found.append(row)
         if len(found) >= limit:
             break
     if kind == "street":

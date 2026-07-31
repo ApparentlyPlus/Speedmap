@@ -14,6 +14,7 @@ import { useState } from "react";
 import { askFor, type Result } from "../api/client";
 import { Network } from "../components/Network";
 import { Place } from "../components/Place";
+import { Road } from "../components/Road";
 import { Search } from "../components/Search";
 import { languageOf, strings } from "../i18n";
 
@@ -45,10 +46,17 @@ export function Landing(): React.ReactElement {
   };
 
   if (picked !== null) {
+    // A street and a door are different questions, and only one of them has a price.
+    const shown =
+      picked.kind === "street" ? (
+        <Road result={picked} language={language} onBack={() => setPicked(null)} />
+      ) : (
+        <Place result={picked} language={language} onBack={() => setPicked(null)} />
+      );
     return (
       <main className="landing landing-open" lang={language}>
         <Network />
-        <Place result={picked} language={language} onBack={() => setPicked(null)} />
+        {shown}
       </main>
     );
   }
