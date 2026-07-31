@@ -1353,3 +1353,171 @@ body {
   font-variant-numeric: tabular-nums;
   font-size: 13px;
 }
+
+/*
+ * Nothing filed here.
+ *
+ * A dead end should not read as a broken page, so it arrives the way an answer does: the
+ * mark draws itself, then the line settles under it. Slow enough to be watched once and
+ * short enough not to be waited on.
+ */
+.bare {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 26px 0 8px;
+}
+
+.bare-mark {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--rule-lit);
+  border-radius: 50%;
+  animation: bare-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bare-mark::after,
+.bare-mark::before {
+  position: absolute;
+  background: var(--ink-dim);
+  content: "";
+}
+
+.bare-mark::before {
+  top: 6px;
+  left: 12px;
+  width: 1px;
+  height: 9px;
+  animation: bare-stroke 420ms ease-out 620ms both;
+}
+
+.bare-mark::after {
+  top: 18px;
+  left: 12px;
+  width: 1px;
+  height: 1px;
+  animation: bare-stroke 220ms ease-out 900ms both;
+}
+
+.bare-said {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  animation: bare-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
+}
+
+.bare-why {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  animation: bare-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) 380ms both;
+}
+
+@keyframes bare-draw {
+  from {
+    opacity: 0;
+    transform: scale(0.72) rotate(-90deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes bare-stroke {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+}
+
+@keyframes bare-rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * A street has no house to draw.
+ *
+ * The card is two rows, a scene over a body, and a street result has only the body — which
+ * lands in the scene's row and is cut off at its height.
+ */
+.place-road {
+  grid-template-rows: 1fr;
+}
+
+/* The compact rows in the map panel are built for a 210px column; this card is twice that. */
+.road-offers {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.road-offer {
+  display: grid;
+  grid-template-columns: 7px 1fr auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.road-offer:last-child {
+  border-bottom: 0;
+}
+
+.road-dot {
+  grid-row: 1 / span 2;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.road-name {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.road-tech {
+  grid-column: 2;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.road-speed {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  color: var(--ink-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bare-mark,
+  .bare-said,
+  .bare-why,
+  .bare-mark::before,
+  .bare-mark::after {
+    animation: none;
+  }
+}
