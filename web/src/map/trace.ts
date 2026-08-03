@@ -6,17 +6,22 @@
  * says where it is but not which way it runs, and a street lit end to end competes with the
  * coverage colour underneath it — the thing the map is actually for.
  *
- * So a short bright window travels the length of it and starts again. It reads as a
- * pointer rather than as a second coverage layer, it shows the extent by moving over it,
- * and because it is only ever lighting a fraction of the line at once, the colour beneath
- * stays legible.
+ * So a short bright window travels the length of it and starts again.
+ *
+ * It is drawn by cutting the piece out of the street and handing that to the map, rather
+ * than by colouring the whole street with a gradient that is transparent except where the
+ * light is. The gradient way reads `line-progress`, which runs nought to one along each
+ * line separately — and a street is rarely one line. It is the handful of ways OSM drew it
+ * in, so every one of them lit its own light and a road through six junctions had six.
  */
 
-import type { Geometry } from "geojson";
-import type { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
+import type { Geometry, Position } from "geojson";
+import type { LayerSpecification } from "maplibre-gl";
 
+import { ACCENT } from "../tokens";
 
 export const TRACE = "trace";
+export const GLOW = `${TRACE}-glow`;
 
 /** How much of the street is lit at once. */
 const WINDOW = 0.09;
@@ -24,85 +29,126 @@ const WINDOW = 0.09;
 /** How long one pass takes, in milliseconds. Slow: it is a pointer, not a loading bar. */
 export const PASS_MS = 4200;
 
-/** The hair's width that keeps two stops from becoming one. */
-const STEP = 1e-6;
-
-/** How much of the pass is spent arriving and leaving. */
-const FADE = 0.22;
+/** A street, flattened into the pieces it is drawn in and measured end to end. */
+export type Path = {
+  readonly parts: readonly (readonly Position[])[];
+  /** Where each part begins, as a fraction of the whole street's length. */
+  readonly starts: readonly number[];
+  readonly total: number;
+};
 
 function clamp(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
-/** Ease in and out, so the light has no corners in it. */
-function smooth(t: number): number {
-  return t * t * (3 - 2 * t);
+/**
+ * Length in a flat plane, which is what a highlight needs.
+ *
+ * Degrees of longitude are shorter than degrees of latitude everywhere but the equator, so
+ * the x side is scaled by the latitude. Not a geodesic: this decides how fast a light
+ * crosses a street, and a street is never long enough for the curve of the earth to show.
+ */
+function span(from: Position, to: Position): number {
+  const lift = Math.cos((((from[1] ?? 0) + (to[1] ?? 0)) / 2) * (Math.PI / 180));
+  const x = ((to[0] ?? 0) - (from[0] ?? 0)) * lift;
+  const y = (to[1] ?? 0) - (from[1] ?? 0);
+  return Math.hypot(x, y);
 }
 
-function white(alpha: number): string {
-  return `rgba(255,255,255,${alpha.toFixed(4)})`;
+/** Every line in a geometry, whatever shape it arrived in. */
+function lines(shape: Geometry): Position[][] {
+  if (shape.type === "LineString") return [shape.coordinates];
+  if (shape.type === "MultiLineString") return shape.coordinates;
+  if (shape.type === "GeometryCollection") return shape.geometries.flatMap(lines);
+  return [];
+}
+
+export function pathOf(shape: Geometry): Path | null {
+  const parts = lines(shape).filter((part) => part.length >= 2);
+  if (parts.length === 0) return null;
+
+  const starts: number[] = [];
+  let total = 0;
+  for (const part of parts) {
+    starts.push(total);
+    for (let at = 1; at < part.length; at++) {
+      total += span(part[at - 1] as Position, part[at] as Position);
+    }
+  }
+  if (total <= 0) return null;
+  return { parts, starts: starts.map((begins) => begins / total), total };
 }
 
 /**
- * The gradient for one moment of the pass.
+ * The piece of the street between two points of its length.
  *
- * `line-gradient` wants stops that ascend and stay inside the line, so the window is
- * clamped at both ends rather than wrapped: the light leaves by the far end and comes back
- * in at the near one. Stops that collide after clamping are dropped, because a repeated
- * stop makes the whole expression invalid and an invalid expression takes the style with it.
- *
- * Everything that varies is alpha, never the number of stops. Switching the light off by
- * removing its stop changes the shape of the expression between one frame and the next, and
- * that is a blink rather than an ending — so it dims to nothing instead, and the clamped
- * stops are free to collapse on top of each other once there is nothing left to see.
+ * Comes back as several lines when the window straddles a gap, which is the whole reason
+ * the cut is done here: the light crosses from one piece of the street to the next without
+ * ever drawing the nothing in between them.
  */
-export function bullet(progress: number, strength = 1): ExpressionSpecification {
-  // The pass starts before the street and ends after it, so the light enters and leaves
-  // rather than appearing already halfway along.
-  const at = progress * (1 + 2 * WINDOW) - WINDOW;
-  // Brightest well inside the line, nothing at all by the time it reaches either end.
-  const peak = strength * smooth(clamp(Math.min(at, 1 - at) / FADE));
+export function sliceOf(path: Path, from: number, to: number): Position[][] {
+  const cut: Position[][] = [];
 
-  const wanted: [number, string][] = [
-    [0, white(0)],
-    [clamp(at - WINDOW), white(0)],
-    [clamp(at - WINDOW * 0.45), white(peak * 0.42)],
-    [clamp(at), white(peak)],
-    [clamp(at + WINDOW * 0.45), white(peak * 0.42)],
-    [clamp(at + WINDOW), white(0)],
-    [1, white(0)],
-  ];
+  path.parts.forEach((part, index) => {
+    const begins = path.starts[index] ?? 0;
+    const ends = path.starts[index + 1] ?? 1;
+    if (ends <= from || begins >= to) return;
 
-  // Nudged apart rather than dropped. Dropping a collided stop changes how many stops the
-  // expression has from one frame to the next, and the frame that gains one is a visible
-  // step however faint the colour on it; a hair's width between two stops is not.
-  const places = wanted.map(([stop]) => stop);
-  for (let at = 1; at < places.length; at++) {
-    places[at] = Math.max(places[at] ?? 0, (places[at - 1] ?? 0) + STEP);
-  }
-  places[places.length - 1] = Math.min(places[places.length - 1] ?? 1, 1);
-  for (let at = places.length - 1; at > 0; at--) {
-    places[at - 1] = Math.min(places[at - 1] ?? 0, (places[at] ?? 1) - STEP);
-  }
+    const piece: Position[] = [];
+    let walked = begins;
+    for (let at = 1; at < part.length; at++) {
+      const one = part[at - 1] as Position;
+      const two = part[at] as Position;
+      const step = span(one, two) / path.total;
+      const after = walked + step;
 
-  const stops = wanted.flatMap(([, colour], at) => [places[at] ?? 0, colour]);
-  return ["interpolate", ["linear"], ["line-progress"], ...stops] as ExpressionSpecification;
+      if (after > from && walked < to && step > 0) {
+        const head = Math.max(0, (from - walked) / step);
+        const tail = Math.min(1, (to - walked) / step);
+        if (piece.length === 0) piece.push(between(one, two, head));
+        piece.push(between(one, two, tail));
+      }
+      walked = after;
+    }
+    if (piece.length >= 2) cut.push(piece);
+  });
+
+  return cut;
 }
 
-/** The dimmer, wider copy under the light, which is most of what makes it read as bright. */
-export const GLOW = `${TRACE}-glow`;
-/** How bright the blurred copy gets against the crisp one. */
-const GLOW_PEAK = 0.5;
+function between(one: Position, two: Position, at: number): Position {
+  return [
+    (one[0] ?? 0) + ((two[0] ?? 0) - (one[0] ?? 0)) * at,
+    (one[1] ?? 0) + ((two[1] ?? 0) - (one[1] ?? 0)) * at,
+  ];
+}
+
+/**
+ * Where the light is at one moment of the pass.
+ *
+ * It wraps rather than fades. The light runs off the end of the street and the same length
+ * of it comes back on at the start, so the pass never stops and never restarts — what
+ * leaves by one end is already arriving at the other. Brightness is left alone entirely:
+ * dimming at the ends is what you do when the light has nowhere to go.
+ */
+export function momentOf(path: Path, progress: number): { lines: Position[][] } {
+  const head = clamp(progress);
+  const tail = head - WINDOW;
+  if (tail >= 0) return { lines: sliceOf(path, tail, head) };
+  // Straddling the join: the front of the light is at the start of the street and the
+  // back of it has not left the end yet.
+  return { lines: [...sliceOf(path, 0, head), ...sliceOf(path, 1 + tail, 1)] };
+}
 
 /**
  * The two layers the light is made of.
  *
  * The same shape as the selection highlight on the map page, because the reader has already
  * learned what a white glowing street means there: a crisp line at the width a street is
- * drawn, over a wide blurred copy of itself. A single unblurred three-pixel line is
- * technically the same colour and reads as a scratch.
+ * drawn, over a wide blurred copy of itself. A single unblurred line is the same colour and
+ * reads as a scratch.
  */
-export function traceLayers(progress: number): LayerSpecification[] {
+export function traceLayers(): LayerSpecification[] {
   return [
     {
       id: GLOW,
@@ -110,8 +156,9 @@ export function traceLayers(progress: number): LayerSpecification[] {
       source: TRACE,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-gradient": bullet(progress, GLOW_PEAK),
+        "line-color": ACCENT,
         "line-blur": 6,
+        "line-opacity": 0,
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
         ],
@@ -123,8 +170,9 @@ export function traceLayers(progress: number): LayerSpecification[] {
       source: TRACE,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-gradient": bullet(progress),
+        "line-color": ACCENT,
         "line-blur": 0.6,
+        "line-opacity": 0,
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 1.6, 12, 3.4, 14, 5, 15, 7, 16, 9.5, 20, 32,
@@ -134,11 +182,11 @@ export function traceLayers(progress: number): LayerSpecification[] {
   ];
 }
 
-/** What each layer's gradient should be at this moment. */
-export function traceGradients(progress: number): [string, ExpressionSpecification][] {
+/** How bright each layer is. Constant: the light never dims, it only moves. */
+export function traceOpacity(): [string, number][] {
   return [
-    [GLOW, bullet(progress, GLOW_PEAK)],
-    [TRACE, bullet(progress)],
+    [GLOW, 0.5],
+    [TRACE, 0.95],
   ];
 }
 
@@ -155,20 +203,14 @@ export function extentOf(shape: Geometry): [[number, number], [number, number]] 
   let east = -Infinity;
   let north = -Infinity;
 
-  const walk = (part: unknown): void => {
-    if (!Array.isArray(part)) return;
-    if (typeof part[0] === "number" && typeof part[1] === "number") {
-      west = Math.min(west, part[0]);
-      east = Math.max(east, part[0]);
-      south = Math.min(south, part[1]);
-      north = Math.max(north, part[1]);
-      return;
+  for (const part of lines(shape)) {
+    for (const point of part) {
+      west = Math.min(west, point[0] ?? 0);
+      east = Math.max(east, point[0] ?? 0);
+      south = Math.min(south, point[1] ?? 0);
+      north = Math.max(north, point[1] ?? 0);
     }
-    for (const deeper of part) walk(deeper);
-  };
-
-  if (!("coordinates" in shape)) return null;
-  walk(shape.coordinates);
+  }
   if (!Number.isFinite(west) || !Number.isFinite(south)) return null;
   return [
     [west, south],

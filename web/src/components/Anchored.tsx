@@ -8,12 +8,21 @@
  */
 
 import { useEffect, useRef } from "react";
-import { Map as Maplibre, addProtocol } from "maplibre-gl";
+import maplibregl, { Map as Maplibre, addProtocol } from "maplibre-gl";
 import type { Geometry } from "geojson";
 import { Protocol } from "pmtiles";
 
 import { style } from "../map/style";
-import { GLOW, PASS_MS, TRACE, extentOf, traceGradients, traceLayers } from "../map/trace";
+import {
+  GLOW,
+  PASS_MS,
+  TRACE,
+  extentOf,
+  momentOf,
+  pathOf,
+  traceLayers,
+  traceOpacity,
+} from "../map/trace";
 
 /** Close enough that the building is a building, far enough that it has neighbours. */
 const ZOOM = 16.6;
@@ -108,19 +117,26 @@ export function Anchored({
     if (drawn === null || shape === null || shape === undefined) return;
     let running = 0;
 
+    const path = pathOf(shape);
+    if (path === null) return;
+
     const add = (): void => {
       if (drawn.getSource(TRACE) !== undefined) return;
       drawn.addSource(TRACE, {
         type: "geojson",
-        lineMetrics: true,
-        data: { type: "Feature", properties: {}, geometry: shape },
+        data: { type: "FeatureCollection", features: [] },
       });
+
       // Under the city, with the streets it belongs to. Added plainly it goes on top of
       // everything, and then the light climbs whatever roof the street runs behind.
       const under = ["building-shadow", "building", "place-label"].find(
         (layer) => drawn.getLayer(layer) !== undefined,
       );
-      for (const layer of traceLayers(0)) drawn.addLayer(layer, under);
+      for (const layer of traceLayers()) drawn.addLayer(layer, under);
+      // Set once: the light never dims, it only moves.
+      for (const [layer, opacity] of traceOpacity()) {
+        drawn.setPaintProperty(layer, "line-opacity", opacity);
+      }
 
       /*
        * Frame the street, not the door.
@@ -134,16 +150,31 @@ export function Anchored({
        */
       const extent = extentOf(shape);
       if (extent !== null) {
-        drawn.fitBounds(extent, { padding: clear(drawn), pitch: 0, bearing: 0, duration: 900 });
+        // However far out that turns out to be. One name can cover thirty kilometres of
+        // rural road, and thirty kilometres of rural road is the answer to what was asked.
+        drawn.fitBounds(extent, {
+          padding: clear(drawn),
+          maxZoom: 16.6,
+          pitch: 0,
+          bearing: 0,
+          duration: 900,
+        });
       }
 
       const began = performance.now();
       const step = (now: number): void => {
-        if (drawn.getLayer(TRACE) === undefined) return;
+        const source = drawn.getSource(TRACE);
+        if (source === undefined || drawn.getLayer(TRACE) === undefined) return;
         const along = ((now - began) % PASS_MS) / PASS_MS;
-        for (const [layer, gradient] of traceGradients(along)) {
-          drawn.setPaintProperty(layer, "line-gradient", gradient);
-        }
+        const moment = momentOf(path, along);
+        (source as maplibregl.GeoJSONSource).setData({
+          type: "FeatureCollection",
+          features: moment.lines.map((line) => ({
+            type: "Feature",
+            properties: {},
+            geometry: { type: "LineString", coordinates: line },
+          })),
+        });
         running = requestAnimationFrame(step);
       };
       running = requestAnimationFrame(step);
