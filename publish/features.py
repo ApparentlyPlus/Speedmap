@@ -141,5 +141,49 @@ def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
     return write(conn, STREETS.format(operators=operators()), out)
 
 
+# How much the coastline is smoothed, in degrees: about twenty metres. Small enough that a
+# harbour is still a harbour at the zoom anyone looks at one, large enough that the outline
+# is a file a phone downloads rather than a map of every rock.
+SMOOTH = 0.0002
+
+# Enough to close the slivers between one municipality and the next without moving the coast
+# anywhere a reader would notice: about a hundred and fifty metres.
+KNIT = 0.0015
+
+# Everywhere that is not Greece, as one polygon with the country cut out of it.
+#
+# One geometry doing two jobs. Filled, it covers every neighbour the basemap extract happens
+# to include — Greece is what is left. Stroked, the same rings are the coastline and the
+# border, which is the only outline on the map that is not a road.
+#
+# Inverted rather than drawn as the country itself, because a fill cannot hide what is under
+# it by being a hole; it has to be the thing that is painted.
+OUTLINE = """
+select st_asgeojson(
+    st_difference(
+        st_makeenvelope(-180, -85, 180, 85, 4326),
+        st_simplifypreservetopology(st_buffer(st_union(geom::geometry), {knit}), {smooth})
+    ),
+    5
+)
+from municipality
+"""
+
+
+def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
+    """The country's edge, written as one GeoJSON feature."""
+    row = conn.execute(OUTLINE.format(knit=KNIT, smooth=SMOOTH)).fetchone()
+    if row is None or row[0] is None:
+        raise SystemExit("no municipalities: the country has no outline")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    staged = out.with_suffix(out.suffix + ".part")
+    staged.write_text(
+        '{"type":"Feature","properties":{},"geometry":' + row[0] + "}",
+        encoding="utf-8",
+    )
+    staged.replace(out)
+    return out.stat().st_size
+
+
 def cells(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
     return write(conn, CELLS.format(half=HALF_TILE, shore=SHORE), out)

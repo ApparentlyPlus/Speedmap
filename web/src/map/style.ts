@@ -29,6 +29,8 @@ export const SOURCE = "speedmap";
 /** The basemap and the footprints: OpenStreetMap through planetiler, and Overture. */
 export const BASE = "base";
 export const BUILDINGS = "buildings";
+/** Everywhere that is not Greece, as one polygon with the country cut out of it. */
+export const EDGE = "edge";
 
 /** Greece, with room for Crete and the north in the same view. */
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
@@ -68,6 +70,8 @@ const C = {
   roadMinor: "#1b1e26",
   roadMajor: "#333846",
   label: "#8b93a3",
+  // The edge of the country: cool and dim, so it reads as a boundary and not a road.
+  coast: "#5d7d99",
   labelHalo: "#05060a",
 } as const;
 
@@ -366,6 +370,9 @@ export function style(base = "/tiles"): StyleSpecification {
       [BUILDINGS]: { type: "vector", url: `pmtiles://${base}/buildings.pmtiles` },
       // Our own coverage, cut from the database by the same tool that cut the basemap.
       [SOURCE]: { type: "vector", url: `pmtiles://${base}/speedmap.pmtiles` },
+      // One shape, wanted before the first tile arrives, and a vector tile of a coastline
+      // at zoom 4 is a coastline someone has already thrown most of away.
+      [EDGE]: { type: "geojson", data: `${base}/greece.json` },
     },
     // One light, from the side and above, so extrusions have a lit face and a dark one.
     // Without it every building is the same flat tone and the city reads as a printed plan.
@@ -504,6 +511,39 @@ export function style(base = "/tiles"): StyleSpecification {
           "text-halo-width": 1.2,
         },
       },
+
+      /*
+       * Everything that is not Greece, painted out.
+       *
+       * The basemap is a Geofabrik extract, cut to a box around the country and not to the
+       * country: Albania, North Macedonia, Bulgaria and Turkey come with it, their roads
+       * stripped but their land and their town names intact. A reader looking at Thrace
+       * gets half a map of somewhere this site knows nothing about.
+       *
+       * Last of all the layers, because it has to cover their labels as well as their
+       * ground — and it can be, because it is a polygon with the country cut out of it and
+       * paints nothing whatever over Greece.
+       */
+      {
+        id: "beyond",
+        type: "fill",
+        source: EDGE,
+        paint: { "fill-color": C.ground },
+      },
+      {
+        // The same rings, drawn. The coastline and the border at once, and the only line on
+        // this map that is not a road: faint, because it is the edge of the subject rather
+        // than part of it.
+        id: "edge",
+        type: "line",
+        source: EDGE,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": C.coast,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 8, 1, 12, 1.4, 16, 2],
+          "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.55, 9, 0.4, 14, 0.22],
+        },
+      }
     ],
   };
 }
