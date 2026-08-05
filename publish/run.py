@@ -65,6 +65,11 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
     with psycopg.connect(settings.dsn) as conn:
         print(f"streets: {features.streets(conn, streets)} features")
         print(f"cells:   {features.cells(conn, cells)} features")
+        # Beside the archive rather than inside it: it is one shape, it is wanted before the
+        # first tile arrives, and a vector tile of a coastline at zoom 4 is a coastline
+        # someone has already thrown most of away.
+        edge = out.parent / "greece.json"
+        print(f"outline: {features.outline(conn, edge) / 1_000_000:.1f} MB -> {edge}")
 
     staged = work / "tiles.pmtiles"
     subprocess.run(
