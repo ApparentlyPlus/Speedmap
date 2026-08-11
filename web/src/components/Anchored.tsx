@@ -116,6 +116,10 @@ export function Anchored({
     const drawn = map.current;
     if (drawn === null || shape === null || shape === undefined) return;
     let running = 0;
+    // The map can be taken away underneath this. Both effects tear down together, and a
+    // frame already asked for runs against a map whose style is gone — where every call is
+    // a read of undefined, which takes the whole page down rather than the animation.
+    let stopped = false;
 
     const path = pathOf(shape);
     if (path === null) return;
@@ -163,6 +167,7 @@ export function Anchored({
 
       const began = performance.now();
       const step = (now: number): void => {
+        if (stopped) return;
         const source = drawn.getSource(TRACE);
         if (source === undefined || drawn.getLayer(TRACE) === undefined) return;
         const along = ((now - began) % PASS_MS) / PASS_MS;
@@ -184,11 +189,18 @@ export function Anchored({
     else drawn.once("load", add);
 
     return () => {
+      stopped = true;
       cancelAnimationFrame(running);
-      for (const layer of [TRACE, GLOW]) {
-        if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+      drawn.off("load", add);
+      // A map that has already been removed has nothing left to take the light off.
+      try {
+        for (const layer of [TRACE, GLOW]) {
+          if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+        }
+        if (drawn.getSource(TRACE) !== undefined) drawn.removeSource(TRACE);
+      } catch {
+        // Gone with the map it was drawn on.
       }
-      if (drawn.getSource(TRACE) !== undefined) drawn.removeSource(TRACE);
     };
   }, [shape, lon, lat]);
 
