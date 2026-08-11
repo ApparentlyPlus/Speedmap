@@ -45,12 +45,18 @@ export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
  * told it is ours.
  */
 export const LIMITS: [[number, number], [number, number]] = [
-  [18.6, 34.2],
-  [30.4, 42.3],
+  [16.8, 32.6],
+  [32.2, 43.8],
 ];
 
-/** Far enough out to hold the country, and no further. */
-export const FLOOR_ZOOM = 5.6;
+/**
+ * Far enough out to hold the country, and no further.
+ *
+ * The box is wider than the country by a couple of degrees on each side, because the limit
+ * is on where the camera may go and a camera that may not leave the coast may not show it
+ * either: on a phone, fitting Greece across a narrow screen needs more room than Greece.
+ */
+export const FLOOR_ZOOM = 4.8;
 
 /**
  * The ground, and the few things that give it a shape.
@@ -60,19 +66,24 @@ export const FLOOR_ZOOM = 5.6;
  * and the ambient occlusion has to be darker than the building or the shadow glows.
  */
 const C = {
-  ground: "#07080a",
-  landuse: "#12151a",
-  park: "#0f1712",
-  water: "#0a1420",
-  building: "#171a21",
-  occlusion: "#050608",
-  road: "#242832",
-  roadMinor: "#1b1e26",
-  roadMajor: "#333846",
-  label: "#8b93a3",
-  // The edge of the country: cool and dim, so it reads as a boundary and not a road.
-  coast: "#5d7d99",
-  labelHalo: "#05060a",
+  // Land is a dark grey, not black. Against a black sea it reads as a country with a
+  // shape, and everything on it — roads, blocks, relief — has somewhere to sit above it.
+  ground: "#141414",
+  // Relief, a shade up from the ground and faintly cool, so a mountain reads as a rise in
+  // the land rather than as another kind of place.
+  landuse: "#1c1d20",
+  // Greenery, as light grey. Green on a map about cables is a colour spent on the one
+  // thing the map is not about, and it fights every band of the ramp at the cool end.
+  park: "#272727",
+  // The sea, and the only thing on the map darker than the land.
+  water: "#080b12",
+  building: "#202024",
+  occlusion: "#0b0b0c",
+  road: "#323236",
+  roadMinor: "#232326",
+  roadMajor: "#3e3e44",
+  label: "#9a9aa2",
+  labelHalo: "#0d0d0e",
 } as const;
 
 /**
@@ -174,7 +185,10 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       type: "line",
       source: SOURCE,
       "source-layer": STREETS_LAYER,
-      minzoom: 10,
+      // Down to the zoom the whole country fits in. There is no post-processing pass on a
+      // map, so the glow is this: a wide blurred copy, and at the zooms where every street
+      // is a hairline it is most of what there is to see.
+      minzoom: 4,
       ...(filter ? { filter } : {}),
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
@@ -182,10 +196,11 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
         "line-blur": 5,
         "line-opacity": [
           "interpolate", ["linear"], ["zoom"],
-          8, 0.06, 13, 0.13, 15, 0.2, 16, 0.15, 18, 0.09,
+          4, 0.3, 7, 0.24, 10, 0.16, 13, 0.14, 15, 0.2, 16, 0.15, 18, 0.09,
         ],
         "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60,
+          "interpolate", ["exponential", 1.6], ["zoom"],
+          4, 3, 7, 4, 10, 5, 13, 8, 16, 22, 20, 60,
         ],
       },
     },
@@ -224,6 +239,9 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
           "interpolate", ["linear"], ["zoom"],
           7, 0.4, 11, 0.46, 13, 0.52, 14.5, 0.66, 16, 0.6, 18, 0.45,
         ],
+        // Softened where the lines are thinnest. A half-pixel street drawn hard is a
+        // staircase; the same street blurred by a pixel is a thread.
+        "line-blur": ["interpolate", ["linear"], ["zoom"], 5, 1.4, 9, 0.9, 12, 0.4, 14, 0],
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
@@ -530,20 +548,6 @@ export function style(base = "/tiles"): StyleSpecification {
         source: EDGE,
         paint: { "fill-color": C.ground },
       },
-      {
-        // The same rings, drawn. The coastline and the border at once, and the only line on
-        // this map that is not a road: faint, because it is the edge of the subject rather
-        // than part of it.
-        id: "edge",
-        type: "line",
-        source: EDGE,
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": C.coast,
-          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 8, 1, 12, 1.4, 16, 2],
-          "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.55, 9, 0.4, 14, 0.22],
-        },
-      }
     ],
   };
 }
