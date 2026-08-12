@@ -35,6 +35,9 @@ type Strings = {
   readonly searching: string;
   readonly searchFailed: string;
   readonly unfiled: string;
+  readonly streetHead: string;
+  readonly notIndexed: string;
+  readonly notIndexedWhy: string;
   readonly street: string;
   readonly askThem: string;
   readonly asking: string;
@@ -84,6 +87,9 @@ const el: Strings = {
   searching: "Αναζήτηση…",
   searchFailed: "Η αναζήτηση δεν απάντησε",
   unfiled: "χωρίς δηλωμένη ταχύτητα",
+  streetHead: "Σε αυτόν τον δρόμο",
+  notIndexed: "Αυτός ο δρόμος δεν έχει καταχωρηθεί ακόμα",
+  notIndexedWhy: "Κανένας πάροχος δεν έχει δηλώσει κάλυψη εδώ.",
   street: "οδός",
   askThem: "ρώτα",
   asking: "Ετοιμάζουμε τη διεύθυνση…",
@@ -144,6 +150,9 @@ const en: Strings = {
   searching: "Searching…",
   searchFailed: "Search did not answer",
   unfiled: "no speed filed",
+  streetHead: "On this street",
+  notIndexed: "Sorry, that street is not indexed yet",
+  notIndexedWhy: "No operator has filed coverage here.",
   street: "street",
   askThem: "ask",
   asking: "Preparing the address…",

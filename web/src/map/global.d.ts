@@ -4,6 +4,7 @@ import type { Map as Maplibre } from "maplibre-gl";
 declare global {
   interface Window {
     atlas: Maplibre;
+    anchored: Maplibre;
   }
 }
 

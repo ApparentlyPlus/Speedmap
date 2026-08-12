@@ -7,6 +7,7 @@ asks three times what the market charges — so there is somewhere to say we got
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -132,6 +133,11 @@ STREET_COLUMNS = """
 # Three tiers, widening only when the one above has not filled the page. A prefix costs
 # 0.3ms, a word-start match 11ms, and similarity ordering 445ms over 1.5M rows.
 TIERS = ("prefix", "word", "fuzzy")
+
+# How many streets a name with no number is answered with before the doors on it. One is
+# too few: the same street name is in several municipalities and the reader may want any of
+# them, and which one is meant cannot be told from a name alone.
+STREET_SLOTS = 2
 
 # How many streets a bare number is offered on. More than two is a list of guesses.
 PROPOSALS = 2
@@ -310,13 +316,36 @@ def search(
     )
 
     found: list[Result] = []
+
+    # A name with no number on it is a question about the street, so the street answers
+    # first. Left to the loop below it never answers at all: the doors fill the page on the
+    # first tier and the street source is asked for the nothing that is left, which is how
+    # a road with 900 addresses on it became unclickable.
+    if kind == "any" and asked.number is None:
+        for tier in TIERS:
+            sql, taken = street_sql(
+                "latin_key" if greeklish else "name_fold", tier, asked, STREET_SLOTS
+            )
+            found += results(rows(sql, taken), tier)
+            # The best tier that answered at all, and no further. Falling through to look
+            # for a second street offers a fuzzy match from the far side of the country
+            # above the exact doors the reader was almost certainly after.
+            if found:
+                break
+        found = found[:STREET_SLOTS]
+
+    seen = {(row.kind, row.id) for row in found}
     for tier in TIERS:
         for builder, column in sources:
             remaining = limit - len(found)
             if remaining <= 0:
                 break
             sql, taken = builder(column, tier, asked, remaining)
-            found += results(rows(sql, taken), tier)
+            for row in results(rows(sql, taken), tier):
+                if (row.kind, row.id) in seen:
+                    continue
+                seen.add((row.kind, row.id))
+                found.append(row)
         if len(found) >= limit:
             break
     if kind == "street":
@@ -369,10 +398,16 @@ OFFER_COLUMNS = """
     ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label
 """
 
+# The street is resolved here rather than in the search, which answers per keystroke and
+# is measured in tenths of a millisecond. A reader looking at one address is not typing.
 ADDRESS_DETAIL = """
 select a.id, a.street, a.street_no, a.locality, m.name, a.postcode,
-       a.premises, a.connected, a.vhcn, st_x(a.geom::geometry), st_y(a.geom::geometry)
-from address a left join municipality m on m.id = a.municipality_id
+       a.premises, a.connected, a.vhcn, st_x(a.geom::geometry), st_y(a.geom::geometry),
+       s.id
+from address a
+left join municipality m on m.id = a.municipality_id
+left join street s
+       on s.municipality_id = a.municipality_id and s.name_fold = a.street_fold
 where a.id = %s
 """
 
@@ -386,9 +421,16 @@ where ac.address_id = %s
 order by sb.min_mbps desc nulls last, p.code
 """
 
+# The shape as well as the box. A box says where to point the camera; the highlight has to
+# run along the street itself, and a street that bends is not its own rectangle.
+#
+# Merged first. A street arrives as the handful of OSM ways it was drawn in, and a highlight
+# that travels along it would restart at every join — one light per way rather than one
+# running the length of the road.
 STREET_DETAIL = """
 select s.id, s.name, m.name, s.highway, s.ways,
-       st_xmin(box), st_ymin(box), st_xmax(box), st_ymax(box)
+       st_xmin(box), st_ymin(box), st_xmax(box), st_ymax(box),
+       st_asgeojson(st_simplify(st_linemerge(s.geom::geometry), 0.00002), 6)
 from street s
 left join municipality m on m.id = s.municipality_id
 cross join lateral (select st_envelope(s.geom::geometry) as box) extent
@@ -440,6 +482,9 @@ class AddressDetail(BaseModel):
     vhcn: bool | None
     lon: float
     lat: float
+    street_id: int | None = Field(
+        default=None, description="the street this door is on, when it is one we hold"
+    )
     offers: list[Offer]
 
 
@@ -451,6 +496,9 @@ class StreetDetail(BaseModel):
     ways: int = Field(description="OSM ways merged into this street")
     bbox: tuple[float, float, float, float] = Field(
         description="west, south, east, north — a street has no point, only an extent"
+    )
+    shape: dict[str, Any] = Field(
+        description="the street as GeoJSON, for drawing along rather than pointing at"
     )
     offers: list[Offer]
 
@@ -482,7 +530,8 @@ def address(address_id: int) -> AddressDetail:
     return AddressDetail(
         id=row[0], street=row[1], street_no=row[2], locality=row[3], municipality=row[4],
         postcode=row[5], premises=row[6], connected=row[7], vhcn=row[8],
-        lon=row[9], lat=row[10], offers=offers(rows(ADDRESS_OFFERS, (address_id,))),
+        lon=row[9], lat=row[10], street_id=row[11],
+        offers=offers(rows(ADDRESS_OFFERS, (address_id,))),
     )
 
 
@@ -502,6 +551,7 @@ def street(street_id: int) -> StreetDetail:
     return StreetDetail(
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         bbox=(row[5], row[6], row[7], row[8]),
+        shape=json.loads(row[9]),
         offers=offers(rows(STREET_OFFERS, (street_id,))),
     )
 

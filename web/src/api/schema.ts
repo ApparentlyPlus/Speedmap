@@ -240,6 +240,11 @@ export interface components {
             premises: number | null;
             /** Street */
             street: string;
+            /**
+             * Street Id
+             * @description the street this door is on, when it is one we hold
+             */
+            street_id?: number | null;
             /** Street No */
             street_no: string | null;
             /** Vhcn */
@@ -553,6 +558,13 @@ export interface components {
             name: string;
             /** Offers */
             offers: components["schemas"]["Offer"][];
+            /**
+             * Shape
+             * @description the street as GeoJSON, for drawing along rather than pointing at
+             */
+            shape: {
+                [key: string]: unknown;
+            };
             /**
              * Ways
              * @description OSM ways merged into this street
