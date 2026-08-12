@@ -24,8 +24,8 @@ export function tiles(directories: readonly string[]): Plugin {
         if (!asked.startsWith(PREFIX)) return next();
 
         const name = path.basename(asked.split("?")[0] ?? "");
-        // Only ever an archive, and only ever out of one of the named directories.
-        if (!name.endsWith(".pmtiles")) {
+        // An archive or the country's outline, and only ever out of a named directory.
+        if (!name.endsWith(".pmtiles") && !name.endsWith(".json")) {
           response.statusCode = 404;
           return response.end();
         }

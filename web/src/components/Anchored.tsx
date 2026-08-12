@@ -8,10 +8,21 @@
  */
 
 import { useEffect, useRef } from "react";
-import { Map as Maplibre, addProtocol } from "maplibre-gl";
+import maplibregl, { Map as Maplibre, addProtocol } from "maplibre-gl";
+import type { Geometry } from "geojson";
 import { Protocol } from "pmtiles";
 
 import { style } from "../map/style";
+import {
+  GLOW,
+  PASS_MS,
+  TRACE,
+  extentOf,
+  momentOf,
+  pathOf,
+  traceLayers,
+  traceOpacity,
+} from "../map/trace";
 
 /** Close enough that the building is a building, far enough that it has neighbours. */
 const ZOOM = 16.6;
@@ -20,12 +31,37 @@ const BEARING = -20;
 
 let registered = false;
 
+/**
+ * The part of the map nothing is sitting on.
+ *
+ * The result card is over the map, not beside it, so fitting a street to the whole viewport
+ * can put half of it behind the card. The card is down one side on a wide screen and along
+ * the bottom on a narrow one, so which edge to keep clear is measured rather than assumed.
+ */
+function clear(drawn: Maplibre): { top: number; right: number; bottom: number; left: number } {
+  const edge = 56;
+  const pad = { top: edge, right: edge, bottom: edge, left: edge };
+  const box = drawn.getContainer().getBoundingClientRect();
+  const card = document.querySelector(".place")?.getBoundingClientRect();
+  if (card !== undefined) {
+    if (card.width < box.width * 0.75) pad.left = card.right - box.left + 24;
+    else pad.bottom = box.bottom - card.top + 24;
+  }
+  // MapLibre refuses a fit whose padding leaves no room, and a refused fit is no frame.
+  pad.left = Math.min(pad.left, box.width * 0.6);
+  pad.bottom = Math.min(pad.bottom, box.height * 0.6);
+  return pad;
+}
+
 export function Anchored({
   lon,
   lat,
+  shape,
 }: {
   readonly lon: number | null;
   readonly lat: number | null;
+  /** The street this result is on, when it is one we hold. */
+  readonly shape?: Geometry | null;
 }): React.ReactElement {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<Maplibre | null>(null);
@@ -49,6 +85,11 @@ export function Anchored({
       attributionControl: false,
     });
     map.current = drawn;
+    // The same handle the map page keeps, for the same reason: only a real browser can say
+    // whether a light is running along a street. Development only; the build drops it.
+    if (import.meta.env.DEV) {
+      window.anchored = drawn;
+    }
 
     // MapLibre measures its container once, when it is built, and this one is built while
     // the grid around it is still resolving.
@@ -63,6 +104,105 @@ export function Anchored({
       map.current = null;
     };
   }, [lon, lat]);
+
+  /*
+   * The light, added once the street is known and taken away with it.
+   *
+   * Its own source rather than the street layer already on the map: `line-gradient` reads
+   * `line-progress`, which only exists on a source asked to measure its lines, and a vector
+   * tile is not asked anything.
+   */
+  useEffect(() => {
+    const drawn = map.current;
+    if (drawn === null || shape === null || shape === undefined) return;
+    let running = 0;
+    // The map can be taken away underneath this. Both effects tear down together, and a
+    // frame already asked for runs against a map whose style is gone — where every call is
+    // a read of undefined, which takes the whole page down rather than the animation.
+    let stopped = false;
+
+    const path = pathOf(shape);
+    if (path === null) return;
+
+    const add = (): void => {
+      if (drawn.getSource(TRACE) !== undefined) return;
+      drawn.addSource(TRACE, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      // Under the city, with the streets it belongs to. Added plainly it goes on top of
+      // everything, and then the light climbs whatever roof the street runs behind.
+      const under = ["building-shadow", "building", "place-label"].find(
+        (layer) => drawn.getLayer(layer) !== undefined,
+      );
+      for (const layer of traceLayers()) drawn.addLayer(layer, under);
+      // Set once: the light never dims, it only moves.
+      for (const [layer, opacity] of traceOpacity()) {
+        drawn.setPaintProperty(layer, "line-opacity", opacity);
+      }
+
+      /*
+       * Frame the street, not the door.
+       *
+       * A fixed zoom on the address shows the building and a hundred metres of road, and
+       * the light spends most of its pass outside the frame. Fitting the line puts the
+       * whole of what is being talked about on the screen at once — which is what the
+       * light is for.
+       *
+       * Flat, because a long street fitted at a steep pitch is mostly horizon.
+       */
+      const extent = extentOf(shape);
+      if (extent !== null) {
+        // However far out that turns out to be. One name can cover thirty kilometres of
+        // rural road, and thirty kilometres of rural road is the answer to what was asked.
+        drawn.fitBounds(extent, {
+          padding: clear(drawn),
+          maxZoom: 16.6,
+          pitch: 0,
+          bearing: 0,
+          duration: 900,
+        });
+      }
+
+      const began = performance.now();
+      const step = (now: number): void => {
+        if (stopped) return;
+        const source = drawn.getSource(TRACE);
+        if (source === undefined || drawn.getLayer(TRACE) === undefined) return;
+        const along = ((now - began) % PASS_MS) / PASS_MS;
+        const moment = momentOf(path, along);
+        (source as maplibregl.GeoJSONSource).setData({
+          type: "FeatureCollection",
+          features: moment.lines.map((line) => ({
+            type: "Feature",
+            properties: {},
+            geometry: { type: "LineString", coordinates: line },
+          })),
+        });
+        running = requestAnimationFrame(step);
+      };
+      running = requestAnimationFrame(step);
+    };
+
+    if (drawn.isStyleLoaded()) add();
+    else drawn.once("load", add);
+
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(running);
+      drawn.off("load", add);
+      // A map that has already been removed has nothing left to take the light off.
+      try {
+        for (const layer of [TRACE, GLOW]) {
+          if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
+        }
+        if (drawn.getSource(TRACE) !== undefined) drawn.removeSource(TRACE);
+      } catch {
+        // Gone with the map it was drawn on.
+      }
+    };
+  }, [shape, lon, lat]);
 
   return <div className="anchored" ref={holder} aria-hidden="true" />;
 }

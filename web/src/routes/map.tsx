@@ -10,14 +10,20 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
+import {
+  Map as Maplibre,
+  NavigationControl,
+  addProtocol,
+  type GeoJSONSource,
+} from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
-import { RAMP, UNFILED, colourFor, mbps } from "../tokens";
+import { RAMP, UNFILED, VOID, colourFor, mbps } from "../tokens";
+import { OPEN_MS, VEIL, openingAt, veilAt } from "../map/reveal";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
 import {
   FLOOR_ZOOM,
@@ -25,16 +31,79 @@ import {
   LIMITS,
   VIEWS,
   only,
+  LIT,
   onlyStreet,
   ramps,
   style,
   type View,
 } from "../map/style";
 
+/**
+ * How long the map takes to arrive somewhere that was asked for.
+ *
+ * Long enough to be followed. The camera crossing a city in under a second is a cut rather
+ * than a journey: the reader arrives without having seen where they came from, and has to
+ * work out from scratch where the street sits relative to anything they already knew.
+ */
+const TRAVEL_MS = 2200;
+
+/**
+ * Slow at both ends, quick through the middle.
+ *
+ * Linear travel starts and stops at full speed, which reads as a jolt at each end however
+ * long the journey is. The cubic is the same curve a drawer runs on.
+ */
+const EASE = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
 
 type Showing = "ready" | "failed";
+
+/**
+ * Let the country arrive rather than be there already.
+ *
+ * The camera pulls in while a sheet over the map opens from Athens, so the network comes
+ * out of the middle of the country and the ground comes with it. Both run on the same
+ * clock: the zoom has to finish when the sheet does, or it lands on a map that has been
+ * sitting there waiting.
+ */
+function open(drawn: Maplibre): void {
+  drawn.addSource(VEIL, { type: "geojson", data: veilAt(0) });
+  drawn.addLayer({
+    id: VEIL,
+    type: "fill",
+    source: VEIL,
+    paint: { "fill-color": VOID, "fill-opacity": 1 },
+  });
+
+  drawn.jumpTo({ center: HOME.centre, zoom: HOME.zoom - 1.15 });
+  drawn.easeTo({
+    center: HOME.centre,
+    zoom: HOME.zoom,
+    duration: OPEN_MS,
+    // Nothing abrupt at either end: it is already moving when you notice it, and it stops
+    // without arriving anywhere in particular.
+    easing: (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2),
+  });
+
+  const began = performance.now();
+  const step = (now: number): void => {
+    if (drawn.getLayer(VEIL) === undefined) return;
+    const along = (now - began) / OPEN_MS;
+    const { radius, cover } = openingAt(along);
+    (drawn.getSource(VEIL) as GeoJSONSource).setData(veilAt(radius));
+    drawn.setPaintProperty(VEIL, "fill-opacity", cover);
+    if (along < 1) {
+      requestAnimationFrame(step);
+      return;
+    }
+    drawn.removeLayer(VEIL);
+    drawn.removeSource(VEIL);
+  };
+  requestAnimationFrame(step);
+}
 
 export function MapPage({ language }: { readonly language: Language }): React.ReactElement {
   const text = strings(language);
@@ -96,6 +165,19 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       minZoom: FLOOR_ZOOM,
     });
     drawn.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+
+    /*
+     * The opening.
+     *
+     * Only on a map nobody asked anything of: a link with a camera in it is somebody being
+     * shown a place, and making them sit through the country assembling first is making
+     * them wait for a thing they did not ask for. Same for anyone who has said they would
+     * rather things did not move.
+     */
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!linked && !still) {
+      drawn.once("load", () => open(drawn));
+    }
     map.current = drawn;
     // A handle for the console and for the browser test, which is the only thing that can
     // tell a map that draws from a map that merely has no errors. Development only: the
@@ -244,9 +326,14 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     const drawn = map.current;
     if (drawn === null) return;
     const apply = (): void => {
-      const lit = onlyStreet(picked?.id ?? null);
+      const chosen = picked?.id ?? null;
+      const lit = onlyStreet(chosen);
       for (const layer of ["streets-picked-halo", "streets-picked"]) {
-        if (drawn.getLayer(layer) !== undefined) drawn.setFilter(layer, lit);
+        if (drawn.getLayer(layer) === undefined) continue;
+        drawn.setFilter(layer, lit);
+        // Filters do not transition, opacity does: the street is always drawn, and what
+        // fades is how much of it there is to see.
+        drawn.setPaintProperty(layer, "line-opacity", chosen === null ? 0 : LIT[layer]);
       }
     };
 
@@ -465,12 +552,18 @@ async function flyTo(drawn: Maplibre | null, result: Result): Promise<StreetDeta
       drawn.fitBounds([west, south, east, north], {
         padding: 80,
         maxZoom: 16,
-        duration: 900,
+        duration: TRAVEL_MS,
+        easing: EASE,
       });
       return found;
     }
     const found = await address(result.id);
-    drawn.flyTo({ center: [found.lon, found.lat], zoom: 16, duration: 900 });
+    drawn.flyTo({
+      center: [found.lon, found.lat],
+      zoom: 16,
+      duration: TRAVEL_MS,
+      easing: EASE,
+    });
     return null;
   } catch {
     // A camera that cannot be moved is not worth an error message on a map.

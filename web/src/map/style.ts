@@ -29,6 +29,8 @@ export const SOURCE = "speedmap";
 /** The basemap and the footprints: OpenStreetMap through planetiler, and Overture. */
 export const BASE = "base";
 export const BUILDINGS = "buildings";
+/** Everywhere that is not Greece, as one polygon with the country cut out of it. */
+export const EDGE = "edge";
 
 /** Greece, with room for Crete and the north in the same view. */
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
@@ -43,12 +45,18 @@ export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
  * told it is ours.
  */
 export const LIMITS: [[number, number], [number, number]] = [
-  [18.6, 34.2],
-  [30.4, 42.3],
+  [16.8, 32.6],
+  [32.2, 43.8],
 ];
 
-/** Far enough out to hold the country, and no further. */
-export const FLOOR_ZOOM = 5.6;
+/**
+ * Far enough out to hold the country, and no further.
+ *
+ * The box is wider than the country by a couple of degrees on each side, because the limit
+ * is on where the camera may go and a camera that may not leave the coast may not show it
+ * either: on a phone, fitting Greece across a narrow screen needs more room than Greece.
+ */
+export const FLOOR_ZOOM = 4.8;
 
 /**
  * The ground, and the few things that give it a shape.
@@ -58,17 +66,24 @@ export const FLOOR_ZOOM = 5.6;
  * and the ambient occlusion has to be darker than the building or the shadow glows.
  */
 const C = {
-  ground: "#07080a",
-  landuse: "#12151a",
-  park: "#0f1712",
-  water: "#0a1420",
-  building: "#171a21",
-  occlusion: "#050608",
-  road: "#242832",
-  roadMinor: "#1b1e26",
-  roadMajor: "#333846",
-  label: "#8b93a3",
-  labelHalo: "#05060a",
+  // Land is a dark grey, not black. Against a black sea it reads as a country with a
+  // shape, and everything on it — roads, blocks, relief — has somewhere to sit above it.
+  ground: "#141414",
+  // Relief, a shade up from the ground and faintly cool, so a mountain reads as a rise in
+  // the land rather than as another kind of place.
+  landuse: "#1c1d20",
+  // Greenery, as light grey. Green on a map about cables is a colour spent on the one
+  // thing the map is not about, and it fights every band of the ramp at the cool end.
+  park: "#272727",
+  // The sea, and the only thing on the map darker than the land.
+  water: "#080b12",
+  building: "#202024",
+  occlusion: "#0b0b0c",
+  road: "#323236",
+  roadMinor: "#232326",
+  roadMajor: "#3e3e44",
+  label: "#9a9aa2",
+  labelHalo: "#0d0d0e",
 } as const;
 
 /**
@@ -131,6 +146,23 @@ export function only(provider: string | null): ExpressionSpecification | null {
   return ["has", field] as ExpressionSpecification;
 }
 
+/**
+ * How the selection arrives.
+ *
+ * It used to appear the instant the street was chosen, which is while the camera is still
+ * crossing the city — so the light was already burning on a street somewhere off the edge
+ * of the screen by the time the reader got there. It waits for the journey instead, and
+ * comes up rather than switching on.
+ */
+const LIGHT_MS = 800;
+const LIGHT_WAIT = 500;
+
+/** What each selection layer fades up to, once there is something to show. */
+export const LIT: Record<string, DataDrivenPropertyValueSpecification<number>> = {
+  "streets-picked-halo": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 0.4, 17, 0.25],
+  "streets-picked": 0.9,
+};
+
 /** Matches nothing: what the selection layer draws until something is selected. */
 const NOTHING: FilterSpecification = ["==", ["get", "id"], -1];
 
@@ -153,7 +185,10 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       type: "line",
       source: SOURCE,
       "source-layer": STREETS_LAYER,
-      minzoom: 10,
+      // Down to the zoom the whole country fits in. There is no post-processing pass on a
+      // map, so the glow is this: a wide blurred copy, and at the zooms where every street
+      // is a hairline it is most of what there is to see.
+      minzoom: 4,
       ...(filter ? { filter } : {}),
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
@@ -161,10 +196,11 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
         "line-blur": 5,
         "line-opacity": [
           "interpolate", ["linear"], ["zoom"],
-          8, 0.06, 13, 0.13, 15, 0.2, 16, 0.15, 18, 0.09,
+          4, 0.3, 7, 0.24, 10, 0.16, 13, 0.14, 15, 0.2, 16, 0.15, 18, 0.09,
         ],
         "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60,
+          "interpolate", ["exponential", 1.6], ["zoom"],
+          4, 3, 7, 4, 10, 5, 13, 8, 16, 22, 20, 60,
         ],
       },
     },
@@ -203,6 +239,9 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
           "interpolate", ["linear"], ["zoom"],
           7, 0.4, 11, 0.46, 13, 0.52, 14.5, 0.66, 16, 0.6, 18, 0.45,
         ],
+        // Softened where the lines are thinnest. A half-pixel street drawn hard is a
+        // staircase; the same street blurred by a pixel is a thread.
+        "line-blur": ["interpolate", ["linear"], ["zoom"], 5, 1.4, 9, 0.9, 12, 0.4, 14, 0],
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
@@ -236,7 +275,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       paint: {
         "line-color": ACCENT,
         "line-blur": 6,
-        "line-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 0.4, 17, 0.25],
+        "line-opacity": 0,
+        "line-opacity-transition": { duration: LIGHT_MS, delay: LIGHT_WAIT },
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
         ],
@@ -251,7 +291,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-opacity": 0.9,
+        "line-opacity": 0,
+        "line-opacity-transition": { duration: LIGHT_MS, delay: LIGHT_WAIT },
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 1.6, 12, 3.4, 14, 5, 15, 7, 16, 9.5, 20, 32,
@@ -347,6 +388,9 @@ export function style(base = "/tiles"): StyleSpecification {
       [BUILDINGS]: { type: "vector", url: `pmtiles://${base}/buildings.pmtiles` },
       // Our own coverage, cut from the database by the same tool that cut the basemap.
       [SOURCE]: { type: "vector", url: `pmtiles://${base}/speedmap.pmtiles` },
+      // One shape, wanted before the first tile arrives, and a vector tile of a coastline
+      // at zoom 4 is a coastline someone has already thrown most of away.
+      [EDGE]: { type: "geojson", data: `${base}/greece.json` },
     },
     // One light, from the side and above, so extrusions have a lit face and a dark one.
     // Without it every building is the same flat tone and the city reads as a printed plan.
@@ -484,6 +528,25 @@ export function style(base = "/tiles"): StyleSpecification {
           "text-halo-color": C.labelHalo,
           "text-halo-width": 1.2,
         },
+      },
+
+      /*
+       * Everything that is not Greece, painted out.
+       *
+       * The basemap is a Geofabrik extract, cut to a box around the country and not to the
+       * country: Albania, North Macedonia, Bulgaria and Turkey come with it, their roads
+       * stripped but their land and their town names intact. A reader looking at Thrace
+       * gets half a map of somewhere this site knows nothing about.
+       *
+       * Last of all the layers, because it has to cover their labels as well as their
+       * ground — and it can be, because it is a polygon with the country cut out of it and
+       * paints nothing whatever over Greece.
+       */
+      {
+        id: "beyond",
+        type: "fill",
+        source: EDGE,
+        paint: { "fill-color": C.ground },
       },
     ],
   };
