@@ -10,20 +10,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import {
-  Map as Maplibre,
-  NavigationControl,
-  addProtocol,
-  type GeoJSONSource,
-} from "maplibre-gl";
+import { Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
-import { RAMP, UNFILED, VOID, colourFor, mbps } from "../tokens";
-import { OPEN_MS, VEIL, openingAt, veilAt } from "../map/reveal";
+import { RAMP, UNFILED, colourFor, mbps } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
 import {
   FLOOR_ZOOM,
@@ -60,50 +54,6 @@ const EASE = (t: number): number =>
 const SETTLE_MS = 250;
 
 type Showing = "ready" | "failed";
-
-/**
- * Let the country arrive rather than be there already.
- *
- * The camera pulls in while a sheet over the map opens from Athens, so the network comes
- * out of the middle of the country and the ground comes with it. Both run on the same
- * clock: the zoom has to finish when the sheet does, or it lands on a map that has been
- * sitting there waiting.
- */
-function open(drawn: Maplibre): void {
-  drawn.addSource(VEIL, { type: "geojson", data: veilAt(0) });
-  drawn.addLayer({
-    id: VEIL,
-    type: "fill",
-    source: VEIL,
-    paint: { "fill-color": VOID, "fill-opacity": 1 },
-  });
-
-  drawn.jumpTo({ center: HOME.centre, zoom: HOME.zoom - 1.15 });
-  drawn.easeTo({
-    center: HOME.centre,
-    zoom: HOME.zoom,
-    duration: OPEN_MS,
-    // Nothing abrupt at either end: it is already moving when you notice it, and it stops
-    // without arriving anywhere in particular.
-    easing: (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2),
-  });
-
-  const began = performance.now();
-  const step = (now: number): void => {
-    if (drawn.getLayer(VEIL) === undefined) return;
-    const along = (now - began) / OPEN_MS;
-    const { radius, cover } = openingAt(along);
-    (drawn.getSource(VEIL) as GeoJSONSource).setData(veilAt(radius));
-    drawn.setPaintProperty(VEIL, "fill-opacity", cover);
-    if (along < 1) {
-      requestAnimationFrame(step);
-      return;
-    }
-    drawn.removeLayer(VEIL);
-    drawn.removeSource(VEIL);
-  };
-  requestAnimationFrame(step);
-}
 
 export function MapPage({ language }: { readonly language: Language }): React.ReactElement {
   const text = strings(language);
@@ -165,19 +115,6 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       minZoom: FLOOR_ZOOM,
     });
     drawn.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
-
-    /*
-     * The opening.
-     *
-     * Only on a map nobody asked anything of: a link with a camera in it is somebody being
-     * shown a place, and making them sit through the country assembling first is making
-     * them wait for a thing they did not ask for. Same for anyone who has said they would
-     * rather things did not move.
-     */
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!linked && !still) {
-      drawn.once("load", () => open(drawn));
-    }
     map.current = drawn;
     // A handle for the console and for the browser test, which is the only thing that can
     // tell a map that draws from a map that merely has no errors. Development only: the
