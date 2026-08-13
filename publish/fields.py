@@ -14,6 +14,7 @@ STREETS_FIELDS: Final = (
     "id",
     "best_mbps",
     "nprov",
+    "far",
     "p_ote",
     "p_vodafone",
     "p_nova",

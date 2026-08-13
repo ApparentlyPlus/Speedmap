@@ -20,6 +20,9 @@ from psycopg.rows import TupleRow
 
 from publish import fields
 
+# Where the network started, and where the opening opens from.
+ATHENS = "st_setsrid(st_point(23.7275, 37.9838), 4326)"
+
 # One row per street, with each operator's best under the field the contract names it.
 # The pivot is generated so that adding an operator is a schema edit, not a SQL edit.
 STREETS = """
@@ -29,7 +32,8 @@ select json_build_object(
     'properties', json_build_object(
         'id', s.id,
         'best_mbps', s.best_mbps,
-        'nprov', (select count(*) from street_provider sp where sp.street_id = s.id)
+        'nprov', (select count(*) from street_provider sp where sp.street_id = s.id),
+        'far', round(st_distance(s.geom, ATHENS::geography) / 1000)
         {operators}
     )
 )::text
@@ -138,7 +142,7 @@ def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> in
 
 
 def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    return write(conn, STREETS.format(operators=operators()), out)
+    return write(conn, STREETS.format(operators=operators()).replace("ATHENS", ATHENS), out)
 
 
 # How much the coastline is smoothed, in degrees: about twenty metres. Small enough that a
