@@ -10,12 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import {
-  Map as Maplibre,
-  NavigationControl,
-  addProtocol,
-  type DataDrivenPropertyValueSpecification,
-} from "maplibre-gl";
+import { Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
 import { Protocol } from "pmtiles";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -23,14 +18,11 @@ import { address, search, street, type Result, type StreetDetail } from "../api/
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { RAMP, UNFILED, colourFor, mbps } from "../tokens";
-import { OPEN_MS, doneAt, frontAt, reachAt } from "../map/reveal";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
 import {
   FLOOR_ZOOM,
-  HALO_OPACITY,
   HOME,
   LIMITS,
-  STREET_OPACITY,
   VIEWS,
   only,
   LIT,
@@ -62,62 +54,6 @@ const EASE = (t: number): number =>
 const SETTLE_MS = 250;
 
 type Showing = "ready" | "failed";
-
-/** How long to keep waiting for the coverage layers before giving up on the opening. */
-const PATIENCE = 12_000;
-
-/** The coverage layers the opening brings in, and the opacity each settles at. */
-const ARRIVING: [string, DataDrivenPropertyValueSpecification<number>][] = [
-  ["streets-halo", HALO_OPACITY],
-  ["streets", STREET_OPACITY],
-];
-
-/**
- * Bring the coverage out of Athens.
- *
- * The basemap is left alone: it is a map from the first frame, and what arrives on it is
- * the answer. Each frame moves a front outward and repaints the two coverage layers by how
- * far past it each street is, so the network runs along the streets themselves rather than
- * a shape sweeping over them.
- */
-function open(drawn: Maplibre): void {
-  /*
-   * The clock starts on the first frame, not when the map says it is loaded.
-   *
-   * Between the two there is the best part of two seconds in which the country is drawn
-   * for the first time and no frame is served. Timed from `load`, a third of the opening
-   * had already happened by the time anything appeared on the screen, and the front came
-   * into existence somewhere over Thessaly.
-   */
-  let began = 0;
-  const armed = performance.now();
-
-  const step = (now: number): void => {
-    // Wait for the layers rather than give up on them. A frame can arrive before the style
-    // has finished putting itself together, and a single early one used to end the opening
-    // before it had drawn anything.
-    if (drawn.getLayer("streets") === undefined) {
-      if (drawn.loaded() || performance.now() - armed < PATIENCE) requestAnimationFrame(step);
-      return;
-    }
-    if (began === 0) began = now;
-    const along = (now - began) / OPEN_MS;
-    const reached = reachAt(along);
-    const over = doneAt(along);
-
-    for (const [layer, settled] of ARRIVING) {
-      if (drawn.getLayer(layer) === undefined) continue;
-      // Put back exactly what was there, rather than the last frame of the opening.
-      drawn.setPaintProperty(
-        layer,
-        "line-opacity",
-        over ? settled : frontAt(reached, settled),
-      );
-    }
-    if (!over) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
 
 export function MapPage({ language }: { readonly language: Language }): React.ReactElement {
   const text = strings(language);
@@ -179,19 +115,6 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       minZoom: FLOOR_ZOOM,
     });
     drawn.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
-
-    /*
-     * The opening.
-     *
-     * Only on a map nobody asked anything of: a link with a camera in it is somebody being
-     * shown a place, and making them watch the country fill in first is making them wait
-     * for something they did not ask for. Same for anyone who has said they would rather
-     * things held still.
-     */
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!linked && !still) {
-      drawn.once("load", () => open(drawn));
-    }
     map.current = drawn;
     // A handle for the console and for the browser test, which is the only thing that can
     // tell a map that draws from a map that merely has no errors. Development only: the

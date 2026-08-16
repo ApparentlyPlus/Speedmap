@@ -33,13 +33,6 @@ layers:
       nprov:
         type: integer
         description: how many operators reach this street at all, filed speed or not
-      # Only the opening reads this, and only for a few seconds. It is a number per street
-      # because the alternative is asking a tile how far a street is from Athens, which a
-      # tile cannot answer: what a layer can be painted by is what the feature carries.
-      far:
-        type: number
-        unit: km
-        description: how far this street is from the middle of Athens
       # Three states, not two: null is an operator that does not reach this street, -1 is
       # one that reaches it and filed no speed, and a number is the speed. The middle state
       # is 49,897 street-operator pairs and is the commonest thing the register says, so a
