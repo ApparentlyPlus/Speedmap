@@ -70,8 +70,6 @@ const C = {
   roadMinor: "#1b1e26",
   roadMajor: "#333846",
   label: "#8b93a3",
-  // The edge of the country: cool and dim, so it reads as a boundary and not a road.
-  coast: "#5d7d99",
   labelHalo: "#05060a",
 } as const;
 
@@ -530,20 +528,6 @@ export function style(base = "/tiles"): StyleSpecification {
         source: EDGE,
         paint: { "fill-color": C.ground },
       },
-      {
-        // The same rings, drawn. The coastline and the border at once, and the only line on
-        // this map that is not a road: faint, because it is the edge of the subject rather
-        // than part of it.
-        id: "edge",
-        type: "line",
-        source: EDGE,
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": C.coast,
-          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 8, 1, 12, 1.4, 16, 2],
-          "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.55, 9, 0.4, 14, 0.22],
-        },
-      }
     ],
   };
 }
