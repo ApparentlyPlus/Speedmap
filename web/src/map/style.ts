@@ -70,6 +70,8 @@ const C = {
   roadMinor: "#1b1e26",
   roadMajor: "#333846",
   label: "#8b93a3",
+  // The edge of the country: cool and dim, so it reads as a boundary and not a road.
+  coast: "#5d7d99",
   labelHalo: "#05060a",
 } as const;
 
@@ -158,22 +160,6 @@ export function onlyStreet(id: number | null): FilterSpecification {
   return id === null ? NOTHING : ["==", ["get", "id"], id];
 }
 
-/**
- * How solid the coverage is once it has arrived.
- *
- * Named, because the opening multiplies them: it needs to know what it is dimming, and the
- * last frame of the opening has to be exactly the map that was there without it.
- */
-export const HALO_OPACITY: DataDrivenPropertyValueSpecification<number> = [
-  "interpolate", ["linear"], ["zoom"],
-  8, 0.06, 13, 0.13, 15, 0.2, 16, 0.15, 18, 0.09,
-];
-
-export const STREET_OPACITY: DataDrivenPropertyValueSpecification<number> = [
-  "interpolate", ["linear"], ["zoom"],
-  7, 0.4, 11, 0.46, 13, 0.52, 14.5, 0.66, 16, 0.6, 18, 0.45,
-];
-
 export function streetLayers(provider: string | null): LayerSpecification[] {
   const field: keyof Street =
     provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
@@ -194,7 +180,10 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       paint: {
         "line-color": paint,
         "line-blur": 5,
-        "line-opacity": HALO_OPACITY,
+        "line-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          8, 0.06, 13, 0.13, 15, 0.2, 16, 0.15, 18, 0.09,
+        ],
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60,
         ],
@@ -231,7 +220,10 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": paint,
-        "line-opacity": STREET_OPACITY,
+        "line-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          7, 0.4, 11, 0.46, 13, 0.52, 14.5, 0.66, 16, 0.6, 18, 0.45,
+        ],
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
@@ -538,6 +530,20 @@ export function style(base = "/tiles"): StyleSpecification {
         source: EDGE,
         paint: { "fill-color": C.ground },
       },
+      {
+        // The same rings, drawn. The coastline and the border at once, and the only line on
+        // this map that is not a road: faint, because it is the edge of the subject rather
+        // than part of it.
+        id: "edge",
+        type: "line",
+        source: EDGE,
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": C.coast,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 8, 1, 12, 1.4, 16, 2],
+          "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.55, 9, 0.4, 14, 0.22],
+        },
+      }
     ],
   };
 }

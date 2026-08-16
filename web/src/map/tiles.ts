@@ -16,8 +16,6 @@ export type Street = {
   readonly best_mbps: Mbps | null;
   /** how many operators reach this street at all, filed speed or not */
   readonly nprov: number;
-  /** how far this street is from the middle of Athens */
-  readonly far: number;
   readonly p_ote: Mbps | null;
   readonly p_vodafone: Mbps | null;
   readonly p_nova: Mbps | null;
@@ -32,7 +30,6 @@ export const STREETS_FIELDS = [
   "id",
   "best_mbps",
   "nprov",
-  "far",
   "p_ote",
   "p_vodafone",
   "p_nova",
