@@ -60,17 +60,28 @@ export const FLOOR_ZOOM = 5.6;
  * and the ambient occlusion has to be darker than the building or the shadow glows.
  */
 const C = {
-  ground: "#07080a",
-  landuse: "#12151a",
-  park: "#0f1712",
-  water: "#0a1420",
-  building: "#171a21",
-  occlusion: "#050608",
-  road: "#242832",
-  roadMinor: "#1b1e26",
-  roadMajor: "#333846",
-  label: "#8b93a3",
-  labelHalo: "#05060a",
+  // Land darker than water, which is the other way round from most dark maps and the whole
+  // reason a coastline reads here: the sea is an even slate that recedes, the land is a
+  // near-black that everything else is drawn on top of, and the edge between them needs no
+  // line of its own.
+  ground: "#111418",
+  // Relief. A shade up from the land and faintly cool, so a hillside reads as a rise in the
+  // ground rather than as a different kind of place.
+  landuse: "#171b21",
+  // Greenery, desaturated almost to grey. Green on a map about cables is a colour spent on
+  // the one thing the map is not about, and it fights the cool end of the ramp.
+  park: "#1a2120",
+  water: "#212a33",
+  building: "#181e24",
+  occlusion: "#0a0d10",
+  // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
+  // lighter than the land by more than they used to be — and still well under the dimmest
+  // band of the ramp, which has to stay the brightest thing on the map.
+  road: "#343a43",
+  roadMinor: "#252a31",
+  roadMajor: "#454c57",
+  label: "#c3c8d0",
+  labelHalo: "#0a0d11",
 } as const;
 
 /**
@@ -526,7 +537,10 @@ export function style(base = "/tiles"): StyleSpecification {
         id: "beyond",
         type: "fill",
         source: EDGE,
-        paint: { "fill-color": C.ground },
+        // Painted as sea, not as land. Almost everything past the border that anyone will
+        // look at is the Aegean, and a neighbour rendered as water recedes the way the
+        // water does — where the same shape in the land colour would read as more country.
+        paint: { "fill-color": C.water },
       },
     ],
   };
