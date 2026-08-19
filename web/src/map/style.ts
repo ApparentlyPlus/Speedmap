@@ -71,7 +71,10 @@ const C = {
   // Greenery, desaturated almost to grey. Green on a map about cables is a colour spent on
   // the one thing the map is not about, and it fights the cool end of the ramp.
   park: "#1a2120",
-  water: "#212a33",
+  // Near black, and a hair off the land rather than a shade above it. The separation only
+  // has to be enough to find a coastline with; any more and the sea is a surface the eye
+  // keeps returning to, on a map where the only thing worth looking at is on the land.
+  water: "#161b21",
   building: "#181e24",
   occlusion: "#0a0d10",
   // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
