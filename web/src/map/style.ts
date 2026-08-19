@@ -60,21 +60,20 @@ export const FLOOR_ZOOM = 5.6;
  * and the ambient occlusion has to be darker than the building or the shadow glows.
  */
 const C = {
-  // Land darker than water, which is the other way round from most dark maps and the whole
-  // reason a coastline reads here: the sea is an even slate that recedes, the land is a
-  // near-black that everything else is drawn on top of, and the edge between them needs no
-  // line of its own.
-  ground: "#111418",
+  // The land is the lit surface and the sea is the dark it sits in. A slate sea one shade
+  // up from the land looks considered and does the opposite of what is wanted: it is a
+  // second surface, near enough the first to read as another kind of ground. Below it, it
+  // stops being a surface at all and the coast is where the map ends.
+  ground: "#141920",
   // Relief. A shade up from the land and faintly cool, so a hillside reads as a rise in the
   // ground rather than as a different kind of place.
   landuse: "#171b21",
   // Greenery, desaturated almost to grey. Green on a map about cables is a colour spent on
   // the one thing the map is not about, and it fights the cool end of the ramp.
   park: "#1a2120",
-  // Near black, and a hair off the land rather than a shade above it. The separation only
-  // has to be enough to find a coastline with; any more and the sea is a surface the eye
-  // keeps returning to, on a map where the only thing worth looking at is on the land.
-  water: "#161b21",
+  // Under the land, and as close to nothing as it can be while still being cool rather than
+  // grey. What is wanted of the sea is that it goes away.
+  water: "#080a0d",
   building: "#181e24",
   occlusion: "#0a0d10",
   // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
@@ -540,9 +539,8 @@ export function style(base = "/tiles"): StyleSpecification {
         id: "beyond",
         type: "fill",
         source: EDGE,
-        // Painted as sea, not as land. Almost everything past the border that anyone will
-        // look at is the Aegean, and a neighbour rendered as water recedes the way the
-        // water does — where the same shape in the land colour would read as more country.
+        // Painted as sea, so a neighbour recedes the way the water does. In the land
+        // colour it would read as more country.
         paint: { "fill-color": C.water },
       },
     ],
