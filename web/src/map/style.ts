@@ -29,7 +29,7 @@ export const SOURCE = "speedmap";
 /** The basemap and the footprints: OpenStreetMap through planetiler, and Overture. */
 export const BASE = "base";
 export const BUILDINGS = "buildings";
-/** Everywhere that is not Greece, as one polygon with the country cut out of it. */
+/** The country itself, as one polygon, drawn under everything else. */
 export const EDGE = "edge";
 
 /** Greece, with room for Crete and the north in the same view. */
@@ -82,8 +82,13 @@ const C = {
   road: "#343a43",
   roadMinor: "#252a31",
   roadMajor: "#454c57",
-  label: "#c3c8d0",
-  labelHalo: "#0a0d11",
+  // Names have to hold against three backgrounds: the land, the sea, and a lit street
+  // running under them. Near white with a dark halo wide enough to cut the coverage, since
+  // the one place a label is least readable is exactly where the map is most worth reading.
+  label: "#d8dce3",
+  // Street names, a step down from a town so the two are told apart at a glance.
+  labelQuiet: "#9fa7b4",
+  labelHalo: "#05070a",
 } as const;
 
 /**
@@ -389,7 +394,25 @@ export function style(base = "/tiles"): StyleSpecification {
     // Without it every building is the same flat tone and the city reads as a printed plan.
     light: { anchor: "viewport", color: "#ffffff", intensity: 0.35, position: [1.2, 210, 30] },
     layers: [
-      { id: "ground", type: "background", paint: { "background-color": C.ground } },
+      /*
+       * The sea is the background and the land is drawn on it.
+       *
+       * The other way round — land underneath, sea painted over it — is how this was, and
+       * it means every stretch of open water depends on something being drawn there. Where
+       * nothing was, the background showed through and the Aegean came out in rectangular
+       * slabs of coastline-coloured land, because what was painting the sea was a polygon
+       * with the country cut out of it, cut again into tiles, clipping badly.
+       *
+       * Drawn from underneath there is nothing to go wrong: what is not Greece is simply
+       * not drawn, and what is underneath is already the sea.
+       */
+      { id: "ground", type: "background", paint: { "background-color": C.water } },
+      {
+        id: "land",
+        type: "fill",
+        source: EDGE,
+        paint: { "fill-color": C.ground },
+      },
 
       {
         id: "landuse",
@@ -501,7 +524,7 @@ export function style(base = "/tiles"): StyleSpecification {
         paint: {
           "text-color": C.label,
           "text-halo-color": C.labelHalo,
-          "text-halo-width": 1.4,
+          "text-halo-width": 1.6,
         },
       },
       {
@@ -517,31 +540,12 @@ export function style(base = "/tiles"): StyleSpecification {
           "symbol-placement": "line",
         },
         paint: {
-          "text-color": "#6b7383",
+          // A street name sits on the street, which at these zooms is a lit line — so it
+          // needs more contrast than a town name floating on open ground, not less.
+          "text-color": C.labelQuiet,
           "text-halo-color": C.labelHalo,
-          "text-halo-width": 1.2,
+          "text-halo-width": 1.8,
         },
-      },
-
-      /*
-       * Everything that is not Greece, painted out.
-       *
-       * The basemap is a Geofabrik extract, cut to a box around the country and not to the
-       * country: Albania, North Macedonia, Bulgaria and Turkey come with it, their roads
-       * stripped but their land and their town names intact. A reader looking at Thrace
-       * gets half a map of somewhere this site knows nothing about.
-       *
-       * Last of all the layers, because it has to cover their labels as well as their
-       * ground — and it can be, because it is a polygon with the country cut out of it and
-       * paints nothing whatever over Greece.
-       */
-      {
-        id: "beyond",
-        type: "fill",
-        source: EDGE,
-        // Painted as sea, so a neighbour recedes the way the water does. In the land
-        // colour it would read as more country.
-        paint: { "fill-color": C.water },
       },
     ],
   };
