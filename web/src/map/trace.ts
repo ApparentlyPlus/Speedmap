@@ -157,10 +157,12 @@ export function traceLayers(): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-blur": 6,
+        "line-blur": 3,
         "line-opacity": 0,
+        // Close around the line rather than a halo over the neighbourhood. Its job is to
+        // stop the mark looking cut out, not to be the mark.
         "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
+          "interpolate", ["exponential", 1.6], ["zoom"], 10, 3, 13, 5, 16, 11, 20, 34,
         ],
       },
     },
@@ -171,22 +173,33 @@ export function traceLayers(): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-blur": 0.6,
+        // Hard edged. The blur was making a narrow mark read as a wide soft one, which is
+        // the difference between a highlighter and a smear.
+        "line-blur": 0,
         "line-opacity": 0,
+        // Narrower than the street it is marking, at every zoom — about three fifths of it.
+        // Wider, and it stops being a highlight on a street and becomes a different street
+        // drawn in white over the one being asked about.
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
-          6, 1.6, 12, 3.4, 14, 5, 15, 7, 16, 9.5, 20, 32,
+          6, 0.3, 12, 0.8, 14, 1.6, 15, 2.7, 16, 4.2, 20, 15,
         ],
       },
     },
   ];
 }
 
-/** How bright each layer is. Constant: the light never dims, it only moves. */
+/**
+ * How bright each layer is. Constant: the light never dims, it only moves.
+ *
+ * Low. At full white over a lit street the mark stopped being a highlight and became a
+ * solid object travelling along the road, and the coverage colour underneath — the thing
+ * being pointed at — disappeared under it.
+ */
 export function traceOpacity(): [string, number][] {
   return [
-    [GLOW, 0.5],
-    [TRACE, 0.95],
+    [GLOW, 0.14],
+    [TRACE, 0.62],
   ];
 }
 
