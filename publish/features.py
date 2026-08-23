@@ -150,18 +150,20 @@ SMOOTH = 0.0002
 # anywhere a reader would notice: about a hundred and fifty metres.
 KNIT = 0.0015
 
-# Everywhere that is not Greece, as one polygon with the country cut out of it.
+# The country itself, as one polygon.
 #
-# One geometry doing two jobs. Filled, it covers every neighbour the basemap extract happens
-# to include — Greece is what is left. Stroked, the same rings are the coastline and the
-# border, which is the only outline on the map that is not a road.
+# The land is published and the sea is not, which is the way round that works. Painting the
+# sea instead needs a polygon with the country cut out of it, and a hole-ridden ring that
+# size is cut into tiles before it is drawn and clips so badly that whole tiles come out
+# filled — rectangular slabs of land across the Aegean, and coastlines that are tile edges.
 #
-# Inverted rather than drawn as the country itself, because a fill cannot hide what is under
-# it by being a hole; it has to be the thing that is painted.
+# Drawn from underneath, none of that can happen: what is not Greece is simply not drawn,
+# and the background is already the sea.
 OUTLINE = """
 select st_asgeojson(
-    st_difference(
-        st_makeenvelope(-180, -85, 180, 85, 4326),
+    -- Valid, because a ring that crosses itself triangulates into whatever the renderer
+    -- makes of it, and what it makes of it is a slab over somebody's island.
+    st_makevalid(
         st_simplifypreservetopology(st_buffer(st_union(geom::geometry), {knit}), {smooth})
     ),
     5
@@ -171,7 +173,7 @@ from municipality
 
 
 def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    """The country's edge, written as one GeoJSON feature."""
+    """The country, written as one GeoJSON feature."""
     row = conn.execute(OUTLINE.format(knit=KNIT, smooth=SMOOTH)).fetchone()
     if row is None or row[0] is None:
         raise SystemExit("no municipalities: the country has no outline")
