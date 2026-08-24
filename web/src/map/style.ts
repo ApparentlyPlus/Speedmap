@@ -307,6 +307,19 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
  * removing a layer and adding it back moves it to the top of the style, above the
  * buildings, which drew the coverage straight over the roofs.
  */
+/**
+ * What the streets look like on a map that is about one of them.
+ *
+ * Behind a result the coverage of every other street is not the subject and competes with
+ * it: forty thousand lit roads around the one being asked about, in the same colours, and
+ * the answer is the least conspicuous thing on its own map. They go grey and quiet, the
+ * subject keeps the ramp, and the reader has one thing to look at.
+ */
+export const ASIDE = "#2b3037";
+export const ASIDE_OPACITY: DataDrivenPropertyValueSpecification<number> = [
+  "interpolate", ["linear"], ["zoom"], 10, 0.24, 14, 0.3, 17, 0.34,
+];
+
 export function ramps(provider: string | null): Record<string, ExpressionSpecification> {
   const field: keyof Street =
     provider === null ? "best_mbps" : (STREETS_BY_PROVIDER[provider] ?? "best_mbps");
