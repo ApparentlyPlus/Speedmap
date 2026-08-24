@@ -31,6 +31,46 @@ const BEARING = -20;
 
 let registered = false;
 
+/** How far the camera leans once it has arrived. Enough to see the city has sides. */
+const TILT = 42;
+
+/** How long the lean takes. */
+const LEAN_MS = 1800;
+
+/** Degrees a second. A turn takes two minutes, which is slower than anyone will watch. */
+const SPIN = 3;
+
+/**
+ * Lean the camera over and turn it, slowly, about the street.
+ *
+ * A result framed flat and held still is a diagram. Leaning it puts the buildings between
+ * the reader and the far side of the street, which is what makes the street a place rather
+ * than a line; turning it keeps showing a different face of the same block, so the picture
+ * goes on saying something after the first second.
+ *
+ * About the centre, which is where the street was just put — so the thing being talked
+ * about stays where the eye already is, and everything else moves around it.
+ */
+function showcase(drawn: Maplibre, stopped: () => boolean): void {
+  if (stopped()) return;
+  drawn.easeTo({ pitch: TILT, duration: LEAN_MS });
+
+  let last = 0;
+  const turn = (now: number): void => {
+    if (stopped() || drawn.getLayer(TRACE) === undefined) return;
+    // Degrees a second rather than degrees a frame: the same speed on a slow map as a
+    // fast one, and the opening lean is left to finish before the turn starts.
+    if (last !== 0 && now > last) {
+      drawn.setBearing(drawn.getBearing() + (SPIN * (now - last)) / 1000);
+    }
+    last = now;
+    requestAnimationFrame(turn);
+  };
+  window.setTimeout(() => {
+    if (!stopped()) requestAnimationFrame(turn);
+  }, LEAN_MS);
+}
+
 /**
  * The part of the map nothing is sitting on.
  *
@@ -163,6 +203,7 @@ export function Anchored({
           bearing: 0,
           duration: 900,
         });
+        drawn.once("moveend", () => showcase(drawn, () => stopped));
       }
 
       const began = performance.now();
