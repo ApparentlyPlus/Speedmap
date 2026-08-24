@@ -17,7 +17,7 @@ import {
   GLOW,
   PASS_MS,
   TRACE,
-  extentOf,
+  focusOf,
   momentOf,
   pathOf,
   traceLayers,
@@ -192,7 +192,7 @@ export function Anchored({
        *
        * Flat, because a long street fitted at a steep pitch is mostly horizon.
        */
-      const extent = extentOf(shape);
+      const extent = focusOf(shape);
       if (extent !== null) {
         // However far out that turns out to be. One name can cover thirty kilometres of
         // rural road, and thirty kilometres of rural road is the answer to what was asked.
