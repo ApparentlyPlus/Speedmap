@@ -204,6 +204,35 @@ export function traceOpacity(): [string, number][] {
 }
 
 /**
+ * The box worth pointing a camera at.
+ *
+ * A street here is every road of that name in the municipality, because that is what the
+ * register files and what a reader means when they type it. Usually that is one road. Often
+ * it is not: Μακεδονίας in Κατερίνη is nine unconnected stretches spread over thirteen
+ * kilometres, and framing all nine frames the town.
+ *
+ * So the camera goes to the longest of them, which is the road anyone naming it means, and
+ * the light still runs the length of every one — the rest are found by watching it go, not
+ * by being fitted into the same shot.
+ */
+export function focusOf(shape: Geometry): [[number, number], [number, number]] | null {
+  const path = pathOf(shape);
+  if (path === null) return null;
+
+  let best: readonly Position[] | null = null;
+  let longest = -1;
+  path.parts.forEach((part, index) => {
+    const span = (path.starts[index + 1] ?? 1) - (path.starts[index] ?? 0);
+    if (span > longest) {
+      longest = span;
+      best = part;
+    }
+  });
+  if (best === null) return null;
+  return extentOf({ type: "LineString", coordinates: best as Position[] });
+}
+
+/**
  * The box a street occupies.
  *
  * Read off the shape rather than asked for separately: the camera has to frame the same

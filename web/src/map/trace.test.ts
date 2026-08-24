@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extentOf, momentOf, pathOf, sliceOf } from "./trace";
+import { extentOf, focusOf, momentOf, pathOf, sliceOf } from "./trace";
 
 /** A street drawn in two pieces with a gap between them, which is the normal case. */
 const BROKEN = pathOf({
@@ -115,5 +115,43 @@ describe("the box a street occupies", () => {
 
   it("says nothing rather than an empty box when there is no line", () => {
     expect(extentOf({ type: "GeometryCollection", geometries: [] })).toBeNull();
+  });
+});
+
+describe("the box worth pointing a camera at", () => {
+  it("frames the longest road of the name, not all of them", () => {
+    // Μακεδονίας in Κατερίνη is nine unconnected stretches over thirteen kilometres.
+    // Framing every one of them frames the town and shows the street to nobody.
+    const found = focusOf({
+      type: "MultiLineString",
+      coordinates: [
+        [
+          [22.45, 40.27],
+          [22.46, 40.27],
+        ],
+        [
+          [22.6, 40.27],
+          [22.6001, 40.2701],
+        ],
+      ],
+    });
+    expect(found).not.toBeNull();
+    // The long western stretch, with nothing of the far eastern scrap in the frame.
+    expect(found![1][0]).toBeLessThan(22.5);
+  });
+
+  it("frames a street drawn in one piece as itself", () => {
+    expect(
+      focusOf({
+        type: "LineString",
+        coordinates: [
+          [23.0, 37.9],
+          [23.1, 38.0],
+        ],
+      }),
+    ).toEqual([
+      [23.0, 37.9],
+      [23.1, 38.0],
+    ]);
   });
 });
