@@ -8,11 +8,15 @@
  */
 
 import { useEffect, useRef } from "react";
-import maplibregl, { Map as Maplibre, addProtocol } from "maplibre-gl";
+import maplibregl, {
+  Map as Maplibre,
+  addProtocol,
+  type DataDrivenPropertyValueSpecification,
+} from "maplibre-gl";
 import type { Geometry } from "geojson";
 import { Protocol } from "pmtiles";
 
-import { style } from "../map/style";
+import { ASIDE, ASIDE_OPACITY, ramps, style } from "../map/style";
 import {
   GLOW,
   PASS_MS,
@@ -23,6 +27,11 @@ import {
   traceLayers,
   traceOpacity,
 } from "../map/trace";
+import { SOURCE, onlyStreet } from "../map/style";
+import { STREETS_LAYER } from "../map/tiles";
+
+/** The one street this map is about, drawn in colour over the quiet ones. */
+const SUBJECT = "subject";
 
 /** Close enough that the building is a building, far enough that it has neighbours. */
 const ZOOM = 16.6;
@@ -34,8 +43,8 @@ let registered = false;
 /** How far the camera leans once it has arrived. Enough to see the city has sides. */
 const TILT = 42;
 
-/** How long the lean takes. */
-const LEAN_MS = 1800;
+/** As close as the camera will get to a short street. */
+const CLOSEST = 17.4;
 
 /** Degrees a second. A turn takes two minutes, which is slower than anyone will watch. */
 const SPIN = 3;
@@ -53,7 +62,6 @@ const SPIN = 3;
  */
 function showcase(drawn: Maplibre, stopped: () => boolean): void {
   if (stopped()) return;
-  drawn.easeTo({ pitch: TILT, duration: LEAN_MS });
 
   let last = 0;
   const turn = (now: number): void => {
@@ -66,9 +74,7 @@ function showcase(drawn: Maplibre, stopped: () => boolean): void {
     last = now;
     requestAnimationFrame(turn);
   };
-  window.setTimeout(() => {
-    if (!stopped()) requestAnimationFrame(turn);
-  }, LEAN_MS);
+  requestAnimationFrame(turn);
 }
 
 /**
@@ -79,13 +85,13 @@ function showcase(drawn: Maplibre, stopped: () => boolean): void {
  * the bottom on a narrow one, so which edge to keep clear is measured rather than assumed.
  */
 function clear(drawn: Maplibre): { top: number; right: number; bottom: number; left: number } {
-  const edge = 56;
+  const edge = 36;
   const pad = { top: edge, right: edge, bottom: edge, left: edge };
   const box = drawn.getContainer().getBoundingClientRect();
   const card = document.querySelector(".place")?.getBoundingClientRect();
   if (card !== undefined) {
-    if (card.width < box.width * 0.75) pad.left = card.right - box.left + 24;
-    else pad.bottom = box.bottom - card.top + 24;
+    if (card.width < box.width * 0.75) pad.left = card.right - box.left + 16;
+    else pad.bottom = box.bottom - card.top + 16;
   }
   // MapLibre refuses a fit whose padding leaves no room, and a refused fit is no frame.
   pad.left = Math.min(pad.left, box.width * 0.6);
@@ -97,11 +103,14 @@ export function Anchored({
   lon,
   lat,
   shape,
+  streetId,
 }: {
   readonly lon: number | null;
   readonly lat: number | null;
   /** The street this result is on, when it is one we hold. */
   readonly shape?: Geometry | null;
+  /** Which street that is, so it alone keeps its colour. */
+  readonly streetId?: number | null;
 }): React.ReactElement {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<Maplibre | null>(null);
@@ -176,6 +185,47 @@ export function Anchored({
       const under = ["building-shadow", "building", "place-label"].find(
         (layer) => drawn.getLayer(layer) !== undefined,
       );
+      /*
+       * Everything but the street in question goes quiet.
+       *
+       * The halo is the glow that makes coverage read as light on a road, and forty
+       * thousand of them around the subject is a lit city with the answer somewhere in it.
+       * Off entirely; the rest go one flat grey. The street being asked about is drawn
+       * again above them, in the colour the ramp gives it, so it is the only thing on the
+       * map wearing a speed.
+       */
+      if (drawn.getLayer("streets-halo") !== undefined) {
+        drawn.setLayoutProperty("streets-halo", "visibility", "none");
+      }
+      if (drawn.getLayer("streets") !== undefined) {
+        drawn.setPaintProperty("streets", "line-color", ASIDE);
+        drawn.setPaintProperty("streets", "line-opacity", ASIDE_OPACITY);
+      }
+      if (streetId !== null && streetId !== undefined && drawn.getLayer(SUBJECT) === undefined) {
+        drawn.addLayer(
+          {
+            id: SUBJECT,
+            type: "line",
+            source: SOURCE,
+            "source-layer": STREETS_LAYER,
+            filter: onlyStreet(streetId),
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": ramps(null)["streets"] as DataDrivenPropertyValueSpecification<string>,
+              "line-opacity": [
+                "interpolate", ["linear"], ["zoom"],
+                7, 0.55, 13, 0.7, 16, 0.78, 18, 0.6,
+              ],
+              "line-width": [
+                "interpolate", ["exponential", 1.6], ["zoom"],
+                6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
+              ],
+            },
+          },
+          under,
+        );
+      }
+
       for (const layer of traceLayers()) drawn.addLayer(layer, under);
       // Set once: the light never dims, it only moves.
       for (const [layer, opacity] of traceOpacity()) {
@@ -196,11 +246,18 @@ export function Anchored({
       if (extent !== null) {
         // However far out that turns out to be. One name can cover thirty kilometres of
         // rural road, and thirty kilometres of rural road is the answer to what was asked.
+        /*
+         * Leaned first, then fitted.
+         *
+         * Fitting flat and leaning afterwards moves the street: a tilted camera keeps the
+         * same centre on the ground but puts it lower on the screen, so the thing that was
+         * dead centre ends up in the bottom third. Fitted under the lean, the framing is
+         * the framing that gets looked at.
+         */
+        drawn.jumpTo({ pitch: TILT, bearing: 0 });
         drawn.fitBounds(extent, {
           padding: clear(drawn),
-          maxZoom: 16.6,
-          pitch: 0,
-          bearing: 0,
+          maxZoom: CLOSEST,
           duration: 900,
         });
         drawn.once("moveend", () => showcase(drawn, () => stopped));
@@ -235,7 +292,7 @@ export function Anchored({
       drawn.off("load", add);
       // A map that has already been removed has nothing left to take the light off.
       try {
-        for (const layer of [TRACE, GLOW]) {
+          for (const layer of [TRACE, GLOW, SUBJECT]) {
           if (drawn.getLayer(layer) !== undefined) drawn.removeLayer(layer);
         }
         if (drawn.getSource(TRACE) !== undefined) drawn.removeSource(TRACE);
@@ -243,7 +300,7 @@ export function Anchored({
         // Gone with the map it was drawn on.
       }
     };
-  }, [shape, lon, lat]);
+  }, [shape, streetId, lon, lat]);
 
   return <div className="anchored" ref={holder} aria-hidden="true" />;
 }

@@ -90,6 +90,7 @@ export function Place({
    * When they do not, the result is the same result without the light.
    */
   const [shape, setShape] = useState<Geometry | null>(null);
+  const [road, setRoad] = useState<number | null>(null);
 
   useEffect(() => {
     const stop = new AbortController();
@@ -121,13 +122,17 @@ export function Place({
   useEffect(() => {
     const stop = new AbortController();
     setShape(null);
+    setRoad(null);
     address(result.id, stop.signal)
       .then(async (found) => {
         if (stop.signal.aborted) return;
         setWhere({ lon: found.lon, lat: found.lat });
         if (found.street_id === null || found.street_id === undefined) return;
-        const road = await street(found.street_id, stop.signal).catch(() => null);
-        if (road !== null && !stop.signal.aborted) setShape(road.shape as unknown as Geometry);
+        const known = await street(found.street_id, stop.signal).catch(() => null);
+        if (known !== null && !stop.signal.aborted) {
+          setShape(known.shape as unknown as Geometry);
+          setRoad(known.id);
+        }
       })
       .catch(() => setWhere(null));
     return () => stop.abort();
@@ -153,7 +158,12 @@ export function Place({
 
   return (
     <>
-      <Anchored lon={where?.lon ?? null} lat={where?.lat ?? null} shape={shape} />
+      <Anchored
+        lon={where?.lon ?? null}
+        lat={where?.lat ?? null}
+        shape={shape}
+        streetId={road}
+      />
 
       <section className="place">
         <div className="place-scene">
