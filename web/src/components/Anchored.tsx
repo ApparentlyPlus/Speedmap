@@ -46,6 +46,9 @@ const TILT = 42;
 /** As close as the camera will get to a short street. */
 const CLOSEST = 17.4;
 
+/** How long the lean takes, once the street is framed. */
+const LEAN_MS = 1500;
+
 /** Degrees a second. A turn takes two minutes, which is slower than anyone will watch. */
 const SPIN = 3;
 
@@ -62,6 +65,8 @@ const SPIN = 3;
  */
 function showcase(drawn: Maplibre, stopped: () => boolean): void {
   if (stopped()) return;
+  // The lean goes on after the framing, around the centre the fit just chose.
+  drawn.easeTo({ pitch: TILT, duration: LEAN_MS });
 
   let last = 0;
   const turn = (now: number): void => {
@@ -74,7 +79,9 @@ function showcase(drawn: Maplibre, stopped: () => boolean): void {
     last = now;
     requestAnimationFrame(turn);
   };
-  requestAnimationFrame(turn);
+  window.setTimeout(() => {
+    if (!stopped()) requestAnimationFrame(turn);
+  }, LEAN_MS);
 }
 
 /**
@@ -247,14 +254,14 @@ export function Anchored({
         // However far out that turns out to be. One name can cover thirty kilometres of
         // rural road, and thirty kilometres of rural road is the answer to what was asked.
         /*
-         * Leaned first, then fitted.
+         * Fitted flat, then leaned.
          *
-         * Fitting flat and leaning afterwards moves the street: a tilted camera keeps the
-         * same centre on the ground but puts it lower on the screen, so the thing that was
-         * dead centre ends up in the bottom third. Fitted under the lean, the framing is
-         * the framing that gets looked at.
+         * Fitting under the lean is the obvious way round and it does not work: working
+         * out a camera for a box is done as though the map were flat, so asking for it
+         * while tilted gives a zoom short of the street and a centre beside it. A four
+         * hundred metre road came out framed like a neighbourhood.
          */
-        drawn.jumpTo({ pitch: TILT, bearing: 0 });
+        drawn.jumpTo({ pitch: 0, bearing: 0 });
         drawn.fitBounds(extent, {
           padding: clear(drawn),
           maxZoom: CLOSEST,
