@@ -46,6 +46,9 @@ const TILT = 42;
 /** As close as the camera will get to a short street. */
 const CLOSEST = 17.4;
 
+/** Just off solid, so a road behind a wall is a hint rather than a secret. */
+const SHEER = 0.95;
+
 /** How long the lean takes, once the street is framed. */
 const LEAN_MS = 1500;
 
@@ -201,6 +204,21 @@ export function Anchored({
        * again above them, in the colour the ramp gives it, so it is the only thing on the
        * map wearing a speed.
        */
+      /*
+       * Take the buildings just off solid.
+       *
+       * Every building, not the ones beside the street: opacity on an extrusion layer is
+       * one number for the whole layer, and the shader throws away the alpha of a
+       * per-building colour, so there is no way to thin only the near ones. The zoom fade
+       * they arrive on is kept and scaled, rather than replaced by a flat number that
+       * would pop them into existence at fourteen.
+       */
+      if (drawn.getLayer("building") !== undefined) {
+        drawn.setPaintProperty("building", "fill-extrusion-opacity", [
+          "interpolate", ["linear"], ["zoom"], 14, 0, 15.2, SHEER,
+        ]);
+      }
+
       if (drawn.getLayer("streets-halo") !== undefined) {
         drawn.setLayoutProperty("streets-halo", "visibility", "none");
       }
