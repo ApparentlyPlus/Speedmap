@@ -22,6 +22,7 @@ import {
   PASS_MS,
   TRACE,
   focusOf,
+  turnable,
   momentOf,
   pathOf,
   traceLayers,
@@ -280,7 +281,7 @@ export function Anchored({
          * hundred metre road came out framed like a neighbourhood.
          */
         drawn.jumpTo({ pitch: 0, bearing: 0 });
-        drawn.fitBounds(extent, {
+        drawn.fitBounds(turnable(extent), {
           padding: clear(drawn),
           maxZoom: CLOSEST,
           duration: 900,
