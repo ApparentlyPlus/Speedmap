@@ -233,6 +233,32 @@ export function focusOf(shape: Geometry): [[number, number], [number, number]] |
 }
 
 /**
+ * A box that holds the street whichever way the camera is pointing.
+ *
+ * Fitting a street fits it as it lies, and the result view turns: a road framed corner to
+ * corner at one bearing hangs out of both ends of the frame a quarter turn later, which is
+ * what looks like bad centring. Squaring the box off first costs a little zoom on a street
+ * that is much longer than it is wide, and buys a street that stays in shot for the whole
+ * revolution.
+ *
+ * Squared on the ground rather than in degrees, since a degree of longitude in Greece is
+ * about four fifths of a degree of latitude and a square in degrees is an oblong on a map.
+ */
+export function turnable(
+  extent: [[number, number], [number, number]],
+): [[number, number], [number, number]] {
+  const [[west, south], [east, north]] = extent;
+  const midLon = (west + east) / 2;
+  const midLat = (south + north) / 2;
+  const lift = Math.cos(midLat * (Math.PI / 180)) || 1;
+  const half = Math.max((east - west) * lift, north - south) / 2;
+  return [
+    [midLon - half / lift, midLat - half],
+    [midLon + half / lift, midLat + half],
+  ];
+}
+
+/**
  * The box a street occupies.
  *
  * Read off the shape rather than asked for separately: the camera has to frame the same

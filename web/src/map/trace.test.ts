@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extentOf, focusOf, momentOf, pathOf, sliceOf } from "./trace";
+import { extentOf, focusOf, momentOf, pathOf, sliceOf, turnable } from "./trace";
 
 /** A street drawn in two pieces with a gap between them, which is the normal case. */
 const BROKEN = pathOf({
@@ -153,5 +153,35 @@ describe("the box worth pointing a camera at", () => {
       [23.0, 37.9],
       [23.1, 38.0],
     ]);
+  });
+});
+
+describe("a box that holds the street whichever way the camera points", () => {
+  it("squares off a street that is longer than it is wide", () => {
+    // A road framed corner to corner at one bearing hangs out of the frame a quarter turn
+    // later, which is what reads as bad centring in a view that turns.
+    const [[west, south], [east, north]] = turnable([
+      [23.0, 37.9],
+      [23.4, 37.92],
+    ]);
+    const lift = Math.cos(37.91 * (Math.PI / 180));
+    expect((east - west) * lift).toBeCloseTo(north - south, 6);
+  });
+
+  it("keeps the middle where it was", () => {
+    const [[west, south], [east, north]] = turnable([
+      [23.0, 37.9],
+      [23.4, 37.92],
+    ]);
+    expect((west + east) / 2).toBeCloseTo(23.2, 9);
+    expect((south + north) / 2).toBeCloseTo(37.91, 9);
+  });
+
+  it("leaves a square street alone", () => {
+    const square = turnable([
+      [23.0, 37.9],
+      [23.0 + 0.1 / Math.cos(37.95 * (Math.PI / 180)), 38.0],
+    ]);
+    expect(square[1][1] - square[0][1]).toBeCloseTo(0.1, 6);
   });
 });
