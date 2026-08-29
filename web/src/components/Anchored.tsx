@@ -91,22 +91,26 @@ function showcase(drawn: Maplibre, stopped: () => boolean): void {
 /**
  * The part of the map nothing is sitting on.
  *
- * The result card is over the map, not beside it, so fitting a street to the whole viewport
- * can put half of it behind the card. The card is down one side on a wide screen and along
- * the bottom on a narrow one, so which edge to keep clear is measured rather than assumed.
+ * On a wide screen the card is down one side and the middle of the map is still the middle
+ * of the window, which is where the eye goes and where the street belongs — so the fit is
+ * centred on the window and the card is left to overlap whatever it overlaps. Centring it
+ * in the gap beside the card instead is defensible and looks wrong: the street comes out
+ * sitting off to one side of the screen it is on.
+ *
+ * On a narrow screen the card is across the bottom, and a street fitted under it is a
+ * street nobody can see, so that edge is kept clear.
  */
 function clear(drawn: Maplibre): { top: number; right: number; bottom: number; left: number } {
   const edge = 36;
   const pad = { top: edge, right: edge, bottom: edge, left: edge };
   const box = drawn.getContainer().getBoundingClientRect();
   const card = document.querySelector(".place")?.getBoundingClientRect();
-  if (card !== undefined) {
-    if (card.width < box.width * 0.75) pad.left = card.right - box.left + 16;
-    else pad.bottom = box.bottom - card.top + 16;
+
+  // Only where the card covers the map rather than sits beside it. On a narrow screen it
+  // lies across the bottom, and a street fitted under it is a street nobody can see.
+  if (card !== undefined && card.width >= box.width * 0.75) {
+    pad.bottom = Math.min(box.bottom - card.top + 16, box.height * 0.6);
   }
-  // MapLibre refuses a fit whose padding leaves no room, and a refused fit is no frame.
-  pad.left = Math.min(pad.left, box.width * 0.6);
-  pad.bottom = Math.min(pad.bottom, box.height * 0.6);
   return pad;
 }
 
