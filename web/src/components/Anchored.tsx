@@ -48,7 +48,7 @@ const TILT = 42;
 const CLOSEST = 17.4;
 
 /** Just off solid, so a road behind a wall is a hint rather than a secret. */
-const SHEER = 0.95;
+const SHEER = 0.9;
 
 /** How long the lean takes, once the street is framed. */
 const LEAN_MS = 1500;
