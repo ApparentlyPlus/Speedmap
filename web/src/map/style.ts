@@ -73,7 +73,7 @@ const C = {
   park: "#1a2120",
   // Under the land, and as close to nothing as it can be while still being cool rather than
   // grey. What is wanted of the sea is that it goes away.
-  water: "#080a0d",
+  water: "#18191c",
   building: "#181e24",
   occlusion: "#0a0d10",
   // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
