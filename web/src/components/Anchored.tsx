@@ -50,8 +50,17 @@ const CLOSEST = 17.4;
 /** Just off solid, so a road behind a wall is a hint rather than a secret. */
 const SHEER = 0.9;
 
-/** How long the lean takes, once the street is framed. */
-const LEAN_MS = 1500;
+/** How long the one move to the street takes. */
+const ARRIVE_MS = 1600;
+
+/**
+ * How much zoom the lean is given back.
+ *
+ * A box is fitted as though the map were flat. Tilt the camera afterwards and the far half
+ * of the box is thrown up the screen and out of the top of it — so the street leaves the
+ * frame for part of every turn, which is the rotation looking wrong.
+ */
+const PITCH_ROOM = 0.6;
 
 /** Degrees a second. A turn takes two minutes, which is slower than anyone will watch. */
 const SPIN = 3;
@@ -69,8 +78,6 @@ const SPIN = 3;
  */
 function showcase(drawn: Maplibre, stopped: () => boolean): void {
   if (stopped()) return;
-  // The lean goes on after the framing, around the centre the fit just chose.
-  drawn.easeTo({ pitch: TILT, duration: LEAN_MS });
 
   let last = 0;
   const turn = (now: number): void => {
@@ -83,9 +90,7 @@ function showcase(drawn: Maplibre, stopped: () => boolean): void {
     last = now;
     requestAnimationFrame(turn);
   };
-  window.setTimeout(() => {
-    if (!stopped()) requestAnimationFrame(turn);
-  }, LEAN_MS);
+  requestAnimationFrame(turn);
 }
 
 /**
@@ -129,6 +134,10 @@ export function Anchored({
 }): React.ReactElement {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<Maplibre | null>(null);
+  // Read once, when the map is built. After that the point arrives as a move.
+  const here = useRef<[number, number] | null>(
+    lon !== null && lat !== null ? [lon, lat] : null,
+  );
 
   useEffect(() => {
     if (holder.current === null || map.current !== null) return;
@@ -140,10 +149,13 @@ export function Anchored({
     const drawn = new Maplibre({
       container: holder.current,
       style: style(),
-      // An address that failed to geolocate gets the country rather than a wrong building.
-      center: lon !== null && lat !== null ? [lon, lat] : [24.0, 38.4],
-      zoom: lon !== null && lat !== null ? ZOOM : 6,
-      pitch: lon !== null && lat !== null ? PITCH : 0,
+      // Where it opens. It is moved from here rather than rebuilt at each new answer: the
+      // effect used to depend on the point, so learning where the address was tore the map
+      // down and built another — a new context, the style read again, every tile fetched
+      // again — which is the jump before the camera ever starts moving.
+      center: here.current ?? [24.0, 38.4],
+      zoom: here.current === null ? 6 : ZOOM,
+      pitch: here.current === null ? 0 : PITCH,
       bearing: BEARING,
       interactive: false,
       attributionControl: false,
@@ -167,6 +179,15 @@ export function Anchored({
       drawn.remove();
       map.current = null;
     };
+  }, []);
+
+  // The address, when it arrives after the map did: a move rather than a rebuild.
+  useEffect(() => {
+    const drawn = map.current;
+    if (drawn === null || lon === null || lat === null) return;
+    if (here.current !== null) return;
+    here.current = [lon, lat];
+    drawn.easeTo({ center: [lon, lat], zoom: ZOOM, pitch: PITCH, duration: 1200 });
   }, [lon, lat]);
 
   /*
@@ -277,20 +298,30 @@ export function Anchored({
         // However far out that turns out to be. One name can cover thirty kilometres of
         // rural road, and thirty kilometres of rural road is the answer to what was asked.
         /*
-         * Fitted flat, then leaned.
+         * One move, not four.
          *
-         * Fitting under the lean is the obvious way round and it does not work: working
-         * out a camera for a box is done as though the map were flat, so asking for it
-         * while tilted gives a zoom short of the street and a centre beside it. A four
-         * hundred metre road came out framed like a neighbourhood.
+         * The camera for the box is worked out without touching the live one — which is
+         * the only way to have it, since a camera for a box is computed as though the map
+         * were flat and asking for one while tilted gives a zoom short of the street. Then
+         * a single ease carries the centre, the zoom and the lean together. It used to cut
+         * to flat, fly, lean, wait, and start turning: five stages, four of them visible.
          */
-        drawn.jumpTo({ pitch: 0, bearing: 0 });
-        drawn.fitBounds(turnable(extent), {
+        const camera = drawn.cameraForBounds(turnable(extent), {
           padding: clear(drawn),
           maxZoom: CLOSEST,
-          duration: 900,
         });
-        drawn.once("moveend", () => showcase(drawn, () => stopped));
+        if (camera !== undefined && camera.center !== undefined) {
+          drawn.easeTo({
+            center: camera.center,
+            // Room for the lean. The fit is worked out flat, and a tilted camera throws
+            // the far half of what it is looking at up the screen and off the top of it.
+            zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
+            pitch: TILT,
+            bearing: 0,
+            duration: ARRIVE_MS,
+          });
+          drawn.once("moveend", () => showcase(drawn, () => stopped));
+        }
       }
 
       const began = performance.now();
