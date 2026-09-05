@@ -81,7 +81,7 @@ const C = {
   // them blue is a boundary you cannot miss. Dark enough that it is still the thing the
   // land sits on — the ramp owns the bright blues, and a sea anywhere near 300 Mbps would
   // be a speed as far as the eye is concerned.
-  water: "#01112d",
+  water: "#0d1117",
   building: "#28313f",
   occlusion: "#131922",
   // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
