@@ -60,20 +60,21 @@ export const FLOOR_ZOOM = 5.6;
  * and the ambient occlusion has to be darker than the building or the shadow glows.
  */
 const C = {
-  // The land, lifted off the sea.
+  // The land, and the whole stack that stands on it.
   //
-  // Both are dark enough that contrast between them compresses: at the weights they were,
-  // the land and a navy sea came out the same brightness — a ratio of 1.06 — and the coast
-  // could be read by hue alone, which on a poor screen is not read at all. Darkening the
-  // sea further buys almost nothing down there, so the land comes up instead and
-  // everything standing on it comes up with it.
-  ground: "#1d242e",
+  // These move together or not at all: relief, greenery, buildings and the three road
+  // weights are all set against the land, and dropping the land on its own leaves a city
+  // sitting brighter than the country it is in.
+  //
+  // Two steps below where the navy sea put it. Dim enough that the coverage is the only lit
+  // thing on the map, and the land still reads as a surface rather than as more sea.
+  ground: "#141a22",
   // Relief. A shade up from the land and faintly cool, so a hillside reads as a rise in the
   // ground rather than as a different kind of place.
-  landuse: "#232a35",
+  landuse: "#1a2028",
   // Greenery, desaturated almost to grey. Green on a map about cables is a colour spent on
   // the one thing the map is not about, and it fights the cool end of the ramp.
-  park: "#2e3339",
+  park: "#22272c",
   // Under the land, and blue rather than grey.
   //
   // The coast reads by hue as much as by weight: a neutral sea a shade off a neutral land
@@ -82,14 +83,14 @@ const C = {
   // land sits on — the ramp owns the bright blues, and a sea anywhere near 300 Mbps would
   // be a speed as far as the eye is concerned.
   water: "#0d1117",
-  building: "#28313f",
-  occlusion: "#131922",
+  building: "#1e2530",
+  occlusion: "#0d121a",
   // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
   // lighter than the land by more than they used to be — and still well under the dimmest
   // band of the ramp, which has to stay the brightest thing on the map.
-  road: "#3d4855",
-  roadMinor: "#2a323d",
-  roadMajor: "#505f70",
+  road: "#303945",
+  roadMinor: "#1f252e",
+  roadMajor: "#414d5b",
   // Names have to hold against three backgrounds: the land, the sea, and a lit street
   // running under them. Near white with a dark halo wide enough to cut the coverage, since
   // the one place a label is least readable is exactly where the map is most worth reading.
