@@ -157,10 +157,12 @@ export function traceLayers(): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-blur": 6,
+        "line-blur": 3,
         "line-opacity": 0,
+        // Close around the line rather than a halo over the neighbourhood. Its job is to
+        // stop the mark looking cut out, not to be the mark.
         "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
+          "interpolate", ["exponential", 1.6], ["zoom"], 10, 3, 13, 5, 16, 11, 20, 34,
         ],
       },
     },
@@ -171,22 +173,88 @@ export function traceLayers(): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-blur": 0.6,
+        // Hard edged. The blur was making a narrow mark read as a wide soft one, which is
+        // the difference between a highlighter and a smear.
+        "line-blur": 0,
         "line-opacity": 0,
+        // Narrower than the street it is marking, at every zoom — about three fifths of it.
+        // Wider, and it stops being a highlight on a street and becomes a different street
+        // drawn in white over the one being asked about.
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
-          6, 1.6, 12, 3.4, 14, 5, 15, 7, 16, 9.5, 20, 32,
+          6, 0.3, 12, 0.8, 14, 1.6, 15, 2.7, 16, 4.2, 20, 15,
         ],
       },
     },
   ];
 }
 
-/** How bright each layer is. Constant: the light never dims, it only moves. */
+/**
+ * How bright each layer is. Constant: the light never dims, it only moves.
+ *
+ * Low. At full white over a lit street the mark stopped being a highlight and became a
+ * solid object travelling along the road, and the coverage colour underneath — the thing
+ * being pointed at — disappeared under it.
+ */
 export function traceOpacity(): [string, number][] {
   return [
-    [GLOW, 0.5],
-    [TRACE, 0.95],
+    [GLOW, 0.14],
+    [TRACE, 0.62],
+  ];
+}
+
+/**
+ * The box worth pointing a camera at.
+ *
+ * A street here is every road of that name in the municipality, because that is what the
+ * register files and what a reader means when they type it. Usually that is one road. Often
+ * it is not: Μακεδονίας in Κατερίνη is nine unconnected stretches spread over thirteen
+ * kilometres, and framing all nine frames the town.
+ *
+ * So the camera goes to the longest of them, which is the road anyone naming it means, and
+ * the light still runs the length of every one — the rest are found by watching it go, not
+ * by being fitted into the same shot.
+ */
+export function focusOf(shape: Geometry): [[number, number], [number, number]] | null {
+  const path = pathOf(shape);
+  if (path === null) return null;
+
+  let best: readonly Position[] | null = null;
+  let longest = -1;
+  path.parts.forEach((part, index) => {
+    const span = (path.starts[index + 1] ?? 1) - (path.starts[index] ?? 0);
+    if (span > longest) {
+      longest = span;
+      best = part;
+    }
+  });
+  if (best === null) return null;
+  return extentOf({ type: "LineString", coordinates: best as Position[] });
+}
+
+/**
+ * A box that holds the street whichever way the camera is pointing.
+ *
+ * Fitting a street fits it as it lies, and the result view turns: a road framed corner to
+ * corner at one bearing hangs out of both ends of the frame a quarter turn later, which is
+ * what looks like bad centring. Squaring the box off first costs a little zoom on a street
+ * that is much longer than it is wide, and buys a street that stays in shot for the whole
+ * revolution.
+ *
+ * Squared on the ground rather than in degrees, since a degree of longitude in Greece is
+ * about four fifths of a degree of latitude and a square in degrees is an oblong on a map.
+ */
+export function turnable(
+  extent: [[number, number], [number, number]],
+): [[number, number], [number, number]] {
+  const [[west, south], [east, north]] = extent;
+  const midLon = (west + east) / 2;
+  const midLat = (south + north) / 2;
+  const lift = Math.cos(midLat * (Math.PI / 180)) || 1;
+  const half = Math.max((east - west) * lift, north - south) / 2;
+  return [
+    [midLon - half / lift, midLat - half],
+    [midLon + half / lift, midLat + half],
   ];
 }
 

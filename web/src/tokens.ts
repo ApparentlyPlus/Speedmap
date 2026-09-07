@@ -59,15 +59,6 @@ export const RAMP: readonly Band[] = [
  */
 export const UNFILED = "#9fb3c8";
 
-/**
- * The ground of the map, shared with the opening.
- *
- * The sheet the country arrives from under has to be the same colour as the ground it is
- * lying on, or the opening is a grey pane lifting off a map rather than the map itself
- * coming into being.
- */
-export const VOID = "#141414";
-
 /** Reaches nothing here. Dark enough to read as absence rather than as a slow street. */
 export const UNSERVED = "#2a3038";
 

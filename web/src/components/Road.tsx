@@ -58,6 +58,7 @@ export function Road({
         lon={middle?.[0] ?? null}
         lat={middle?.[1] ?? null}
         shape={(found?.shape as unknown as Geometry | undefined) ?? null}
+        streetId={found?.id ?? null}
       />
 
       <section className="place place-road">
