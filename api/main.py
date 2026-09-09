@@ -437,6 +437,20 @@ cross join lateral (select st_envelope(s.geom::geometry) as box) extent
 where s.id = %s
 """
 
+# How large a filed area may be, in square metres, and still say anything about one street.
+#
+# Half the areas in the register are under four hectares — a cabinet and the streets around
+# it, which is a claim about those streets. A few hundred are tens of square kilometres and
+# one is 1,522: those are exchange regions, and a street inside one has been told only that
+# the operator serves somewhere in the district. Intersecting them street by street turns
+# "Nova is in this part of Greece" into "Nova reaches this road", which is not what was
+# filed and is how an operator came to appear on almost every street in a region.
+#
+# Five square kilometres keeps 97% of the areas and drops the ones that are not about
+# streets. It is a blunt cut, and the register gives nothing better to cut on: every row of
+# it, cabinet and region alike, is filed as source `register`, assertion `declared`.
+CABINET_M2 = 5_000_000
+
 # A street has no address of its own, so its offers are the cabinets it runs through.
 # distinct on, because one road crosses several cabinets of the same operator.
 # The alias is ac in both queries so the shared column list resolves in each.
@@ -448,6 +462,7 @@ join provider p on p.id = ac.provider_id
 left join provider ip on ip.id = ac.infra_provider_id
 left join speed_band sb on sb.id = ac.speed_band_id
 where s.id = %s
+  and st_area(ac.geom_2d::geography) <= {CABINET_M2}
 order by p.code, ac.technology, sb.min_mbps desc nulls last
 """
 
