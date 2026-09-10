@@ -454,16 +454,45 @@ CABINET_M2 = 5_000_000
 # A street has no address of its own, so its offers are the cabinets it runs through.
 # distinct on, because one road crosses several cabinets of the same operator.
 # The alias is ac in both queries so the shared column list resolves in each.
+# Both ways an operator can reach a street, because there are two and only one was asked.
+#
+# The areas are the cabinets it runs through. The doors are the filings at the addresses on
+# it, and an operator that files doors and no areas — which is every builder, INALAN among
+# them with 112,739 addresses and not one polygon — could not appear here at all. That is
+# why a street drew as a gigabit while its own panel stopped at 100-300: the colour comes
+# from the doors and the panel was reading only the cabinets.
+#
+# One row per operator per technology, best band first, whichever side it came from.
 STREET_OFFERS = f"""
-select distinct on (p.code, ac.technology) {OFFER_COLUMNS.format(matched=AREA_MATCH)}
-from street s
-join coverage_area ac on st_intersects(ac.geom_2d, s.geom::geometry)
-join provider p on p.id = ac.provider_id
-left join provider ip on ip.id = ac.infra_provider_id
-left join speed_band sb on sb.id = ac.speed_band_id
-where s.id = %s
-  and st_area(ac.geom_2d::geography) <= {CABINET_M2}
-order by p.code, ac.technology, sb.min_mbps desc nulls last
+select distinct on (code, technology) * from (
+    select {OFFER_COLUMNS.format(matched=AREA_MATCH)}
+    from street s
+    join coverage_area ac on st_intersects(ac.geom_2d, s.geom::geometry)
+    join provider p on p.id = ac.provider_id
+    left join provider ip on ip.id = ac.infra_provider_id
+    left join speed_band sb on sb.id = ac.speed_band_id
+    where s.id = %s
+      and st_area(ac.geom_2d::geography) <= {CABINET_M2}
+
+    union all
+
+    select {OFFER_COLUMNS.format(matched="'point'")}
+    from street s
+    join address a
+      on a.municipality_id = s.municipality_id and a.street_fold = s.name_fold
+    join address_coverage ac on ac.address_id = a.id
+    join provider p on p.id = ac.provider_id
+    left join provider ip on ip.id = ac.infra_provider_id
+    left join speed_band sb on sb.id = ac.speed_band_id
+    -- Fixed lines only, the same rule the street's own figure follows: an operator whose
+    -- 5G reaches everywhere is not an operator that reaches this street, and listing it
+    -- here would put the same gigabit on every road in the country.
+    where s.id = %s and ac.family <> 'wireless'
+) reached (
+    code, display_name, technology, family, matched, avail_date,
+    infra_code, band_id, min_mbps, max_mbps, label
+)
+order by code, technology, min_mbps desc nulls last
 """
 
 
@@ -567,7 +596,7 @@ def street(street_id: int) -> StreetDetail:
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         bbox=(row[5], row[6], row[7], row[8]),
         shape=json.loads(row[9]),
-        offers=offers(rows(STREET_OFFERS, (street_id,))),
+        offers=offers(rows(STREET_OFFERS, (street_id, street_id))),
     )
 
 
