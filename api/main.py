@@ -449,6 +449,8 @@ where s.id = %s
 # Five square kilometres keeps 97% of the areas and drops the ones that are not about
 # streets. It is a blunt cut, and the register gives nothing better to cut on: every row of
 # it, cabinet and region alike, is filed as source `register`, assertion `declared`.
+# Shared by hand with normalise/steps/110_street_speed.sql, which paints the map from the
+# same areas: if the two disagree, the map paints what the panel will not name.
 CABINET_M2 = 5_000_000
 
 # A street has no address of its own, so its offers are the cabinets it runs through.
