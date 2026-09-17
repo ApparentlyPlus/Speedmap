@@ -77,14 +77,17 @@ export function Offer({
           </li>
           {best && <li className="tag tag-best">{text.bestHere}</li>}
         </ul>
-        {option.cost === null ? (
-          <span className="offer-unpriced">{text.notPriced}</span>
-        ) : (
-          <span className="offer-cost">
-            <span className="offer-price">{option.cost.total}€</span>
-            <span className="offer-per">{text.perMonth}</span>
-          </span>
-        )}
+        {/*
+          * "from" when a one-off was never published. The monthly rate is known and is the
+          * larger number, so the offer is priced and placed like any other; what is not
+          * known is a setup fee, and saying the price is unknown over that told the reader
+          * less than the monthly rate alone would have.
+          */}
+        <span className="offer-cost">
+          {!option.cost.complete && <span className="offer-from">{text.priceFrom}</span>}
+          <span className="offer-price">{option.cost.total}€</span>
+          <span className="offer-per">{text.perMonth}</span>
+        </span>
       </footer>
     </li>
   );

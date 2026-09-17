@@ -67,12 +67,33 @@ layers:
         description: how many of them fibre reaches
       fibre_share:
         type: number
-        description: nought to one; what the map is painted by
+        description: nought to one; what the Filed view is painted by
       best_mbps:
         type: number
         nullable: true
         unit: mbps
-        description: held to what the technology can carry, as the ranker holds it
+        description: the band's assured speed, held to what the technology can carry
+      # One figure per view, because the choropleth is drawn under whichever view is on and
+      # a filed claim beneath a measured map is the one mixture this site does not make.
+      # Weighted by tests, not averaged over cells: one 900 Mbps cell from two tests must
+      # not outvote forty 30 Mbps cells from five hundred each.
+      measured_mbps:
+        type: number
+        nullable: true
+        unit: mbps
+        description: fixed-line speed tests here; null is untested, which is most of Greece
+      measured_tests:
+        type: integer
+        nullable: true
+        description: how many tests that rests on, drawn as opacity rather than as deletion
+      mobile_mbps:
+        type: number
+        nullable: true
+        unit: mbps
+        description: the same for mobile, kept apart because the two measure different things
+      mobile_tests:
+        type: integer
+        nullable: true
 
   cells:
     description: >

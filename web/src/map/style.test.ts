@@ -14,7 +14,7 @@ import {
 } from "@maplibre/maplibre-gl-style-spec";
 import { describe, expect, it } from "vitest";
 
-import { RAMP, UNFILED } from "../tokens";
+import { RAMP, UNSERVED } from "../tokens";
 import { BASE, BUILDINGS, SOURCE, only, streetLayers, style } from "./style";
 import { STREETS_BY_PROVIDER } from "./tiles";
 
@@ -153,7 +153,11 @@ describe("the ramp", () => {
   it("rises in ascending order", () => {
     // The ramp is written fastest first and `interpolate` wants ascending stops: the one
     // place the two orders meet, and a good place to get it wrong.
-    const [, , , , , anchors] = paint() as unknown[];
+    //
+    // Index three, not five: the ramp used to sit behind two guards — not reached, and
+    // reaches-but-filed-no-speed. The second cannot happen now that the figure starts from
+    // the technology, so the case has one arm fewer and the interpolate moved up.
+    const [, , , anchors] = paint() as unknown[];
     const stops = (anchors as unknown[])
       .slice(3)
       .filter((_, index) => index % 2 === 0) as number[];
@@ -161,21 +165,39 @@ describe("the ramp", () => {
   });
 
   it("carries every band the rest of the site uses", () => {
-    // Nested now: the ramp sits inside a case that takes the two states outside it first.
     const written = JSON.stringify(paint());
     for (const band of RAMP) {
       expect(written).toContain(band.colour);
     }
   });
 
-  it("paints an unfiled speed as unfiled and not as slow", () => {
-    // Run through the ramp it interpolated down to near-black and made eight operators
-    // invisible, and it is the commonest thing the register says.
+  it("keeps the three fast bands apart by more than a shade", () => {
+    // The fast end is picked for separation rather than ranked by hue, because the bands
+    // people actually choose between are all up there. When the top went from violet to
+    // blue it landed next to 300's cyan, which is two bands nobody can tell apart at the
+    // width a street is drawn — so the cool end was rebuilt around it.
+    const fast = RAMP.filter((band) => band.floor >= 300).map((band) => band.colour);
+    expect(new Set(fast).size).toBe(fast.length);
+    for (const colour of fast) {
+      const others = fast.filter((one) => one !== colour);
+      for (const other of others) {
+        expect(channels(colour)).not.toEqual(channels(other));
+      }
+    }
+  });
+
+  it("paints a street nothing reaches as absence, not as the slowest speed", () => {
+    // 5,403 streets have no line at all. No line is not a bad line, and drawing the two
+    // the same colour would put them in a class the register never put them in.
     const written = JSON.stringify(paint());
-    expect(written).toContain(UNFILED);
-    expect(UNFILED).not.toEqual(RAMP[RAMP.length - 1]?.colour);
+    expect(written).toContain(UNSERVED);
+    expect(UNSERVED).not.toEqual(RAMP[RAMP.length - 1]?.colour);
   });
 });
+
+function channels(hex: string): [number, number, number] {
+  return [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16)) as [number, number, number];
+}
 
 describe("what a fresh style draws", () => {
   it("leaves the measured squares off until something asks for them", () => {

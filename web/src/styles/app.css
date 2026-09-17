@@ -873,10 +873,11 @@ body {
   letter-spacing: 0.06em;
 }
 
-.offer-unpriced {
-  flex: none;
+.offer-from {
+  margin-right: 3px;
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 /* The answer's outline while the answer is on its way. */
@@ -1526,4 +1527,68 @@ body {
 .road-infra,
 .atlas-offer-infra {
   color: var(--ink-faint);
+}
+
+
+
+/*
+ * The prefecture overlay, which is a switch and not a choice.
+ *
+ * Everything else in this panel is one of a set — three views, one operator out of seven —
+ * and pills say so by sitting in a row looking like alternatives. This is an overlay that
+ * is either on or off, so it wears the control that means that. Accent rather than brand:
+ * it belongs to no operator.
+ */
+.atlas-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color var(--settle);
+}
+
+.atlas-toggle:hover {
+  color: var(--ink-dim);
+}
+
+.atlas-toggle input {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  border: 1px solid var(--rule-lit);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    border-color var(--settle),
+    background var(--settle);
+}
+
+.atlas-toggle input:checked {
+  border-color: color-mix(in srgb, #fff 55%, transparent);
+  background: color-mix(in srgb, #fff 16%, transparent);
+}
+
+/* The tick, drawn rather than shipped: one glyph is not worth an icon font, and a unicode
+ * check renders differently on every platform this has to look right on. */
+.atlas-toggle input:checked::after {
+  content: "";
+  display: block;
+  width: 3px;
+  height: 6px;
+  margin: 1px 0 0 4px;
+  border: solid var(--ink);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.atlas-toggle input:focus-visible {
+  outline: 1px solid var(--rule-lit);
+  outline-offset: 2px;
 }

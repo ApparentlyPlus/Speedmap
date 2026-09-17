@@ -5,14 +5,14 @@ from __future__ import annotations
 from decimal import Decimal
 
 from ranking.cost import Price, blended
-from ranking.rank import BEST, FASTEST, SHORT, UNPRICED, Option, Ranked, rank
+from ranking.rank import BEST, FASTEST, FROM, SHORT, Option, Ranked, rank
 
 
 def option(
     provider: str, plan: str, family: str, mbps: object, monthly: object,
     *, technology: str = "FTTH", hardware: object = 0, setup: object = 0,
 ) -> Option:
-    cost = None if monthly is None else blended(Price(
+    cost = blended(Price(
         monthly_eur=Decimal(str(monthly)),
         setup_eur=None if setup is None else Decimal(str(setup)),
         hardware_eur=None if hardware is None else Decimal(str(hardware)),
@@ -107,15 +107,29 @@ def test_an_unknown_speed_is_never_fast_enough() -> None:
     assert not any(r.enough for r in found)
 
 
-def test_an_unpriced_offer_is_shown_but_not_placed() -> None:
-    """An offer with an unknown cost is not free and not expensive, so it cannot be ranked."""
+def test_a_missing_setup_fee_does_not_cost_an_offer_its_place() -> None:
+    """The monthly rate is known, so the offer is ranked on it and marked as a floor.
+
+    It used to be dropped below everything priced and labelled "the cost is not known",
+    which is three HCN plans — 16, 23 and 29 euro a month, all published — sent to the
+    bottom of the page over a setup fee worth about 1.25 a month once it is spread.
+    """
     found = rank([
         option("HCN", "sonic", "fibre", 1000, "23", setup=None),
         option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL"),
     ])
-    assert order(found) == ["fibre 100", "sonic"]
-    assert found[-1].why == UNPRICED
-    assert found[-1].enough is True
+    # Fibre beats vectoring on steadiness, and both clear the bar, so it leads on merit.
+    assert order(found) == ["sonic", "fibre 100"]
+    assert found[0].why == FROM
+    assert found[0].enough is True
+    assert found[0].option.cost.complete is False
+    assert found[0].option.cost.total == Decimal("23")
+
+
+def test_a_fully_published_price_is_not_marked_as_a_floor() -> None:
+    found = rank([option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL")])
+    assert found[0].option.cost.complete is True
+    assert found[0].why != FROM
 
 
 def test_nothing_at_all_ranks_nothing() -> None:

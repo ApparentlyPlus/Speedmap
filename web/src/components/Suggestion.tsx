@@ -44,8 +44,8 @@ export function Suggestion({
         <span
           className="suggestion-dot"
           style={{ background: colourFor(best), color: colourFor(best) }}
-          title={band === null ? text.unfiled : `${best} Mbps`}
-          aria-label={band === null ? text.unfiled : `${best} Mbps`}
+          title={band === null ? text.unreached : `${best} Mbps`}
+          aria-label={band === null ? text.unreached : `${best} Mbps`}
         />
       </button>
     </li>

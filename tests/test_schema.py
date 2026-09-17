@@ -91,6 +91,9 @@ def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) 
     ).fetchall()
     assert referenced == [
         ("infra_provider_id", "provider"),
+        # a4a_nordown, the normally available speed, on the same eight-band scale as
+        # a4a_maxdown. It is what the street figure is capped at; migration 0055.
+        ("normal_band_id", "speed_band"),
         ("provider_id", "provider"),
         ("source", "source"),
         ("speed_band_id", "speed_band"),

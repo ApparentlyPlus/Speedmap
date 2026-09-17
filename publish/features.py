@@ -37,6 +37,55 @@ from street s
 where s.geom is not null
 """
 
+# One feature per municipality, for the zooms where a street is a fraction of a pixel.
+#
+# The contract has declared this layer since the schema was written and nothing ever built
+# it: schema/tiles.yaml named it, publish/fields.py and web/src/map/tiles.ts were generated
+# from it, 130_municipality_coverage.sql computed municipality_coverage to feed it, and the
+# archive came out with two layers where three were promised. Below zoom 10 the map drew a
+# coastline and nothing inside it.
+#
+# Every municipality, not every one with a filed address. 80 of the 333 have none at all,
+# and left to an inner join they come out as holes in the country — which reads as a broken
+# layer rather than as a quiet one. They are drawn with a null figure and no share, which is
+# what the register actually says about them.
+#
+# Simplified, because these are administrative boundaries drawn to the metre and nobody
+# reading a choropleth at zoom 6 is looking at the coastline: about fifty metres, which is
+# under a pixel at the zooms this layer is for.
+REGION_SMOOTH = 0.0005
+
+REGIONS = """
+select json_build_object(
+    'type', 'Feature',
+    'geometry', st_asgeojson(
+        st_simplifypreservetopology(m.geom_2d, {smooth}), 6
+    )::json,
+    'properties', json_build_object(
+        'id', m.id,
+        'name', m.name,
+        'addresses', coalesce(mc.addresses, 0),
+        'fibre', coalesce(mc.fibre, 0),
+        -- Nought to one, and nought when nothing is filed rather than null: the ramp this
+        -- is painted by is a share, and a share of no addresses is not a speed nobody knows,
+        -- it is a municipality the register has not described.
+        'fibre_share', case
+            when coalesce(mc.addresses, 0) = 0 then 0
+            else round(mc.fibre::numeric / mc.addresses, 4)
+        end,
+        'best_mbps', mc.best_mbps,
+        'measured_mbps', round(mc.measured_mbps, 1),
+        'measured_tests', mc.measured_tests,
+        'mobile_mbps', round(mc.mobile_mbps, 1),
+        'mobile_tests', mc.mobile_tests
+    )
+)::text
+from municipality m
+left join municipality_coverage mc on mc.municipality_id = m.id
+where m.geom_2d is not null
+"""
+
+
 # Half a zoom 16 tile, in Web Mercator metres. Ookla publish the centroid; a square is what
 # was measured, and drawn as a point it becomes a dot whose size means nothing — a tested
 # street and a tested suburb look the same.
@@ -185,6 +234,10 @@ def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
     )
     staged.replace(out)
     return out.stat().st_size
+
+
+def regions(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
+    return write(conn, REGIONS.format(smooth=REGION_SMOOTH), out)
 
 
 def cells(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:

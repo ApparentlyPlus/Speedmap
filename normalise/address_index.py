@@ -105,6 +105,13 @@ join address a
 on conflict do nothing
 """
 
+# The distinct spellings, rebuilt with the index they are a projection of.
+#
+# Concurrently, so a rebuild never blanks the relation the search is reading — the same
+# reason 090_wholesale.sql refreshes that way. It is what the fuzzy tier matches against
+# instead of the 1.8M rows here; see migration 0048 and api/main.py's fuzzy_address_sql.
+REFRESH_KEYS = "refresh materialized view concurrently address_spelling"
+
 COPY_INTO = (
     "copy stage_raw (coverid, postcode, street, street_fold, street_no, locality, search_key, latin_key, "
     "premises, connected, vhcn, lon, lat) from stdin"
@@ -148,4 +155,5 @@ def build_address_index(conn: psycopg.Connection[TupleRow]) -> int:
     conn.execute(INDEX)
     written = conn.execute(MERGE).rowcount
     conn.execute(LINK)
+    conn.execute(REFRESH_KEYS)
     return written
