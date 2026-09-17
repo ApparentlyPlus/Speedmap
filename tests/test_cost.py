@@ -51,25 +51,37 @@ def test_a_cheaper_headline_can_cost_more() -> None:
     cheap = Price(monthly_eur=euros("25"), setup_eur=FREE, hardware_eur=euros("240"))
     dearer = Price(monthly_eur=euros("30"), setup_eur=FREE, hardware_eur=FREE)
     cheap_cost, dear_cost = blended(cheap), blended(dearer)
-    assert cheap_cost is not None and dear_cost is not None
     assert cheap_cost.total > dear_cost.total
 
 
 # unknown parts
 
 
-def test_an_unknown_setup_fee_makes_the_cost_unknown() -> None:
-    """A scraper that failed to find the fee has not established there isn't one."""
-    assert blended(Price(monthly_eur=euros("30"), hardware_eur=FREE)) is None
+def test_an_unknown_setup_fee_makes_the_total_a_floor_not_a_blank() -> None:
+    """A scraper that failed to find the fee has not established there isn't one.
+
+    That reasoning is why the unknown is reported rather than assumed away. What it does
+    not justify is discarding the monthly rate as well, which is the larger number and is
+    published: three HCN plans at 16, 23 and 29 euro were shown as having no price at all
+    because nobody had written down a connection charge worth 1.25 a month once spread.
+    """
+    cost = blended(Price(monthly_eur=euros("30"), hardware_eur=FREE))
+    assert cost.total == euros("30")
+    assert cost.complete is False
 
 
-def test_an_unknown_hardware_price_makes_the_cost_unknown() -> None:
-    assert blended(Price(monthly_eur=euros("30"), setup_eur=FREE)) is None
+def test_an_unknown_hardware_price_does_the_same() -> None:
+    cost = blended(Price(monthly_eur=euros("30"), setup_eur=FREE))
+    assert cost.total == euros("30")
+    assert cost.complete is False
 
 
 def test_a_zero_fee_is_not_an_unknown_fee() -> None:
-    """Zero is a fact the scraper found; null is a fact it did not."""
-    assert blended(Price(monthly_eur=euros("30"), setup_eur=FREE, hardware_eur=FREE)) is not None
+    """Zero is a fact the scraper found; null is a fact it did not, and they read alike in
+    the total now — so `complete` is the only thing keeping them apart."""
+    cost = blended(Price(monthly_eur=euros("30"), setup_eur=FREE, hardware_eur=FREE))
+    assert cost.total == euros("30")
+    assert cost.complete is True
 
 
 # promo edge cases
@@ -141,7 +153,6 @@ def test_a_promo_never_raises_the_cost(monthly: Decimal, promo: Decimal, months:
             promo_months=months, promo_monthly_eur=min(promo, monthly),
         )
     )
-    assert without is not None and with_promo is not None
     assert with_promo.total <= without.total
 
 

@@ -67,10 +67,17 @@ export type Region = {
   readonly addresses: number;
   /** how many of them fibre reaches */
   readonly fibre: number;
-  /** nought to one; what the map is painted by */
+  /** nought to one; what the Filed view is painted by */
   readonly fibre_share: number;
-  /** held to what the technology can carry, as the ranker holds it */
+  /** the band's assured speed, held to what the technology can carry */
   readonly best_mbps: Mbps | null;
+  /** fixed-line speed tests here; null is untested, which is most of Greece */
+  readonly measured_mbps: Mbps | null;
+  /** how many tests that rests on, drawn as opacity rather than as deletion */
+  readonly measured_tests: number | null;
+  /** the same for mobile, kept apart because the two measure different things */
+  readonly mobile_mbps: Mbps | null;
+  readonly mobile_tests: number | null;
 };
 
 export const REGIONS_LAYER = "regions" as const;
@@ -81,6 +88,10 @@ export const REGIONS_FIELDS = [
   "fibre",
   "fibre_share",
   "best_mbps",
+  "measured_mbps",
+  "measured_tests",
+  "mobile_mbps",
+  "mobile_tests",
 ] as const;
 
 /**

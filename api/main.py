@@ -106,16 +106,22 @@ MIN_QUERY = 2
 MAX_RESULTS = 20
 
 # The fastest thing known to reach this address, for the dot beside it. Two sources: what
-# an operator has told us directly, and the band the register filed. Greatest ignores nulls,
-# so an address known to one and not the other still gets a colour. The topmost band is
-# open-ended and files no ceiling, so its floor stands in for it.
+# an operator has told us directly, and what the best line into the building is sold at.
+# Greatest ignores nulls, so an address known to one and not the other still gets a colour.
+#
+# technology.sold_mbps, the same anchor the map is painted with, so the dot beside a search
+# result and the street it sits on cannot teach different things. It used to read the top of
+# the register's band, which is how a copper address filed "100-300" showed a 300 Mbps dot.
+#
+# An operator's own answer is a real number about a real line rather than a class, so it
+# stands as given: if OTE says this door can have 200, OTE has looked.
 BEST_MBPS = """
     greatest(
         (select max(v.max_down_mbps) from availability v
          where v.address_id = a.id and v.serviceable),
-        (select max(coalesce(sb.max_mbps, sb.min_mbps)) from address_coverage ac
-         join speed_band sb on sb.id = ac.speed_band_id
-         where ac.address_id = a.id)
+        (select max(t.sold_mbps) from address_coverage ac
+         join technology t on t.code = ac.technology
+         where ac.address_id = a.id and ac.family <> 'wireless')
     )
 """
 
@@ -130,8 +136,15 @@ STREET_COLUMNS = """
     'street', s.id, s.name, null, null, m.name, null, null, s.best_mbps
 """
 
-# Three tiers, widening only when the one above has not filled the page. A prefix costs
-# 0.3ms, a word-start match 11ms, and similarity ordering 445ms over 1.5M rows.
+# Three tiers, widening only when the one above has not filled the page.
+#
+# Measured on the loaded database, warm, at 1.8M addresses: a prefix costs about 15ms, a
+# word-start match about 110ms, and the fuzzy tier about 13ms now that it matches against
+# the 126K distinct spellings rather than against every door carrying one. Before that it
+# was 600-750ms and was much the slowest thing on the site — see fuzzy_address_sql.
+#
+# The figures matter because the tiers are tried in order and a miss falls through all
+# three: what the reader feels is the sum, not the fastest one.
 TIERS = ("prefix", "word", "fuzzy")
 
 # How many streets a name with no number is answered with before the doors on it. One is
@@ -190,7 +203,60 @@ def order(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]
     return f"similarity({column}, %s) desc,", [" ".join(tokens)]
 
 
+# How many distinct spellings a typo is allowed to have meant.
+#
+# The fuzzy tier matches against the spellings rather than against the doors, and then
+# fetches the doors on the spellings it liked. Twenty is far more than the eight rows a
+# suggestion list can hold, and small enough that the second half of the query is a handful
+# of index lookups rather than a scan.
+KEY_SLOTS = 20
+
+
+def fuzzy_address_sql(key: str, asked: Asked, limit: int) -> tuple[str, tuple[object, ...]]:
+    """The fuzzy tier, asked of the spellings rather than of every door that carries one.
+
+    It used to run `search_key % '…'` straight over all 1.8M addresses and it was the
+    slowest thing on the site by an order of magnitude — 600-750ms against a prefix tier
+    that answers in under one, on the path a reader reaches by making a typo. A GIN trigram
+    index cannot settle `%` from the index alone: it hands back every row sharing enough
+    trigrams and the executor rechecks each one. One measured query fetched 164,930
+    candidates across 18,503 heap blocks to return 128 rows, of which 8 were wanted.
+
+    Almost all of it was the same question asked again. Those 1.8M addresses carry 126,194
+    distinct search keys: Πατησίων in Αθήνα is one spelling and nine hundred doors, and the
+    trigrams were being compared once per door. address_spelling holds each spelling once
+    (migration 0048), so the match is a 126K-row problem and the doors are then found by
+    equality on an index that already orders them the way the list wants.
+
+    Raising pg_trgm.similarity_threshold was tried instead and is not the answer: at 0.4 the
+    query that took 600ms takes 250 and returns nothing at all, because the matches a real
+    typo produces sit below it. The cost has to come out of the row count, not the recall.
+    """
+    tokens = asked.folded.split(" ")
+    joined = " ".join(tokens)
+    prefix, anywhere = joined + "%", "% " + joined + "%"
+    wanted, number = ("a.street_no = %s desc, ", [asked.number]) if asked.number else ("", [])
+    return (
+        f"""
+    select {ADDRESS_COLUMNS}
+    from address a left join municipality m on m.id = a.municipality_id
+    where {NAMELESS} and a.{key} in (
+        select k.{key}
+        from address_spelling k
+        where k.{key} %% %s and not (k.{key} like %s) and not (k.{key} like %s)
+        order by similarity(k.{key}, %s) desc, k.{key}
+        limit {KEY_SLOTS}
+    )
+    order by {wanted}similarity(a.{key}, %s) desc, a.premises desc nulls last, a.id
+    limit %s
+    """,
+        (joined, prefix, anywhere, joined, *number, joined, limit),
+    )
+
+
 def address_sql(key: str, tier: str, asked: Asked, limit: int) -> tuple[str, tuple[object, ...]]:
+    if tier == "fuzzy":
+        return fuzzy_address_sql(key, asked, limit)
     column = "a." + key
     tokens = asked.folded.split(" ")
     where, taken = condition(column, tier, tokens)
@@ -393,9 +459,12 @@ def offer_the_number(
 # street it is an area by construction, because a street has no point of its own.
 AREA_MATCH = "'area'"
 
+# sold_mbps is what this kind of line is retailed at, and it is the figure the map is
+# painted with and the panel shows. The register's own band comes back beside it as `speed`
+# and is not what anything is drawn from: see migration 0051.
 OFFER_COLUMNS = """
     p.code, p.display_name, ac.technology, ac.family, {matched}, ac.avail_date,
-    ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label
+    ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label, t.sold_mbps
 """
 
 # The street is resolved here rather than in the search, which answers per keystroke and
@@ -415,10 +484,11 @@ ADDRESS_OFFERS = f"""
 select {OFFER_COLUMNS.format(matched="ac.matched_by")}
 from address_coverage ac
 join provider p on p.id = ac.provider_id
+join technology t on t.code = ac.technology
 left join provider ip on ip.id = ac.infra_provider_id
 left join speed_band sb on sb.id = ac.speed_band_id
 where ac.address_id = %s
-order by sb.min_mbps desc nulls last, p.code
+order by t.sold_mbps desc nulls last, p.code
 """
 
 # The shape as well as the box. A box says where to point the camera; the highlight has to
@@ -437,21 +507,14 @@ cross join lateral (select st_envelope(s.geom::geometry) as box) extent
 where s.id = %s
 """
 
-# How large a filed area may be, in square metres, and still say anything about one street.
+# How large a filed area may be and still say anything about one street.
 #
-# Half the areas in the register are under four hectares — a cabinet and the streets around
-# it, which is a claim about those streets. A few hundred are tens of square kilometres and
-# one is 1,522: those are exchange regions, and a street inside one has been told only that
-# the operator serves somewhere in the district. Intersecting them street by street turns
-# "Nova is in this part of Greece" into "Nova reaches this road", which is not what was
-# filed and is how an operator came to appear on almost every street in a region.
-#
-# Five square kilometres keeps 97% of the areas and drops the ones that are not about
-# streets. It is a blunt cut, and the register gives nothing better to cut on: every row of
-# it, cabinet and region alike, is filed as source `register`, assertion `declared`.
-# Shared by hand with normalise/steps/110_street_speed.sql, which paints the map from the
-# same areas: if the two disagree, the map paints what the panel will not name.
-CABINET_M2 = 5_000_000
+# Not a number here. It used to be one, copied by hand into
+# normalise/steps/110_street_speed.sql with a comment in each asking the next reader to keep
+# them equal — and if they drifted the map painted claims this panel would refuse to name.
+# It is a function in the database now (migration 0046), so the step that paints the map and
+# the panel that explains it ask the same question of the same place.
+CABINET = "cabinet_m2()"
 
 # A street has no address of its own, so its offers are the cabinets it runs through.
 # distinct on, because one road crosses several cabinets of the same operator.
@@ -471,10 +534,11 @@ select distinct on (code, technology) * from (
     from street s
     join coverage_area ac on st_intersects(ac.geom_2d, s.geom::geometry)
     join provider p on p.id = ac.provider_id
+    join technology t on t.code = ac.technology
     left join provider ip on ip.id = ac.infra_provider_id
     left join speed_band sb on sb.id = ac.speed_band_id
     where s.id = %s
-      and st_area(ac.geom_2d::geography) <= {CABINET_M2}
+      and ac.area_m2 <= {CABINET}
 
     union all
 
@@ -484,6 +548,7 @@ select distinct on (code, technology) * from (
       on a.municipality_id = s.municipality_id and a.street_fold = s.name_fold
     join address_coverage ac on ac.address_id = a.id
     join provider p on p.id = ac.provider_id
+    join technology t on t.code = ac.technology
     left join provider ip on ip.id = ac.infra_provider_id
     left join speed_band sb on sb.id = ac.speed_band_id
     -- Fixed lines only, the same rule the street's own figure follows: an operator whose
@@ -492,9 +557,9 @@ select distinct on (code, technology) * from (
     where s.id = %s and ac.family <> 'wireless'
 ) reached (
     code, display_name, technology, family, matched, avail_date,
-    infra_code, band_id, min_mbps, max_mbps, label
+    infra_code, band_id, min_mbps, max_mbps, label, sold_mbps
 )
-order by code, technology, min_mbps desc nulls last
+order by code, technology, sold_mbps desc nulls last
 """
 
 
@@ -514,6 +579,13 @@ class Offer(BaseModel):
     available_from: date | None
     infra_provider: str | None = Field(description="who built it, when not the seller")
     speed: Speed | None = Field(description="null when the operator filed no speed")
+    sold_mbps: Decimal | None = Field(
+        default=None,
+        description=(
+            "what this kind of line is retailed at, which is what the map is painted by. "
+            "`speed` is the register's own band and is not what anything is drawn from"
+        ),
+    )
 
 
 class AddressDetail(BaseModel):
@@ -557,6 +629,7 @@ def offers(found: list[tuple[Any, ...]]) -> list[Offer]:
             speed=None if row[7] is None else Speed(
                 band=row[7], min_mbps=row[8], max_mbps=row[9], label=row[10]
             ),
+            sold_mbps=row[11],
         )
         for row in found
     ]
@@ -675,6 +748,13 @@ class Cost(BaseModel):
     total: Decimal
     recurring: Decimal
     upfront: Decimal = Field(description="setup and equipment, spread over the window")
+    complete: bool = Field(
+        default=True,
+        description=(
+            "false when a one-off was never published, which makes total a floor: "
+            "the offer costs this or more. The monthly rate is always known"
+        ),
+    )
 
 
 class Buyable(BaseModel):
@@ -685,7 +765,7 @@ class Buyable(BaseModel):
     family: str
     expected_mbps: Decimal | None = Field(description="null when nothing here can say")
     data_cap_gb: int | None = Field(description="null is unlimited, not unknown")
-    cost: Cost | None = Field(description="null when a part of it was never published")
+    cost: Cost = Field(description="always a figure; see Cost.complete for whether it is exact")
     basis: str = Field(description="quoted, measured, filed or advertised")
     tests: int = Field(description="measurements behind it, zero when it rests on none")
     confidence: float = Field(description="evidence from tests alone; a quote has none")
@@ -720,8 +800,11 @@ def cents(amount: object) -> Decimal:
     return Decimal(str(amount)).quantize(CENTS, rounding=ROUND_HALF_UP)
 
 
-def priced(total: object, recurring: object, upfront: object) -> Cost:
-    return Cost(total=cents(total), recurring=cents(recurring), upfront=cents(upfront))
+def priced(total: object, recurring: object, upfront: object, complete: bool) -> Cost:
+    return Cost(
+        total=cents(total), recurring=cents(recurring), upfront=cents(upfront),
+        complete=complete,
+    )
 
 
 @app.get("/addresses/{address_id}/options", response_model=Options, tags=["address"])
@@ -768,8 +851,9 @@ def address_options(
                 family=r.option.family,
                 expected_mbps=r.option.expected_mbps,
                 data_cap_gb=r.option.data_cap_gb,
-                cost=None if r.option.cost is None else priced(
-                    r.option.cost.total, r.option.cost.recurring, r.option.cost.upfront
+                cost=priced(
+                    r.option.cost.total, r.option.cost.recurring, r.option.cost.upfront,
+                    r.option.cost.complete,
                 ),
                 basis=r.option.basis,
                 tests=r.option.tests,

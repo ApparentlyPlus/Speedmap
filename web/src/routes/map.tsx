@@ -17,17 +17,19 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
-import { RAMP, UNFILED, colourFor, mbps } from "../tokens";
+import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
 import {
   FLOOR_ZOOM,
   HOME,
   LIMITS,
+  REGION_LAYERS,
   VIEWS,
   only,
   LIT,
   onlyStreet,
   ramps,
+  regionPaint,
   style,
   type View,
 } from "../map/style";
@@ -80,7 +82,16 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
    * in the database; a measurement is the tile.
    */
   const [cell, setCell] = useState<Cell | null>(null);
-  const [view, setView] = useState<View>("filed");
+  const [view, setView] = useState<View>("coverage");
+  /*
+   * The prefecture choropleth, off until asked for.
+   *
+   * It answers a different question from the rest of the map — how a place is doing, rather
+   * than what runs down this street — and it is the only thing that can be said at the
+   * zooms where a street is a fraction of a pixel. Offered rather than assumed: the country
+   * should open as the country, not as a chart of itself.
+   */
+  const [regions, setRegions] = useState(false);
   const [showing, setShowing] = useState<Showing>("ready");
 
   useEffect(() => {
@@ -210,7 +221,10 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     const apply = (): void => {
       const filter = only(provider);
       for (const [layer, paint] of Object.entries(ramps(provider))) {
-        if (drawn.getLayer(layer) === undefined) return;
+        // Skip the missing layer, do not abandon the rest of the function: `return` here
+        // meant that one absent layer left the operator filter half applied and the view
+        // switch below — streets off, cells on — never ran at all.
+        if (drawn.getLayer(layer) === undefined) continue;
         drawn.setPaintProperty(layer, "line-color", paint);
         drawn.setFilter(layer, filter);
       }
@@ -224,7 +238,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
        * time: drawn together, a street tinted by what an operator promised and a square
        * tinted by what somebody got would be read as one figure disagreeing with itself.
        */
-      const streets = view === "filed";
+      const streets = view === "coverage";
       for (const layer of ["streets-halo", "streets", "streets-hit"]) {
         if (drawn.getLayer(layer) !== undefined) {
           drawn.setLayoutProperty(
@@ -234,6 +248,19 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           );
         }
       }
+      /*
+       * The choropleth follows the view rather than sitting under all three. Fibre share is
+       * a filed claim, and leaving it beneath Measured put one kind of claim under a map of
+       * another — which is the whole reason these are separate views.
+       */
+      for (const layer of REGION_LAYERS) {
+        if (drawn.getLayer(layer) === undefined) continue;
+        drawn.setLayoutProperty(layer, "visibility", regions ? "visible" : "none");
+      }
+      if (drawn.getLayer("regions") !== undefined) {
+        drawn.setPaintProperty("regions", "fill-color", regionPaint(view));
+      }
+
       if (drawn.getLayer("cells") !== undefined) {
         drawn.setLayoutProperty(
           "cells",
@@ -256,7 +283,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     return () => {
       drawn.off("styledata", apply);
     };
-  }, [provider, view]);
+  }, [provider, view, regions]);
 
   // Light whichever street is selected, and put the light out when none is.
   useEffect(() => {
@@ -351,7 +378,24 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           ))}
         </ul>
 
-        {view === "filed" && (
+        {/*
+          * A checkbox rather than another pill.
+          *
+          * The pills above it are a choice between three views and the operator pills are a
+          * choice of one operator; this is neither. It is an overlay that either is or is
+          * not on, and dressing it as a pill put it in a row of things that look like
+          * alternatives to each other.
+          */}
+        <label className="atlas-toggle" title={text.regionsHint}>
+          <input
+            type="checkbox"
+            checked={regions}
+            onChange={(event) => setRegions(event.target.checked)}
+          />
+          <span>{text.regions}</span>
+        </label>
+
+        {view === "coverage" && (
           <>
             <h2 className="atlas-head">{text.operator}</h2>
             <ul className="atlas-operators">
@@ -383,16 +427,35 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
         )}
 
         <h2 className="atlas-head">{text.legend[view]}</h2>
+        {/*
+          * The bands this view can actually produce, not all seven.
+          *
+          * Coverage tops each street out at what its line is retailed at and a filing can
+          * only cap that further, so nothing ever lands between 100 Mbps and a gigabit:
+          * three of the ramp's rows would show a colour the map will never paint. Measured
+          * is a real continuum — median 60, p90 270 — and uses the lot.
+          */}
         <ul className="atlas-ramp">
-          {RAMP.map((band) => (
+          {bandsPainted(view !== "coverage").map((band) => (
             <li className="atlas-band" key={band.name}>
               <span className="atlas-swatch" style={{ background: band.colour }} />
               {band.name}
             </li>
           ))}
+          {/*
+            * The last row is a different silence under each view.
+            *
+            * Under Coverage it is a street no line reaches, drawn dark because it is
+            * absence rather than a slow street. The third state this legend used to carry —
+            * reaches here, filed no speed — is gone: the figure comes from the technology
+            * now, so anything that reaches a street has a number.
+            *
+            * Under Measured and Mobile it is a place nobody has ever run a speed test in,
+            * which is most of Greece.
+            */}
           <li className="atlas-band">
-            <span className="atlas-swatch" style={{ background: UNFILED }} />
-            {text.unfiled}
+            <span className="atlas-swatch" style={{ background: UNSERVED }} />
+            {view === "coverage" ? text.unreached : text.untested}
           </li>
         </ul>
 
@@ -464,8 +527,16 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                           </span>
                         )}
                     </span>
+                    {/*
+                      * What the line is sold at, not what the register filed for it. The
+                      * band is still in the response and is deliberately not shown: it is
+                      * absent on seven filings in ten, and where it is present it is a
+                      * class the line often cannot carry.
+                      */}
                     <span className="atlas-offer-speed">
-                      {offer.speed === null ? text.unfiled : offer.speed.label}
+                      {offer.sold_mbps === null || offer.sold_mbps === undefined
+                        ? text.unfiled
+                        : `${Number(offer.sold_mbps)} Mbps`}
                     </span>
                   </li>
                 ))}
