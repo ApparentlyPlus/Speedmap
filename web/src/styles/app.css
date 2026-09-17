@@ -1521,3 +1521,9 @@ body {
     animation: none;
   }
 }
+
+/* Who built the line, under the name of whoever sells it. */
+.road-infra,
+.atlas-offer-infra {
+  color: var(--ink-faint);
+}

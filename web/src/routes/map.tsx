@@ -454,7 +454,16 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                       style={{ background: brandOf(offer.provider).colour }}
                     />
                     <span className="atlas-offer-name">{offer.provider_name}</span>
-                    <span className="atlas-offer-tech">{offer.technology}</span>
+                    <span className="atlas-offer-tech">
+                      {offer.technology}
+                      {offer.infra_provider !== null &&
+                        offer.infra_provider !== offer.provider && (
+                          <span className="atlas-offer-infra">
+                            {" "}
+                            · {text.over} {offer.infra_provider}
+                          </span>
+                        )}
+                    </span>
                     <span className="atlas-offer-speed">
                       {offer.speed === null ? text.unfiled : offer.speed.label}
                     </span>
