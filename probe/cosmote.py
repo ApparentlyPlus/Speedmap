@@ -21,7 +21,7 @@ import psycopg
 from psycopg.rows import TupleRow
 
 from db.settings import settings
-from probe.adapter import Offer, Probed, Target
+from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import Naming, naming
 
@@ -39,10 +39,6 @@ INCONCLUSIVE = SPEC.text("inconclusive")
 # rather than 50 because ADSL cannot pass 24, which the technology table records as its
 # ceiling: their 30 Mbps rung is a VDSL line sold short, not a fast ADSL one.
 RUNGS = SPEC.rungs()
-
-
-class ProbeError(RuntimeError):
-    """The checker could not be asked. Not an answer, and never cached as one."""
 
 
 def technology_of(mbps: int) -> str:
@@ -189,9 +185,27 @@ class Cosmote:
         }
 
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
+        """Only a street the scrape actually walked. The rest cannot be guessed at.
+
+        Tried, and measured against their live checker rather than reasoned about. A guessed
+        spelling was given the right prefecture, the right municipality and a real exchange
+        area borrowed from a walked address fifteen metres away, and their form answered
+        "διερεύνηση" — needs looking into by hand — on every guessed address and on none of
+        the walked ones.
+
+        The reason is that the scrape IS their address book: it was made by walking their
+        dropdowns, so a street missing from it for a municipality is a street they do not
+        have under that name. Πατησίων is not a street to them, 28ης Οκτωβρίου is; they have
+        a Δεριγνύ in Περιστέρι and Άνω Λιόσια and none in Αθηναίων. Sending our name for it
+        cannot work, and the request that finds that out is wasted.
+
+        Nova can guess because it searches their street list first and discards what does
+        not match. This posts a form and believes the reply, and has nothing to check
+        against — so it asks only what it knows how to spell.
+        """
         named = naming(conn, target.municipality_id, target.street_fold)
         if named is None:
-            raise ProbeError(f"no spelling recorded for {target.street}")
+            raise NotAskableError(f"no spelling recorded for {target.street}")
         response = self.session().post(AVAILABILITY, data=self.form(target, named))
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"availability returned {response.status_code}")
