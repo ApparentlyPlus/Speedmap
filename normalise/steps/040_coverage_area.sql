@@ -2,13 +2,18 @@
 -- Grid and are reprojected here; flattening one to its centroid would lose every street it
 -- serves. Per-service detail comes from the service table, because the polygon view carries
 -- provider, technology and band as three independent lists that cannot be recombined.
+-- Cleared first, so the step recomputes rather than fills in. It was insert-on-conflict
+-- with no delete, so a filing the operator has since withdrawn stayed here and stayed on
+-- the map, with nothing recording that it had gone. See migration 0047.
+delete from coverage_area where source = 'register';
+
 insert into coverage_area (
     source, source_ref, provider_id, infra_provider_id, technology, family,
-    speed_band_id, assertion, avail_date, geom, last_seen
+    speed_band_id, normal_band_id, assertion, avail_date, geom, last_seen
 )
 select distinct on (w.coverid, sp.id, t.code)
     'register', w.coverid, sp.id, ip.id, t.code, t.family,
-    w.maxdown, 'declared', w.servstar,
+    w.maxdown, w.nordown, 'declared', w.servstar,
     st_multi(st_transform(g.geom, 4326))::geography, now()
 from raw_wiredservice w
 join technology t on t.register_id = w.technolo and t.family = 'copper'
@@ -20,6 +25,7 @@ on conflict (source, source_ref, provider_id, technology) do update set
     infra_provider_id = excluded.infra_provider_id,
     family = excluded.family,
     speed_band_id = excluded.speed_band_id,
+    normal_band_id = excluded.normal_band_id,
     avail_date = excluded.avail_date,
     geom = excluded.geom,
     last_seen = now();

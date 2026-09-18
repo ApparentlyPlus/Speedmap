@@ -163,15 +163,8 @@
             "type": "number"
           },
           "cost": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Cost"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "null when a part of it was never published"
+            "$ref": "#/components/schemas/Cost",
+            "description": "always a figure; see Cost.complete for whether it is exact"
           },
           "data_cap_gb": {
             "anyOf": [
@@ -256,6 +249,12 @@
       "Cost": {
         "description": "A monthly cost in its parts, so a card can say why a cheap headline is not cheap.",
         "properties": {
+          "complete": {
+            "default": true,
+            "description": "false when a one-off was never published, which makes total a floor: the offer costs this or more. The monthly rate is always known",
+            "title": "Complete",
+            "type": "boolean"
+          },
           "recurring": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Recurring",
@@ -361,6 +360,19 @@
           "provider_name": {
             "title": "Provider Name",
             "type": "string"
+          },
+          "sold_mbps": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "what this kind of line is retailed at, which is what the map is painted by. `speed` is the register's own band and is not what anything is drawn from",
+            "title": "Sold Mbps"
           },
           "speed": {
             "anyOf": [

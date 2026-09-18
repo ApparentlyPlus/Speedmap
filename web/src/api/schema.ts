@@ -270,8 +270,8 @@ export interface components {
              * @description evidence from tests alone; a quote has none
              */
             confidence: number;
-            /** @description null when a part of it was never published */
-            cost: components["schemas"]["Cost"] | null;
+            /** @description always a figure; see Cost.complete for whether it is exact */
+            cost: components["schemas"]["Cost"];
             /**
              * Data Cap Gb
              * @description null is unlimited, not unknown
@@ -316,6 +316,12 @@ export interface components {
          * @description A monthly cost in its parts, so a card can say why a cheap headline is not cheap.
          */
         Cost: {
+            /**
+             * Complete
+             * @description false when a one-off was never published, which makes total a floor: the offer costs this or more. The monthly rate is always known
+             * @default true
+             */
+            complete: boolean;
             /** Recurring */
             recurring: string;
             /** Total */
@@ -366,6 +372,11 @@ export interface components {
             provider: string;
             /** Provider Name */
             provider_name: string;
+            /**
+             * Sold Mbps
+             * @description what this kind of line is retailed at, which is what the map is painted by. `speed` is the register's own band and is not what anything is drawn from
+             */
+            sold_mbps?: string | null;
             /** @description null when the operator filed no speed */
             speed: components["schemas"]["Speed"] | null;
             /** Technology */

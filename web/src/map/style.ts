@@ -21,8 +21,16 @@ import type {
   StyleSpecification,
 } from "maplibre-gl";
 
-import { ACCENT, RAMP, UNFILED, UNSERVED } from "../tokens";
-import { CELLS_LAYER, STREETS_BY_PROVIDER, STREETS_LAYER, type Cell, type Street } from "./tiles";
+import { ACCENT, RAMP, SHARE, UNSERVED } from "../tokens";
+import {
+  CELLS_LAYER,
+  REGIONS_LAYER,
+  STREETS_BY_PROVIDER,
+  STREETS_LAYER,
+  type Cell,
+  type Region,
+  type Street,
+} from "./tiles";
 
 export const SOURCE = "speedmap";
 
@@ -119,7 +127,6 @@ function ramp(field: keyof Street | keyof Cell): ExpressionSpecification {
   return [
     "case",
     ["!", ["has", field]], UNSERVED,
-    ["<=", ["to-number", ["get", field], 0], 0], UNFILED,
     ["interpolate", ["linear"], ["to-number", ["get", field], 0], ...anchors],
   ] as ExpressionSpecification;
 }
@@ -339,12 +346,17 @@ export function ramps(provider: string | null): Record<string, ExpressionSpecifi
 /**
  * What the map is painted by.
  *
- * Filed is what the operators told the regulator reaches a street. Measured is what people
- * running a speed test actually got, which is a different claim about a different thing and
- * is usually lower. Mobile is the same measurement for phones, and is kept apart because a
- * mobile figure answers a question nobody asked when they were looking at a street.
+ * Coverage is which kind of line reaches a street, drawn at what that line is sold at. It
+ * was called Filed while it reported the register's own speeds; it no longer does — see
+ * migration 0051 — and a view named for a filing it does not repeat would be the wrong
+ * name on the one control that says what the reader is looking at.
+ *
+ * Measured is what people running a speed test actually got, which is a different claim
+ * about a different thing and is usually lower. Mobile is the same measurement for phones,
+ * and is kept apart because a mobile figure answers a question nobody asked when they were
+ * looking at a street.
  */
-export const VIEWS = ["filed", "measured", "mobile"] as const;
+export const VIEWS = ["coverage", "measured", "mobile"] as const;
 export type View = (typeof VIEWS)[number];
 
 /**
@@ -359,6 +371,129 @@ const CONFIDENCE: ExpressionSpecification = [
   "interpolate", ["linear"], ["coalesce", ["get", "tests"], 1],
   1, 0.4, 5, 0.66, 25, 1,
 ];
+
+/**
+ * The country, before it has streets.
+ *
+ * A street is a fraction of a pixel at the zoom where Greece fits on the screen, so below
+ * about ten the map was a coastline with nothing inside it: a dark shape and a panel
+ * telling the reader to zoom in, somewhere, with no clue where. This is what the register
+ * can say at that distance — how much of each municipality fibre reaches — and it is drawn
+ * underneath the streets and handed over to them as they arrive.
+ *
+ * The layer the contract has declared since the schema was written and nothing built. It is
+ * built now; see publish/features.py.
+ *
+ * Painted by share rather than by speed, in a single hue, for the reason given on SHARE:
+ * this map has already taught the reader that colour means megabits, and a second rainbow
+ * would be read as a third opinion about speed.
+ */
+const FADES_AT = 11;
+
+/**
+ * What a region is painted by, under each view.
+ *
+ * Filed is a share — how much of the municipality fibre reaches — and runs on SHARE, one
+ * hue getting lighter. Measured and Mobile are speeds, and speeds on this site are the RAMP,
+ * the same anchors a street uses: a region and the streets inside it must not teach
+ * different colours for the same number.
+ *
+ * This is why the layer is per-view rather than one choropleth under all three. It used to
+ * draw fibre share beneath every view, so switching to Measured left a filed claim lying
+ * under a measured map — and the only reason Filed and Measured are separate views at all
+ * is that they are separate claims about different things.
+ */
+export function regionPaint(view: View): ExpressionSpecification {
+  if (view === "coverage") {
+    return [
+      "interpolate",
+      ["linear"],
+      ["coalesce", ["get", "fibre_share" satisfies keyof Region], 0],
+      ...SHARE.flatMap(([at, colour]) => [at, colour]),
+    ] as ExpressionSpecification;
+  }
+  const field: keyof Region = view === "mobile" ? "mobile_mbps" : "measured_mbps";
+  const rising = [...RAMP].reverse();
+  return [
+    "case",
+    // Untested, which is most of the country under either family. A region with no
+    // measurement is not a slow region, and drawing it as one would be the same lie the
+    // ramp's UNSERVED exists to avoid on a street.
+    ["!", ["has", field]], UNSERVED,
+    ["interpolate", ["linear"], ["to-number", ["get", field], 0],
+      ...rising.flatMap((band) => [band.floor as number, band.colour])],
+  ] as ExpressionSpecification;
+}
+
+/**
+ * How much of a claim a region's measurement is, drawn as opacity.
+ *
+ * The same bargain the measured cells make: a figure from eleven tests is a weaker claim
+ * than one from four thousand, and showing it faintly is more honest than dropping it.
+ * Filed has no test count and is drawn at full strength, since a filing is a filing.
+ */
+function regionConfidence(view: View): ExpressionSpecification | number {
+  if (view === "coverage") return 1;
+  const field: keyof Region = view === "mobile" ? "mobile_tests" : "measured_tests";
+  return [
+    "interpolate", ["linear"], ["coalesce", ["get", field], 0],
+    0, 0.45, 50, 0.75, 500, 1,
+  ] as ExpressionSpecification;
+}
+
+export function regionLayers(view: View = "coverage"): LayerSpecification[] {
+  const paint = regionPaint(view);
+  const confidence = regionConfidence(view);
+
+  return [
+    {
+      id: "regions",
+      type: "fill",
+      source: SOURCE,
+      "source-layer": REGIONS_LAYER,
+      maxzoom: FADES_AT,
+      // Off unless the reader turns it on. It is a summary of places, not of lines, and the
+      // map's subject is the line that runs down a street — so it is offered rather than
+      // assumed, and the country opens as the country rather than as a chart of itself.
+      layout: { visibility: "none" },
+      paint: {
+        "fill-color": paint,
+        // Gone by the time the streets are worth looking at, and never fully opaque: the
+        // land underneath is what gives the country its edge, and a flat fill over it
+        // turns 333 administrative polygons into the coastline, which they are not.
+        //
+        // Zoom outermost, because `["zoom"]` has to be the input of a top-level
+        // interpolate; nesting it inside the confidence term makes the whole style invalid
+        // and the map never loads at all.
+        "fill-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          5, ["*", 0.62, confidence],
+          8, ["*", 0.56, confidence],
+          9.5, ["*", 0.34, confidence],
+          FADES_AT, 0,
+        ],
+      },
+    },
+    {
+      // A hairline between one municipality and the next. Without it a run of neighbours
+      // at similar figures is one blob, and the choropleth stops being a map of places.
+      id: "regions-edge",
+      type: "line",
+      source: SOURCE,
+      "source-layer": REGIONS_LAYER,
+      maxzoom: FADES_AT,
+      layout: { visibility: "none" },
+      paint: {
+        "line-color": "#0d1117",
+        "line-width": 0.5,
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.5, 9.5, 0.3, FADES_AT, 0],
+      },
+    },
+  ];
+}
+
+/** The two layers the choropleth is made of, for turning it on and off together. */
+export const REGION_LAYERS = ["regions", "regions-edge"] as const;
 
 export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
   const field: keyof Cell = "down_mbps";
@@ -497,6 +632,9 @@ export function style(base = "/tiles"): StyleSpecification {
         },
       },
 
+      // Under the streets, and gone before they are legible: the two never compete, and
+      // what the reader sees is one map changing scale rather than two maps swapping over.
+      ...regionLayers(),
       ...streetLayers(null),
       ...cellLayers("fixed"),
 

@@ -43,7 +43,7 @@ const SETTLED = new Set(["fresh", "inferred", "refused"]);
 const SHOWN = 3;
 
 type Group = {
-  readonly heading: "groupEnough" | "groupSlower" | "groupUnpriced";
+  readonly heading: "groupEnough" | "groupSlower";
   readonly options: readonly Options["options"][number][];
 };
 
@@ -56,14 +56,16 @@ type Group = {
  * information again.
  */
 function groups(options: Options["options"]): readonly Group[] {
-  const enough = options.filter((o) => o.cost !== null && o.enough);
-  const slower = options.filter((o) => o.cost !== null && !o.enough);
-  const unpriced = options.filter((o) => o.cost === null);
+  // Two groups, not three. The third held offers with no cost at all, and there are none:
+  // a missing setup fee leaves the monthly rate standing and only makes the total a floor.
+  // It was three HCN plans, all with published monthly rates, sent below everything else
+  // over a connection charge worth about 1.25 a month once spread over the window.
+  const enough = options.filter((o) => o.enough);
+  const slower = options.filter((o) => !o.enough);
   return (
     [
       { heading: "groupEnough", options: enough },
       { heading: "groupSlower", options: slower },
-      { heading: "groupUnpriced", options: unpriced },
     ] as const
   ).filter((group) => group.options.length > 0);
 }
