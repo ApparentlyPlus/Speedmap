@@ -33,7 +33,7 @@ ENOUGH = "covers an ordinary household"
 BEST = "the steadiest connection here that covers a household"
 FASTEST = "the fastest here, and short of what a household wants"
 SHORT = "short of what a household wants"
-UNPRICED = "not ranked: the cost is not known"
+FROM = "the setup fee is not published, so this is what it costs or more"
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ class Option:
     technology: str
     family: str
     expected_mbps: Decimal | None
-    cost: MonthlyCost | None
+    cost: MonthlyCost
     data_cap_gb: int | None = None
     # Where the speed came from, so a card can say why it says what it does.
     basis: str = "advertised"
@@ -83,10 +83,14 @@ def enough_for(option: Option, need: Decimal) -> bool:
 
 
 def order(option: Option, need: Decimal) -> tuple[int, Decimal, Decimal, Decimal]:
-    """The sort key, in three groups, so unranked offers never displace ranked ones."""
+    """The sort key, in two groups, so what is fast enough never sits under what is not.
+
+    There used to be a third group below both, for offers with no cost at all. There are
+    none now: a missing setup fee leaves the monthly rate standing and only makes the total
+    a floor, so everything can be placed. Three plans were being dropped to the bottom of
+    the page over a number smaller than a euro and a half a month.
+    """
     speed = option.expected_mbps if option.expected_mbps is not None else Decimal(0)
-    if option.cost is None:
-        return (2, Decimal(0), Decimal(steadiness(option.family)), -speed)
     if enough_for(option, need):
         # Everything here is fast enough, so the question is what it is carried on and then
         # what it costs. A line that covers a household beats a cell that also covers it,
@@ -98,14 +102,14 @@ def order(option: Option, need: Decimal) -> tuple[int, Decimal, Decimal, Decimal
 
 
 def rank(options: list[Option], need: Decimal = ENOUGH_MBPS) -> list[Ranked]:
-    """Best first. Offers whose cost is unknown come last, shown but not placed."""
+    """Best first. Everything is placed, because everything now has a price."""
     placed = sorted(options, key=lambda o: order(o, need))
 
     ranked: list[Ranked] = []
     for index, option in enumerate(placed):
         clears = enough_for(option, need)
-        if option.cost is None:
-            why = UNPRICED
+        if not option.cost.complete:
+            why = FROM
         elif clears:
             why = BEST if index == 0 else ENOUGH
         else:

@@ -60,6 +60,10 @@ migrate-status: # list pending migrations
 build: # rebuild the derived tables from raw_*
 	$(PY) -m normalise.build
 
+.PHONY: audit
+audit: # run the data invariants against the built database, not the empty fixture
+	$(PY) -m tools.audit
+
 .PHONY: web-build
 web-build: # build the frontend for deployment
 	cd web && npm ci && npm run build

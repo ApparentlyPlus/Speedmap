@@ -96,7 +96,21 @@ export function Road({
                       style={{ background: brandOf(offer.provider).colour }}
                     />
                     <span className="road-name">{offer.provider_name}</span>
-                    <span className="road-tech">{offer.technology}</span>
+                    <span className="road-tech">
+                      {offer.technology}
+                      {/*
+                        Who built the line, when it was not the operator selling it. Three
+                        retailers over one cabinet is one line resold three times, and
+                        without this it reads as three networks reaching the street.
+                      */}
+                      {offer.infra_provider !== null &&
+                        offer.infra_provider !== offer.provider && (
+                          <span className="road-infra">
+                            {" "}
+                            · {text.over} {offer.infra_provider}
+                          </span>
+                        )}
+                    </span>
                     <span className="road-speed">
                       {offer.speed === null ? text.unfiled : offer.speed.label}
                     </span>

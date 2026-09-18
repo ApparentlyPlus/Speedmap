@@ -16,6 +16,7 @@ to the Pi, because it wants more memory than the Pi has.
 from __future__ import annotations
 
 import argparse
+import json
 import pathlib
 import shutil
 import subprocess
@@ -37,6 +38,22 @@ MAX_ZOOM = 14
 # because at zoom 5 several thousand of them occupy one pixel.
 STREET_RULES = ("--drop-densest-as-needed", "--coalesce-densest-as-needed")
 CELL_RULES = ("--drop-densest-as-needed",)
+
+# 333 polygons, and the only thing drawn at the zooms where the country fits on the screen.
+# Nothing may be dropped or coalesced: a municipality missing from a choropleth is a hole in
+# Greece, and merging two of them averages two figures into one that describes neither.
+REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
+
+# Where the regions stop, because the streets have taken over and nothing draws them above
+# it — web/src/map/style.ts fades them out at the same number.
+#
+# Expressed as a feature filter and not as `--maximum-zoom`, which is global however it is
+# placed on the command line: written next to `--named-layer regions` it read as an
+# instruction about the whole archive and cut streets and cells at ten as well, which turned
+# a 67 MB build into a 24 MB one with every street above zoom ten missing from it. The
+# archive looked fine and the map would have been wrong from the first zoom anybody uses.
+REGIONS_STOP = 10
+FILTER = json.dumps({fields.REGIONS_LAYER: ["<=", "$zoom", REGIONS_STOP]})
 
 
 def tool(name: str) -> str:
@@ -61,10 +78,12 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
     """Cut both layers into one archive."""
     streets = work / "streets.geojsonl"
     cells = work / "cells.geojsonl"
+    regions = work / "regions.geojsonl"
 
     with psycopg.connect(settings.dsn) as conn:
         print(f"streets: {features.streets(conn, streets)} features")
         print(f"cells:   {features.cells(conn, cells)} features")
+        print(f"regions: {features.regions(conn, regions)} features")
         # Beside the archive rather than inside it: it is one shape, it is wanted before the
         # first tile arrives, and a vector tile of a coastline at zoom 4 is a coastline
         # someone has already thrown most of away.
@@ -84,6 +103,8 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
             "--preserve-input-order",
             *layer(fields.STREETS_LAYER, streets, STREET_RULES),
             *layer(fields.CELLS_LAYER, cells, CELL_RULES),
+            *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
+            "--feature-filter", FILTER,
         ],
         check=True,
     )

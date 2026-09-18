@@ -13,7 +13,7 @@ import maplibregl, {
   addProtocol,
   type DataDrivenPropertyValueSpecification,
 } from "maplibre-gl";
-import type { Geometry } from "geojson";
+import type { Geometry, Position } from "geojson";
 import { Protocol } from "pmtiles";
 
 import { ASIDE, ASIDE_OPACITY, ramps, style } from "../map/style";
@@ -66,32 +66,27 @@ const PITCH_ROOM = 0.6;
 const SPIN = 3;
 
 /**
- * Lean the camera over and turn it, slowly, about the street.
+ * Whether this reader wants things to move at all.
  *
- * A result framed flat and held still is a diagram. Leaning it puts the buildings between
- * the reader and the far side of the street, which is what makes the street a place rather
- * than a line; turning it keeps showing a different face of the same block, so the picture
- * goes on saying something after the first second.
- *
- * About the centre, which is where the street was just put — so the thing being talked
- * about stays where the eye already is, and everything else moves around it.
+ * A map that leans, turns and runs a light along a street is the whole of what this view
+ * is, and for somebody with vestibular motion sensitivity it is also the whole of what
+ * makes it unusable. Asked once, when the view is built: the camera still arrives at the
+ * street and the street is still lit end to end, it just stops there instead of turning.
  */
-function showcase(drawn: Maplibre, stopped: () => boolean): void {
-  if (stopped()) return;
-
-  let last = 0;
-  const turn = (now: number): void => {
-    if (stopped() || drawn.getLayer(TRACE) === undefined) return;
-    // Degrees a second rather than degrees a frame: the same speed on a slow map as a
-    // fast one, and the opening lean is left to finish before the turn starts.
-    if (last !== 0 && now > last) {
-      drawn.setBearing(drawn.getBearing() + (SPIN * (now - last)) / 1000);
-    }
-    last = now;
-    requestAnimationFrame(turn);
-  };
-  requestAnimationFrame(turn);
+function stillness(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 }
+
+/**
+ * How fast the light is allowed to redraw, in milliseconds between frames.
+ *
+ * Every frame of it cuts a fresh piece out of the street, builds a GeoJSON feature
+ * collection and hands it to `setData`, which parses it and re-uploads the buffer. At 60fps
+ * that is sixty parse-and-upload cycles a second, for ever, on a page whose subject is a
+ * static answer. The light travels one twentieth of the street in a fifth of a second: at
+ * thirty frames it is the same light, at half the work.
+ */
+const TRACE_MS = 1000 / 30;
 
 /**
  * The part of the map nothing is sitting on.
@@ -205,9 +200,39 @@ export function Anchored({
     // frame already asked for runs against a map whose style is gone — where every call is
     // a read of undefined, which takes the whole page down rather than the animation.
     let stopped = false;
+    // Whether the camera has finished arriving and may start turning.
+    let turning = false;
+    let last = 0;
 
     const path = pathOf(shape);
     if (path === null) return;
+
+    const still = stillness();
+
+    /*
+     * Showing, on screen, and wanted. All three, or the loop does no work.
+     *
+     * `visibilitychange` covers the tab being in the background; the observer covers the
+     * map being scrolled past on a long page, which the browser considers perfectly
+     * visible. Neither is free to ask every frame, so both are events that set a flag the
+     * frame reads.
+     */
+    let onScreen = true;
+    let awake = !still && document.visibilityState === "visible";
+
+    const wake = (): void => {
+      awake = !still && onScreen && document.visibilityState === "visible";
+      // Time does not stop while the loop is parked, so the turn would otherwise resume by
+      // jumping however many degrees it owed for the minutes the tab spent in the back.
+      if (!awake) last = 0;
+    };
+
+    document.addEventListener("visibilitychange", wake);
+    const seen = new IntersectionObserver((entries) => {
+      onScreen = entries.some((entry) => entry.isIntersecting);
+      wake();
+    });
+    if (holder.current !== null) seen.observe(holder.current);
 
     const add = (): void => {
       if (drawn.getSource(TRACE) !== undefined) return;
@@ -318,17 +343,49 @@ export function Anchored({
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
             pitch: TILT,
             bearing: 0,
-            duration: ARRIVE_MS,
+            // A reader who asked for stillness gets the same frame, arrived at rather
+            // than flown to.
+            duration: still ? 0 : ARRIVE_MS,
           });
-          drawn.once("moveend", () => showcase(drawn, () => stopped));
+          drawn.once("moveend", () => {
+            turning = true;
+          });
         }
       }
 
+      /*
+       * One loop, and only while anybody is looking at it.
+       *
+       * This used to be two: a bearing loop started on `moveend` that called `setBearing`
+       * every frame, and a light loop that called `setData` every frame. Neither had a
+       * stopping condition other than the view being torn down, so a result left open in a
+       * background tab went on re-rendering the whole map sixty times a second — a pinned
+       * core and a flat battery to animate something nobody was watching. Neither asked
+       * whether the reader wanted motion at all.
+       *
+       * requestAnimationFrame is already throttled hard in a hidden tab, but "already
+       * throttled" is not "off", and a result scrolled out of view is still visible to the
+       * browser. The gate is explicit: the page is showing, the map is on screen, and the
+       * reader has not asked for stillness.
+       */
       const began = performance.now();
-      const step = (now: number): void => {
-        if (stopped) return;
+      let painted = 0;
+
+      const frame = (now: number): void => {
+        running = requestAnimationFrame(frame);
+        if (stopped || !awake) return;
         const source = drawn.getSource(TRACE);
         if (source === undefined || drawn.getLayer(TRACE) === undefined) return;
+
+        // Degrees a second rather than degrees a frame: the same speed on a slow map as a
+        // fast one, and the opening lean is left to finish before the turn starts.
+        if (turning && last !== 0 && now > last) {
+          drawn.setBearing(drawn.getBearing() + (SPIN * (now - last)) / 1000);
+        }
+        last = now;
+
+        if (now - painted < TRACE_MS) return;
+        painted = now;
         const along = ((now - began) % PASS_MS) / PASS_MS;
         const moment = momentOf(path, along);
         (source as maplibregl.GeoJSONSource).setData({
@@ -339,9 +396,25 @@ export function Anchored({
             geometry: { type: "LineString", coordinates: line },
           })),
         });
-        running = requestAnimationFrame(step);
       };
-      running = requestAnimationFrame(step);
+
+      if (still) {
+        // The street, lit along its whole length and left alone. Reduced motion is a
+        // request for no movement, not for no answer.
+        const source = drawn.getSource(TRACE);
+        if (source !== undefined) {
+          (source as maplibregl.GeoJSONSource).setData({
+            type: "FeatureCollection",
+            features: path.parts.map((line) => ({
+              type: "Feature",
+              properties: {},
+              geometry: { type: "LineString", coordinates: line as Position[] },
+            })),
+          });
+        }
+        return;
+      }
+      running = requestAnimationFrame(frame);
     };
 
     if (drawn.isStyleLoaded()) add();
@@ -350,6 +423,8 @@ export function Anchored({
     return () => {
       stopped = true;
       cancelAnimationFrame(running);
+      document.removeEventListener("visibilitychange", wake);
+      seen.disconnect();
       drawn.off("load", add);
       // A map that has already been removed has nothing left to take the light off.
       try {

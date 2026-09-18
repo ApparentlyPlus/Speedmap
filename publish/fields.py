@@ -60,10 +60,18 @@ REGIONS_FIELDS: Final = (
     "fibre",
     "fibre_share",
     "best_mbps",
+    "measured_mbps",
+    "measured_tests",
+    "mobile_mbps",
+    "mobile_tests",
 )
 
 REGIONS_NULLABLE: Final = (
     "best_mbps",
+    "measured_mbps",
+    "measured_tests",
+    "mobile_mbps",
+    "mobile_tests",
 )
 
 # One feature per Ookla tile that has ever been tested, drawn as the square that was

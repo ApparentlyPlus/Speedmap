@@ -35,6 +35,12 @@ type Strings = {
   readonly searching: string;
   readonly searchFailed: string;
   readonly unfiled: string;
+  /** The prefecture choropleth, which is off until the reader asks for it. */
+  readonly untested: string;
+  readonly unreached: string;
+  readonly regions: string;
+  readonly regionsHint: string;
+  readonly over: string;
   readonly streetHead: string;
   readonly notIndexed: string;
   readonly notIndexedWhy: string;
@@ -47,7 +53,7 @@ type Strings = {
   readonly nothingHere: string;
   readonly perMonth: string;
   readonly upfront: string;
-  readonly notPriced: string;
+  readonly priceFrom: string;
   readonly unlimited: string;
   readonly disclaimer: string;
   readonly report: string;
@@ -60,7 +66,6 @@ type Strings = {
   readonly technology: Readonly<Record<string, string>>;
   readonly groupEnough: string;
   readonly groupSlower: string;
-  readonly groupUnpriced: string;
 };
 
 const el: Strings = {
@@ -73,9 +78,9 @@ const el: Strings = {
   mapTitle: "Ο χάρτης κάλυψης",
   operator: "Πάροχος",
   shown: "Τι δείχνει",
-  views: { filed: "Δηλωμένη", measured: "Μετρημένη", mobile: "Κινητή" },
+  views: { coverage: "Κάλυψη", measured: "Μετρημένη", mobile: "Κινητή" },
   anyOperator: "Όλοι",
-  legend: { filed: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
+  legend: { coverage: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
   measuredHere: "Μετρήσεις εδώ",
   down: "Λήψη",
   up: "Αποστολή",
@@ -87,6 +92,11 @@ const el: Strings = {
   searching: "Αναζήτηση…",
   searchFailed: "Η αναζήτηση δεν απάντησε",
   unfiled: "χωρίς δηλωμένη ταχύτητα",
+  untested: "χωρίς μέτρηση",
+  unreached: "χωρίς γραμμή",
+  regions: "Ανά δήμο",
+  regionsHint: "Σύνοψη ανά δήμο, όσο ο χάρτης είναι μακριά",
+  over: "σε δίκτυο",
   streetHead: "Σε αυτόν τον δρόμο",
   notIndexed: "Αυτός ο δρόμος δεν έχει καταχωρηθεί ακόμα",
   notIndexedWhy: "Κανένας πάροχος δεν έχει δηλώσει κάλυψη εδώ.",
@@ -99,7 +109,7 @@ const el: Strings = {
   nothingHere: "Δεν βρέθηκε τίποτα για αυτή τη διεύθυνση",
   perMonth: "/μήνα",
   upfront: "αρχικό κόστος",
-  notPriced: "χωρίς τιμή",
+  priceFrom: "από",
   unlimited: "απεριόριστα",
   disclaimer:
     "Η διαθεσιμότητα και οι τιμές είναι κατά προσέγγιση. Επιβεβαίωσέ τα πάντα με τον πάροχο.",
@@ -123,7 +133,6 @@ const el: Strings = {
   technology: { FWA_5G: "5G", FWA_4G: "4G", VECT_VDSL: "VDSL+", MOBILE: "κινητό", SAT: "δορυφόρος" },
   groupEnough: "Φτάνουν για ένα σπιτικό",
   groupSlower: "Πιο αργά απ' όσο θέλει ένα σπιτικό",
-  groupUnpriced: "Χωρίς δημοσιευμένη τιμή",
 };
 
 const en: Strings = {
@@ -136,9 +145,9 @@ const en: Strings = {
   mapTitle: "The coverage map",
   operator: "Operator",
   shown: "Showing",
-  views: { filed: "Filed", measured: "Measured", mobile: "Mobile" },
+  views: { coverage: "Coverage", measured: "Measured", mobile: "Mobile" },
   anyOperator: "Anyone",
-  legend: { filed: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
+  legend: { coverage: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
   measuredHere: "Measured here",
   down: "Down",
   up: "Up",
@@ -150,6 +159,11 @@ const en: Strings = {
   searching: "Searching…",
   searchFailed: "Search did not answer",
   unfiled: "no speed filed",
+  untested: "not tested",
+  unreached: "no line reaches",
+  regions: "By municipality",
+  regionsHint: "A summary per municipality, while the map is far out",
+  over: "over",
   streetHead: "On this street",
   notIndexed: "Sorry, that street is not indexed yet",
   notIndexedWhy: "No operator has filed coverage here.",
@@ -162,7 +176,7 @@ const en: Strings = {
   nothingHere: "Nothing found for this address",
   perMonth: "/month",
   upfront: "up front",
-  notPriced: "not priced",
+  priceFrom: "from",
   unlimited: "unlimited",
   disclaimer:
     "Availability and prices are best effort. Always confirm with the provider.",
@@ -186,7 +200,6 @@ const en: Strings = {
   technology: { FWA_5G: "5G", FWA_4G: "4G", VECT_VDSL: "VDSL+", MOBILE: "mobile", SAT: "satellite" },
   groupEnough: "Enough for a household",
   groupSlower: "Slower than a household wants",
-  groupUnpriced: "No published price",
 };
 
 const TABLE: Record<Language, Strings> = { el, en };
