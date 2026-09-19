@@ -20,7 +20,7 @@ import psycopg
 from psycopg.rows import TupleRow
 
 from db.settings import settings
-from probe.adapter import Offer, Probed, Target
+from probe.adapter import Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 
 SPEC = Descriptor("VODAFONE")
@@ -41,10 +41,6 @@ TECHNOLOGY = SPEC.mapping("technology")
 # that it reaches here and quotes nothing, and the generation is not said, so the offer
 # stays generic rather than claiming a 5G it never mentioned.
 BARE_CATEGORY = SPEC.mapping("bare")
-
-
-class ProbeError(RuntimeError):
-    """The checker could not be asked. Not an answer, and never cached as one."""
 
 
 def mbps(value: object) -> Decimal | None:

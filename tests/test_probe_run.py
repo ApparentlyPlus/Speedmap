@@ -90,6 +90,29 @@ def test_a_failure_is_recorded_as_a_failure_and_nothing_else(
     assert row == (False, None, "timed out")
 
 
+def test_an_address_we_cannot_spell_is_not_the_operator_failing(
+    asked: psycopg.Connection[TupleRow],
+) -> None:
+    """Recorded, and not counted against them. See migration 0057.
+
+    Both adapters that want an address in words want their own spelling of it, and we hold
+    that for 43% of streets — Πατησίων is not among them. An adapter handed one of the rest
+    reports that it cannot look it up, which is the only correct thing it can do, and was
+    being stored identically to a checker that had broken. Nova spent ten days reading as
+    "has not answered" on the strength of eleven such attempts and no real failure at all.
+    """
+    gap = Asked("NOVA", None, error="no spelling recorded for ΠΑΤΗΣΙΩΝ", askable=False)
+    assert store(asked, 1, gap, NOW) == 0
+    row = asked.execute("select ok, askable, detail from probe_attempt").fetchone()
+    assert row == (False, False, "no spelling recorded for ΠΑΤΗΣΙΩΝ")
+
+
+def test_a_real_failure_is_still_theirs(asked: psycopg.Connection[TupleRow]) -> None:
+    """The default stays askable, so nothing that was counted before stops being counted."""
+    assert store(asked, 1, Asked("VODAFONE", None, error="qualification returned 500"), NOW) == 0
+    assert asked.execute("select ok, askable from probe_attempt").fetchone() == (False, True)
+
+
 def test_being_told_to_investigate_is_not_an_answer_either(
     asked: psycopg.Connection[TupleRow],
 ) -> None:

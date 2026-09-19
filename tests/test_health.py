@@ -39,3 +39,27 @@ def test_the_reader_is_told_a_date_not_a_status() -> None:
     assert gone.says == "has not answered since 12 March"
     assert Health("OTE", HEALTHY, NOW, 6, 6).says == "answering"
     assert Health("X", BROKEN, None, 3, 0).says == "has never answered"
+
+
+def test_an_operator_asked_long_ago_is_not_one_never_asked() -> None:
+    """Untried covers two silences. Nova read as "not asked yet" having answered four times.
+
+    It gets there when nothing recent was askable — every address the sweep handed it was a
+    street we hold no spelling for — and saying it had never been asked hid that it had.
+    """
+    asked_once = Health("NOVA", UNTRIED, datetime(2026, 9, 10, tzinfo=UTC), 0, 0)
+    assert asked_once.says == "last answered 10 September"
+    assert Health("NEW", UNTRIED, None, 0, 0).says == "not asked yet"
+
+
+def test_a_flaky_checker_is_not_reported_as_a_silent_one() -> None:
+    """Degraded means answering and not every time, which is not the same as gone.
+
+    There was no branch for it, so it fell through to the sentence about silence and told
+    the reader "has not answered since 19 September" about an operator that had answered on
+    the 19th — which is how Vodafone came to read as having no data at all when its checker
+    was merely unreliable.
+    """
+    flaky = Health("VODAFONE", DEGRADED, NOW, 12, 10)
+    assert flaky.says == "answering 10 times in 12"
+    assert "has not answered" not in flaky.says

@@ -21,9 +21,9 @@ import psycopg
 from psycopg.rows import TupleRow
 
 from db.settings import settings
-from probe.adapter import Offer, Probed, Target
+from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
-from probe.naming import naming
+from probe.naming import TRIES, namings
 
 SPEC = Descriptor("NOVA")
 
@@ -39,10 +39,6 @@ PRESELECTED = SPEC.payload("preselect")
 # copper on a copper street and fibre on a fibre one, exactly as the other operator's
 # FBR codes are. The rungs are read the same way, from the fastest offered.
 RUNGS = SPEC.rungs()
-
-
-class ProbeError(RuntimeError):
-    """The checker could not be asked. Not an answer, and never cached as one."""
 
 
 def speed_of(code: str) -> int | None:
@@ -174,16 +170,30 @@ class Nova:
         preselect: Mapping[str, object] | None = None,
     ) -> Probed:
         """Their prefecture and municipality are the same ones the other operator wants,
-        with a prefix in front, so one recorded spelling answers for both."""
-        named = naming(conn, target.municipality_id, target.street_fold)
-        if named is None:
-            raise ProbeError(f"no spelling recorded for {target.street}")
-        return self.ask(
-            target,
-            SPEC.text("prefecture_prefix") + named.nomos,
-            SPEC.text("municipality_prefix") + named.dimos,
-            preselect,
-        )
+        with a prefix in front, so one recorded spelling answers for both.
+
+        Where the scrape never walked the street, the municipality is very often still
+        known — and this adapter can afford to guess it, because it looks the street up in
+        their own list before asking anything. A wrong guess finds no street and costs one
+        cached GET; a right one is indistinguishable from a recorded spelling. That is the
+        difference between 43% of streets being askable and 97% of them.
+        """
+        tried = namings(conn, target.municipality_id, target.street_fold,
+                        target.lat, target.lon)
+        if not tried:
+            raise NotAskableError(f"no spelling recorded for {target.street}")
+
+        for named in tried[:TRIES]:
+            region = SPEC.text("prefecture_prefix") + named.nomos
+            municipality = SPEC.text("municipality_prefix") + named.dimos
+            # Asked here rather than inside ask() so a municipality that does not have this
+            # street is a reason to try the next one rather than the end of the attempt.
+            # streets() caches per municipality and initial, so ask() re-reads for free.
+            if self.locate(target, region, municipality) is not None:
+                return self.ask(target, region, municipality, preselect)
+
+        where = tried[0].dimos if len(tried) == 1 else f"{len(tried[:TRIES])} municipalities"
+        raise NotAskableError(f"no street matched {target.street} in {where}")
 
     def ask(
         self,
@@ -194,7 +204,7 @@ class Nova:
     ) -> Probed:
         street = self.locate(target, region, municipality)
         if street is None:
-            raise ProbeError(f"no street matched {target.street} in {municipality}")
+            raise NotAskableError(f"no street matched {target.street} in {municipality}")
         payload = {
             # Their own flow arrives here having already chosen a package, and an empty one
             # returns no offers at all. The choice also scopes the answer to that rung and

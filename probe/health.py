@@ -29,10 +29,14 @@ WINDOW = timedelta(days=3)
 # arriving: a checker that works one time in three is not working.
 SHAKY = 0.8
 
+# Askable attempts only. An address we hold no spelling for cannot be put to the operator at
+# all, and counting that as the operator failing to answer reports the state of our own
+# address book as the state of their checker — which it did: on 19 September every request
+# OTE and Vodafone actually made succeeded, and both read as degraded. See migration 0057.
 SINCE = """
 select p.code,
-       count(*) filter (where a.attempted_at >= %(since)s) as recent,
-       count(*) filter (where a.attempted_at >= %(since)s and a.ok) as recent_ok,
+       count(*) filter (where a.attempted_at >= %(since)s and a.askable) as recent,
+       count(*) filter (where a.attempted_at >= %(since)s and a.askable and a.ok) as recent_ok,
        max(a.attempted_at) filter (where a.ok) as last_ok
 from provider p
 left join probe_attempt a on a.provider_id = p.id
@@ -55,7 +59,20 @@ class Health:
         if self.state == HEALTHY:
             return "answering"
         if self.state == UNTRIED:
-            return "not asked yet"
+            # Untried covers two different silences and they should not read alike: one we
+            # have never put a question to, and one we have but not lately — which is what
+            # an operator looks like when every recent address handed to it was one we hold
+            # no spelling for.
+            if self.last_ok_at is None:
+                return "not asked yet"
+            return f"last answered {self.last_ok_at:%-d %B}"
+        if self.state == DEGRADED:
+            # Degraded means it IS answering, just not every time — `state` only reaches it
+            # when answered is above zero. Falling through to the sentence below said "has
+            # not answered since 19 September" about an operator that had answered on the
+            # 19th, which is the most recent day there was, and read to a reader as the
+            # operator having no data at all rather than as a flaky checker.
+            return f"answering {self.answered} times in {self.attempts}"
         if self.last_ok_at is None:
             return "has never answered"
         return f"has not answered since {self.last_ok_at:%-d %B}"
