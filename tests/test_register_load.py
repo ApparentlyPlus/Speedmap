@@ -1,6 +1,4 @@
-"""
-Loading the register into raw_*: upsert, resume, and projection handling.
-"""
+"""Loading the register into raw_*: upsert, resume, and projection handling."""
 
 from __future__ import annotations
 
@@ -81,7 +79,7 @@ def loadable(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[Tu
     db.commit()
 
 
-# geojson_srid
+# geojson_srid.
 
 
 @pytest.mark.parametrize(
@@ -100,7 +98,7 @@ def test_geojson_srid(value: dict[str, Any], expected: int | None) -> None:
 
 
 def test_wrong_projection_is_rejected() -> None:
-    """Copper is Greek Grid; a 4326 body would silently land in the wrong hemisphere."""
+    """Copper is Greek Grid. A 4326 body would silently land in the wrong hemisphere."""
     with pytest.raises(GeometryCrsError, match="expected EPSG:2100, got EPSG:4326"):
         geometry_param("geom", polygon(4326), 2100)
 
@@ -114,7 +112,7 @@ def test_null_geometry_stays_null() -> None:
     assert geometry_param("waitpoin", None, 4326) is None
 
 
-# generated sql
+# generated sql.
 
 
 def test_geometry_columns_get_an_explicit_srid() -> None:
@@ -130,7 +128,7 @@ def test_conflict_updates_every_non_key_column() -> None:
     )
 
 
-# loading
+# loading.
 
 
 def test_rows_land_in_the_raw_table(loadable: psycopg.Connection[TupleRow]) -> None:
@@ -200,7 +198,7 @@ def progress(conn: psycopg.Connection[TupleRow], dataset: str = "provider") -> t
 
 
 def test_a_run_records_when_it_started(loadable: psycopg.Connection[TupleRow]) -> None:
-    """created_at is when the dataset was first seen; run_started_at is this run."""
+    """created_at is when the dataset was first seen. Run_started_at is this run."""
     load(loadable, loader(PROVIDERS), PROVIDER)
     row = loadable.execute(
         "select created_at <= run_started_at from register_fetch where dataset = 'provider'"
@@ -211,7 +209,7 @@ def test_a_run_records_when_it_started(loadable: psycopg.Connection[TupleRow]) -
 def test_a_second_run_resets_only_the_run_counter(
     loadable: psycopg.Connection[TupleRow],
 ) -> None:
-    """fetched is the cumulative position; run_fetched is the only one a rate can divide."""
+    """fetched is the cumulative position. Run_fetched is the only one a rate can divide."""
     load(loadable, loader(PROVIDERS), PROVIDER)
     assert progress(loadable) == (3, 3, True)
 

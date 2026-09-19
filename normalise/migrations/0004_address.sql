@@ -11,8 +11,8 @@ create table address (
     connected boolean,
     vhcn boolean,
     search_key text not null,
-    -- nulls not distinct, or two rows with no postcode never collide and the
-    -- index fills with duplicates
+    -- nulls not distinct, or two rows with no postcode never collide and the index fills with
+    -- duplicates.
     unique nulls not distinct (postcode, street, street_no, municipality)
 );
 

@@ -1,13 +1,6 @@
 /**
- * The network behind the page.
- *
- * Nodes drifting slowly, joined to whichever neighbours are close enough, drawn faintly in
- * the two colours the speed ramp runs between. It is the map this site is about, reduced
- * until it is texture rather than information — anything more legible would invite reading,
- * and there is nothing here to read.
- *
- * Canvas rather than SVG. A few hundred animated nodes in the DOM stutter on a phone, and
- * this has to cost nothing: it is the least important thing on the page.
+ * The network behind the page. Nodes drifting slowly, joined to whichever neighbours are close
+ * enough, drawn faintly in the two colours the speed ramp runs between.
  */
 
 import { useEffect, useRef } from "react";

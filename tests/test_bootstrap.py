@@ -20,9 +20,7 @@ def test_the_declared_order_satisfies_every_dependency() -> None:
 
 
 def test_prices_run_before_the_build() -> None:
-    """The invisible one. The build only gives a network builder coverage where a tariff for
-    them is on record, so building first leaves 129,529 addresses with no fibre option and
-    says nothing about it."""
+    """The invisible one. The build only gives a network builder coverage where a tariff for."""
     assert "prices" in named("build").after
     assert order().index("prices") < order().index("build")
 
@@ -36,7 +34,7 @@ def test_nothing_touches_the_database_before_it_exists() -> None:
 
 
 def test_the_build_comes_last() -> None:
-    """Everything else puts rows in raw tables; this is the only thing that reads them all."""
+    """Everything else puts rows in raw tables. This is the only thing that reads them all."""
     assert order()[-1] == "build"
 
 

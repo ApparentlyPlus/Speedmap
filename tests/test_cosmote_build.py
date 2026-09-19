@@ -137,7 +137,7 @@ def test_an_address_we_already_hold_is_not_duplicated(
 
 
 def test_a_rooftop_beats_an_interpolated_point(scrape: psycopg.Connection[TupleRow]) -> None:
-    """Interpolation puts every number on a street at one point; a rooftop is a building."""
+    """Interpolation puts every number on a street at one point. A rooftop is a building."""
     build(scrape, [
         checked_at(1, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40, precision="interpolated", kaek="INTERP"),
         checked_at(2, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40, precision="rooftop", kaek="ROOF"),
@@ -172,7 +172,7 @@ def test_the_ceiling_lands_on_every_address_of_the_street(
 def test_a_number_above_the_ceiling_is_unknown_not_refused(
     scrape: psycopg.Connection[TupleRow],
 ) -> None:
-    """Τζελίλη 40 exists and is served; the scan stopped at 1 and never asked."""
+    """Τζελίλη 40 exists and is served. The scan stopped at 1 and never asked."""
     build(scrape, [checked_at(1, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 1, "ADSL_24M")],
           "56429,Αχιλλέα Τζελίλη,40,ΠΑΓΓΑΙΟ")
     rows = scrape.execute(

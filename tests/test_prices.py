@@ -75,7 +75,7 @@ def test_a_code_we_do_not_know_is_not_priced() -> None:
 
 
 def test_equal_prices_are_not_a_discount() -> None:
-    """Their feed models one; that it is not running today is not a promotion of nothing."""
+    """Their feed models one. That it is not running today is not a promotion of nothing."""
     found = {t.technology: t for t in vodafone.read(VODAFONE_ANSWER)}
     assert found["FTTH"].promo_monthly_eur is None
     assert found["FWA_5G"].promo_monthly_eur == Decimal("26.90")
@@ -88,7 +88,7 @@ def test_a_home_router_is_part_of_the_offer() -> None:
 
 
 def test_the_tariff_key_is_theirs_not_a_name() -> None:
-    """Names change with the marketing; the code is what their own systems join on."""
+    """Names change with the marketing. The code is what their own systems join on."""
     found = {t.technology: t for t in vodafone.read(VODAFONE_ANSWER)}
     assert found["FTTH"].external_key == "DP Pro UNL - 1Gbps FTTH"
 
@@ -213,7 +213,7 @@ def test_a_catalogue_price_is_the_default(catalogue: psycopg.Connection[TupleRow
 
 
 def test_a_provider_publishing_on_two_pages_is_one_provider() -> None:
-    """Lines and airtime live on different pages; both are the same company's catalogue."""
+    """Lines and airtime live on different pages. Both are the same company's catalogue."""
     from prices.published import load
 
     ote = {t.external_key for t in load()["OTE"][0]}

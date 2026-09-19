@@ -1,12 +1,7 @@
 """Ask Vodafone what it will sell at a set of coordinates.
 
 Alone among the three retail operators this one is keyed on a point rather than on its own
-spelling of a street, so it needs no crosswalk: the register already placed 99.94% of the
-country. Their own onboarding flow geocodes a typed address first, which is a step we can
-skip entirely.
-
-The endpoint is a TM Forum service qualification behind a same-origin proxy, so the real
-request travels as a payload and the session cookie from the onboarding page is required.
+spelling of a street.
 """
 
 from __future__ import annotations
@@ -37,9 +32,7 @@ RETAIL_PARTY = SPEC.text("retail_party")
 # vectored by definition, which is why the two VDSL rungs do not map to one code.
 TECHNOLOGY = SPEC.mapping("technology")
 
-# Categories that qualify without naming a service to go with it. Fixed wireless answers
-# that it reaches here and quotes nothing, and the generation is not said, so the offer
-# stays generic rather than claiming a 5G it never mentioned.
+# Categories that qualify without naming a service to go with it.
 BARE_CATEGORY = SPEC.mapping("bare")
 
 

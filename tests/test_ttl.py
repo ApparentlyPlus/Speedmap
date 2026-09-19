@@ -9,7 +9,7 @@ from probe.ttl import CHANGING, FAILED, LIKELY, SETTLED, VOLATILE, ttl
 
 
 def test_a_gigabit_address_is_settled() -> None:
-    """Fibre is not dug up again; only a new operator arriving changes what is true there."""
+    """Fibre is not dug up again. Only a new operator arriving changes what is true there."""
     assert ttl(Decimal(1000)) == SETTLED
     assert ttl(Decimal(3000)) == SETTLED
 

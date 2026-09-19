@@ -14,7 +14,7 @@ from probe.descriptor import ADAPTERS, Descriptor, descriptors
 OPERATORS = sorted(descriptors())
 
 # What each module reads out of its own entry. A key renamed in the file and not here is a
-# crash on the first probe of the day; this makes it a failing test instead.
+# crash on the first probe of the day. This makes it a failing test instead.
 READS = {
     "OTE": ("base", "warm", "availability", "form", "constants", "inconclusive",
             "prefecture_prefix", "municipality_prefix", "rungs", "headers"),

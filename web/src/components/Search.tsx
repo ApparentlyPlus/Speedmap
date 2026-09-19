@@ -1,9 +1,6 @@
 /**
- * The one field on the landing page, and what it suggests.
- *
- * Opens on the second keystroke: one letter matches a third of the country and teaches
- * nothing. Every request is abortable, because a fast typist outruns the network and the
- * answer to "Αχ" must never overwrite the answer to "Αχαρνών".
+ * The one field on the landing page, and what it suggests. Opens on the second keystroke: one
+ * letter matches a third of the country and teaches nothing.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -42,13 +39,7 @@ export function Search({
   const shell = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLUListElement>(null);
 
-  /*
-   * How much room is left under the field, measured rather than assumed.
-   *
-   * A fraction of the viewport is the wrong cap: the field sits at the optical centre, so
-   * on a short window — or a phone with its keyboard up — half the viewport is more space
-   * than exists, and the rows worth reaching fall off the bottom.
-   */
+  /** How much room is left under the field, measured rather than assumed. */
   const measure = useCallback((): void => {
     const below = shell.current?.getBoundingClientRect().bottom;
     if (below === undefined || panel.current === null) return;

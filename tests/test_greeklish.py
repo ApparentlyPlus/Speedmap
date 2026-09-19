@@ -10,7 +10,7 @@ from normalise.greeklish import from_greek, from_latin, is_greeklish
 from normalise.text import strip_marks
 
 # Greek name, then spellings a user might type. Marked exact where the two forms must be
-# identical; the rest are close enough for the trigram index to find.
+# identical. The rest are close enough for the trigram index to find.
 EXACT = [
     ("ΑΧΑΡΝΩΝ", ["axarnon", "acharnon", "aharnon", "AXARNON"]),
     ("ΤΖΕΛΙΛΗ", ["tzelili"]),
@@ -117,7 +117,7 @@ def test_double_gamma_stays_distinct_from_single() -> None:
 
 
 def test_doubled_consonants_are_kept() -> None:
-    """ΑΛΛΟΣ and ΑΛΟΣ stay apart; a user typing either is bridged by the trigram index."""
+    """ΑΛΛΟΣ and ΑΛΟΣ stay apart. A user typing either is bridged by the trigram index."""
     assert from_greek("ΑΛΛΟΣ") != from_greek("ΑΛΟΣ")
 
 

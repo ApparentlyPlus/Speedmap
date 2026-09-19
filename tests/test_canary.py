@@ -6,7 +6,7 @@ from pathlib import Path
 
 from probe.adapter import Offer, Probed
 from probe.canary import CANARIES, Canary, judge, load
-from probe.run import Asked
+from probe.run import Reply
 
 WATCHED = Canary(
     name="athens", why="fibre for years", municipality="ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ",
@@ -14,8 +14,8 @@ WATCHED = Canary(
 )
 
 
-def answered(*offers: Offer, serviceable: bool = True, conclusive: bool = True) -> Asked:
-    return Asked("OTE", Probed(serviceable=serviceable, offers=offers, conclusive=conclusive))
+def answered(*offers: Offer, serviceable: bool = True, conclusive: bool = True) -> Reply:
+    return Reply("OTE", Probed(serviceable=serviceable, offers=offers, conclusive=conclusive))
 
 
 def test_offers_where_there_are_offers_is_a_pass() -> None:
@@ -31,7 +31,7 @@ def test_no_offers_on_a_street_that_has_them_is_the_failure_this_is_for() -> Non
 
 
 def test_an_unreachable_checker_fails_the_canary() -> None:
-    verdict = judge(WATCHED, Asked("OTE", None, error="timed out"))
+    verdict = judge(WATCHED, Reply("OTE", None, error="timed out"))
     assert not verdict.passed
     assert "unreachable" in verdict.detail
 

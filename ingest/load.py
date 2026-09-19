@@ -1,10 +1,4 @@
-"""
-Load the register into the raw_* tables.
-
-Every page is committed with its resume key, so an interrupted run continues
-rather than restarts. Work is network-bound at roughly 500 rows per request, so
-the writes stay simple rather than batched through COPY.
-"""
+"""Load the register into the raw_* tables. Every page is committed with its resume key."""
 
 from __future__ import annotations
 
@@ -32,7 +26,7 @@ class GeometryCrsError(RuntimeError):
 class Target:
     table: str
     keys: tuple[str, ...]
-    # column -> the SRID the register serves it in
+    # column -> the SRID the register serves it in.
     geometry: Mapping[str, int] = field(default_factory=dict)
 
 

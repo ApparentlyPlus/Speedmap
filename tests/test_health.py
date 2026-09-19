@@ -24,7 +24,7 @@ def test_answering_some_of_the_time_is_not_working() -> None:
 
 
 def test_a_quiet_night_is_not_a_failure() -> None:
-    """The sweep may simply have had nothing due; a recent answer still counts as evidence."""
+    """The sweep may simply have had nothing due. A recent answer still counts as evidence."""
     assert state(recent=0, answered=0, last_ok=NOW - timedelta(days=1), now=NOW) == HEALTHY
 
 
@@ -44,8 +44,8 @@ def test_the_reader_is_told_a_date_not_a_status() -> None:
 def test_an_operator_asked_long_ago_is_not_one_never_asked() -> None:
     """Untried covers two silences. Nova read as "not asked yet" having answered four times.
 
-    It gets there when nothing recent was askable — every address the sweep handed it was a
-    street we hold no spelling for — and saying it had never been asked hid that it had.
+    It gets there when nothing recent was askable, every address the sweep handed it was a
+    street we hold no spelling for, and saying it had never been asked hid that it had.
     """
     asked_once = Health("NOVA", UNTRIED, datetime(2026, 9, 10, tzinfo=UTC), 0, 0)
     assert asked_once.says == "last answered 10 September"
@@ -55,10 +55,8 @@ def test_an_operator_asked_long_ago_is_not_one_never_asked() -> None:
 def test_a_flaky_checker_is_not_reported_as_a_silent_one() -> None:
     """Degraded means answering and not every time, which is not the same as gone.
 
-    There was no branch for it, so it fell through to the sentence about silence and told
-    the reader "has not answered since 19 September" about an operator that had answered on
-    the 19th — which is how Vodafone came to read as having no data at all when its checker
-    was merely unreliable.
+    There was no branch for it, so it fell through to the sentence about silence and told the
+    reader "has not answered since 19 September" about an operator that had answered on.
     """
     flaky = Health("VODAFONE", DEGRADED, NOW, 12, 10)
     assert flaky.says == "answering 10 times in 12"

@@ -78,7 +78,7 @@ def test_a_hundred_over_copper_is_vectored() -> None:
 
 
 def test_the_average_and_the_headline_are_both_kept() -> None:
-    """The average is what the line carries; the maximum is what the advert says."""
+    """The average is what the line carries. The maximum is what the advert says."""
     found = {o.technology: o for o in offers(ANSWER)}
     assert found["ADSL"].max_down_mbps == Decimal("15.22")
     assert found["ADSL"].avg_down_mbps == Decimal("11.24")

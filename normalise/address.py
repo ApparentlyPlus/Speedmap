@@ -37,7 +37,7 @@ def clean(field: str) -> str | None:
 
 
 def postcode_of(field: str) -> str | None:
-    """Only a well-formed postcode is a postcode; a malformed one is unknown, never repaired."""
+    """Only a well-formed postcode is a postcode. A malformed one is unknown, never repaired."""
     value = clean(field)
     if value is None:
         return None

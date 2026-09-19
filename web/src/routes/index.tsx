@@ -1,12 +1,6 @@
 /**
- * The landing state.
- *
- * One question, one field, one quiet way out. The tagline sits at the optical centre rather
- * than the true middle, because text centred at 50% reads low.
- *
- * A lamp sits below the fold and comes on with the page. It belongs to this state only: a
- * light rising through a column of prices lights nothing and reads as a smudge under the
- * last card, so the results are lit by nothing and bounded by hairlines instead.
+ * The landing state. One question, one field, one quiet way out. The tagline sits at the optical
+ * centre rather than the true middle, because text centred at 50% reads low.
  */
 
 import { useState } from "react";
@@ -26,10 +20,9 @@ export function Landing(): React.ReactElement {
   const [making, setMaking] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  /*
-   * A proposed row is a door on a known street that nobody filed, so it has no address to
-   * open yet. Choosing it is what makes it — once, and kept — and from the next line down
-   * it is an address like any other.
+  /**
+   * A proposed row is a door on a known street that nobody filed, so it has no address to open
+   * yet.
    */
   const pick = (result: Result): void => {
     const street = result.street_id;

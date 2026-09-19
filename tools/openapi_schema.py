@@ -1,13 +1,7 @@
 """Write the OpenAPI document the frontend types are generated from.
 
-The document in schema/ is the contract between the API and the renderer: the TypeScript
-types come from it, so a field renamed on the server fails the frontend build instead of
-arriving as undefined and rendering as nothing.
-
-That only holds while the file matches the server. It is written by hand today, which means
-it is one forgotten command away from describing an API that no longer exists — and a stale
-contract is worse than none, because it is believed. So --check asserts it matches, and lint
-runs the check.
+The document in schema/ is the contract between the API and the renderer: the TypeScript types
+come from it.
 """
 
 from __future__ import annotations

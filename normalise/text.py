@@ -28,8 +28,7 @@ def fold(text: str) -> str:
     """Accent-free, uppercase, single-spaced. The generic key used for any register text.
 
     A name made only of combining marks folds away to nothing, because that is all stripping
-    marks can do with it. It keeps its own characters instead: an empty key is not a folded
-    name, it is a key that matches every row in the table.
+    marks can do with it.
     """
     folded = strip_marks(text).upper()
     for mark in APOSTROPHES:
@@ -46,22 +45,13 @@ def street_key(name: str) -> str:
 
 
 # A house number as the register writes them: digits, sometimes a letter after (12Α, 8Β).
-# A range or a fraction is kept verbatim by the register and is not recognised here, so a
-# query carrying one falls back to searching the street, which is what it did before.
 HOUSE_NUMBER = re.compile(r"^\d+[Α-ΩA-Z]?$")
 
 
 def split_number(folded: str) -> tuple[str, str | None]:
     """A folded query split into the street part and the house number it ends with.
 
-    The search index holds the street and the locality and never the number, so a number
-    left in the query matches nothing and still outvotes the part that does: searching
-    "ΣΥΜΕΩΝΙΔΗ 8" scored worse against Συμεωνίδη than "ΣΥΜΕΩΝΙΔΗ" alone did, and returned
-    numbers 58, 60, 13 and 10. Taken out, it can do the job it was typed for, which is to
-    pick one address out of the street.
-
-    Only a trailing token counts, and only when something is left over: "8" on its own is a
-    search for a street named 8, and Greece has a few.
+    The search index holds the street and the locality and never the number.
     """
     tokens = folded.split(" ")
     if len(tokens) > 1 and HOUSE_NUMBER.fullmatch(tokens[-1]):

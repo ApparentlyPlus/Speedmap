@@ -1,13 +1,7 @@
 """Ask Cosmote what it will sell at an address.
 
 They want their own hierarchy, and it is not ours: only 164 of their 506 municipalities
-share a name with a Καλλικράτης one, because theirs are the pre-Καλλικράτης list. The
-scrape recorded their spelling for every street it walked, so naming() reads it back rather
-than walking their dropdowns again, which is six requests to learn one street.
-
-Their checker currently answers that every address needs looking into by hand. That is an
-outcome, not a failure, and it is deliberately never cached: writing it down as a refusal
-would have the cache repeat it for six months.
+share a name with a Καλλικράτης one, because theirs are the pre-Καλλικράτης list.
 """
 
 from __future__ import annotations
@@ -34,10 +28,8 @@ AVAILABILITY = SPEC.text("availability")
 # What their answer says when it will not decide online.
 INCONCLUSIVE = SPEC.text("inconclusive")
 
-# Speed names the medium, as it does in their own plan codes: vectored copper stops short
-# of 200 Mbps, and a hundred over copper is vectored by definition. The floor for VDSL is 25
-# rather than 50 because ADSL cannot pass 24, which the technology table records as its
-# ceiling: their 30 Mbps rung is a VDSL line sold short, not a fast ADSL one.
+# Speed names the medium, as it does in their own plan codes: vectored copper stops short of 200
+# Mbps, and a hundred over copper is vectored by definition.
 RUNGS = SPEC.rungs()
 
 
@@ -166,7 +158,7 @@ class Cosmote:
         """Their spelling of a street, which carries its type in brackets.
 
         Without it the answer is that the address needs looking into by hand, whatever else
-        the request gets right. Case and accent do not matter to them; the brackets do.
+        the request gets right. Case and accent do not matter to them. The brackets do.
         """
         if named.street_type is None:
             return named.street
@@ -187,21 +179,7 @@ class Cosmote:
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
         """Only a street the scrape actually walked. The rest cannot be guessed at.
 
-        Tried, and measured against their live checker rather than reasoned about. A guessed
-        spelling was given the right prefecture, the right municipality and a real exchange
-        area borrowed from a walked address fifteen metres away, and their form answered
-        "διερεύνηση" — needs looking into by hand — on every guessed address and on none of
-        the walked ones.
-
-        The reason is that the scrape IS their address book: it was made by walking their
-        dropdowns, so a street missing from it for a municipality is a street they do not
-        have under that name. Πατησίων is not a street to them, 28ης Οκτωβρίου is; they have
-        a Δεριγνύ in Περιστέρι and Άνω Λιόσια and none in Αθηναίων. Sending our name for it
-        cannot work, and the request that finds that out is wasted.
-
-        Nova can guess because it searches their street list first and discards what does
-        not match. This posts a form and believes the reply, and has nothing to check
-        against — so it asks only what it knows how to spell.
+        Tried, and measured against their live checker rather than reasoned about.
         """
         named = naming(conn, target.municipality_id, target.street_fold)
         if named is None:

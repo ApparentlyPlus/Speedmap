@@ -1,6 +1,6 @@
 """What a provider sells, and what it charged on the day we looked.
 
-A plan is what it is; a price is what it was. The two are separated because a tariff changes
+A plan is what it is. A price is what it was. The two are separated because a tariff changes
 under a plan that does not, and a comparison made last month has to stay answerable.
 """
 

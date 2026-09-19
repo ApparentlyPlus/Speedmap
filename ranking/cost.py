@@ -47,11 +47,7 @@ def upfront(price: Price) -> tuple[Decimal, bool]:
     """Setup plus hardware spread over the window, and whether both were published.
 
     An unpublished part counts as nothing and is reported as missing rather than suppressing
-    the whole price. It used to return None and take the entire cost with it, so three HCN
-    plans whose monthly rates are perfectly well known — 16, 23 and 29 euro — were shown
-    under "no published price" because nobody had written down their setup fee. That told
-    the reader less than the monthly rate alone would have, and the setup fee is the smaller
-    number: spread over two years a 30 euro connection charge is 1.25 a month.
+    the whole price.
     """
     known = price.setup_eur is not None and price.hardware_eur is not None
     setup = price.setup_eur if price.setup_eur is not None else Decimal(0)
@@ -62,9 +58,7 @@ def upfront(price: Price) -> tuple[Decimal, bool]:
 def blended(price: Price) -> MonthlyCost:
     """What the offer costs per month across the window.
 
-    Always a figure, because the monthly rate is always known — plan_price requires it. What
-    can be missing is a one-off, and a missing one-off makes the total a floor rather than
-    an unknown. `complete` says which it is, so a card can mark it without hiding it.
+    Always a figure, because the monthly rate is always known, plan_price requires it.
     """
     spread, known = upfront(price)
 

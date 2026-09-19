@@ -1,13 +1,7 @@
 """Bring an empty machine to a running speedmap.
 
 Every stage is idempotent, so this is the same command whether it is the first run or the
-fifth: the register load resumes from its own key, downloads are skipped if the file is
-there, migrations are once-only and the derived tables are rebuilt from scratch each time.
-
-The order is not a matter of taste. It is declared here and checked before anything runs,
-because one of the dependencies is invisible: the build only gives a network builder
-coverage if a tariff for them is already on record, so building before prices silently
-leaves 129,529 addresses without the one fibre option they have.
+fifth: the register load resumes from its own key.
 """
 
 from __future__ import annotations

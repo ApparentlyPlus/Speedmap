@@ -1,14 +1,6 @@
 """Tariffs from providers that publish no catalogue an adapter can read.
 
 Vodafone answers with JSON and Nova quotes with an eligibility check, so both are fetched.
-The rest publish a web page or a PDF, and a scraper over either breaks on a stylesheet
-change without saying so. These are read once by hand, recorded against the page they came
-from and the day they were read, and reviewed like any other change.
-
-One provider is missing on purpose. ΔΕΗ's own rate card asks 60€ for a gigabit while the
-market reports it selling near 20€, and their order portal quotes only after an address
-check, so the retail price has no primary source. The rate card is recorded as published:
-it is what they say the plan costs, and inventing the difference would be worse.
 """
 
 from __future__ import annotations
