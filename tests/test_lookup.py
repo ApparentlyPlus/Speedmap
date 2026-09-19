@@ -120,7 +120,7 @@ def test_an_answer_for_this_door_beats_the_street(street: psycopg.Connection[Tup
 
 
 def test_only_the_scanned_provider_can_refuse(street: psycopg.Connection[TupleRow]) -> None:
-    """checked_to belongs to the operator that was walked; nobody else's silence is a no."""
+    """checked_to belongs to the operator that was walked. Nobody else's silence is a no."""
     (here,) = place(street, ["7"])
     street.execute("update address set checked_to = 14 where id = %s", (here,))
     street.commit()

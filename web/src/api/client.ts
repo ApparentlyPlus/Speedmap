@@ -1,9 +1,6 @@
 /**
- * The API, with its shapes taken from its own schema.
- *
- * Nothing here declares what a response looks like. The types come from `schema.ts`, which
- * is generated from the OpenAPI document the server publishes, so a field renamed on the
- * server fails the build here rather than arriving as undefined and rendering as nothing.
+ * The API, with its shapes taken from its own schema. Nothing here declares what a response
+ * looks like.
  */
 
 import type { components } from "./schema";
@@ -74,11 +71,7 @@ export function options(addressId: number, signal?: AbortSignal): Promise<Option
   return get<Options>(`/addresses/${addressId}/options`, signal);
 }
 
-/**
- * Ask one operator. One at a time on purpose: a checker takes between two and eight
- * seconds, and asking all three behind a single request makes the reader wait for the
- * slowest before learning anything about the other two.
- */
+/** Ask one operator. */
 export function probe(
   addressId: number,
   provider: string,
@@ -89,11 +82,8 @@ export function probe(
 }
 
 /**
- * Ask for a number the register never filed, on a street it did.
- *
- * The street is known and the door is not, which is the common case rather than the odd
- * one. Made once and kept: from here it is an address like any other, and the answers the
- * operators give about it belong to it rather than to this visit.
+ * Ask for a number the register never filed, on a street it did. The street is known and the
+ * door is not, which is the common case rather than the odd one.
  */
 export function askFor(
   streetId: number,

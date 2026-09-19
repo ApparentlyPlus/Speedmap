@@ -1,12 +1,4 @@
-/**
- * Each operator's own mark and colour.
- *
- * A card takes the colour of whoever is selling, because on a list of eight offers the
- * provider is the first thing anyone looks for and a logo is recognised before it is read.
- * The colours are the operators' own, taken from their marks or their sites — not chosen
- * to look well together, which is why they are used as an edge and a wash rather than a
- * fill: five brands competing at full strength would be a fairground.
- */
+/** Each operator's own mark and colour. */
 
 import dei from "./assets/dei.svg";
 import hcn from "./assets/hcn.svg";

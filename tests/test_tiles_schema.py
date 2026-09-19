@@ -1,9 +1,6 @@
 """The tile contract: both sides generated from one file, and kept that way.
 
-A vector tile field name is an API with no enforcement. A renderer asking for a field the
-builder stopped writing gets undefined, paints its fallback colour, and reports nothing —
-which is how the prototype painted a quarter of its streets wrong for weeks. These tests
-are the enforcement.
+A vector tile field name is an API with no enforcement.
 """
 
 from __future__ import annotations

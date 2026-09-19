@@ -1,12 +1,4 @@
 # What each operator's checker looks like today.
-#
-# Everything here changes when a site is redesigned, and none of it is logic: endpoints,
-# header values, the names of form fields, the words that mean "we will not say", and the
-# codes each operator uses for a technology. Repairing rot should be editing this file and
-# re-running the canary, not a code change and a deploy.
-#
-# Parsing stays in code. A table with a header row that is not a measurement, or a TM Forum
-# document with services nested three deep, is not expressible here and should not be.
 
 OTE:
   base: https://www.telekom.gr

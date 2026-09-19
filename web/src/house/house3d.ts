@@ -1,14 +1,6 @@
 /**
- * The house, as its own scene.
- *
- * Not the map: the map shows where a building is, and this shows what is reaching it. A
- * drawn house can open its walls to show a router inside, which a real footprint cannot,
- * and that is the whole reason the three modes are worth looking at.
- *
- * What makes it read as built rather than assembled from primitives is almost entirely
- * edges. Bevelled corners catch the rim light along their length, so the silhouette is
- * described by a line of light rather than by a change of flat tone — which is what a box
- * with sharp corners gives you, and why the first version of this looked like a box.
+ * The house, as its own scene. Not the map: the map shows where a building is, and this shows
+ * what is reaching it.
  */
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -123,15 +115,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   const roof = slab(roofShape, D + 0.34, 0.05, roofMat);
   house.add(roof);
 
-  /*
-   * Sit the roof on the walls, measured rather than guessed.
-   *
-   * Both solids are centred on their own origin after extrusion, and both are taller than
-   * the shape they were built from because the bevel adds its thickness at each end. The
-   * offset I had picked by eye left the roof a third of a metre low, so the top corners of
-   * the walls came through the slope near the eaves — visible as a vertical edge cutting
-   * across the roof.
-   */
+ /** Sit the roof on the walls, measured rather than guessed. */
   /** The extent of a mesh's own geometry, which is what everything here is placed against. */
   function bounds(mesh: THREE.Mesh): THREE.Box3 {
     mesh.geometry.computeBoundingBox();
@@ -147,14 +131,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     color: 0x0a0c10, emissive: new THREE.Color(0xffd9a0), emissiveIntensity: 0.9,
     roughness: 0.25, metalness: 0,
   });
-  /*
-   * Where the front of the wall actually is.
-   *
-   * A bevelled extrusion is deeper than the depth it was asked for — the bevel adds its
-   * thickness at each end — so a window placed at D/2 lands a few hundredths *inside* the
-   * wall, coplanar with its face. Two surfaces at the same depth is z-fighting, and it
-   * showed up as diagonal hatching across the glass. Measured rather than assumed.
-   */
+  /** Where the front of the wall actually is. */
   const FRONT = bounds(body).max.z + 0.03;
 
   const PANES: readonly (readonly [number, number])[] = [
@@ -206,13 +183,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, MAST, 8), trimMat);
   mast.position.y = -MAST / 2;
   dish.add(mast);
-  /*
-   * Standing on the slope, not buried in it.
-   *
-   * The roof is a triangle, so its surface height depends on how far out along it you are;
-   * a fixed drop from the ridge put the dish inside the tiles on one side and hovering on
-   * the other. Solved from the pitch instead, plus the length of its own mast.
-   */
+  /** Standing on the slope, not buried in it. */
   const DISH_X = 0.86;
   const HALF = W / 2 + 0.22;
   const slope = EAVES + 1.35 * (1 - Math.abs(DISH_X) / HALF);
@@ -254,7 +225,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   );
   scene.add(ground);
 
-  // ---- the three routes, each a tube of flowing light
+  // ---- the three routes, each a tube of flowing light.
   const ROUTES: Record<string, Flow> = {
     ground: flow([[-9, 0.06, 0], [-4, 0.06, 0], [-1.2, 0.06, 0], [0, 0.06, 0], [0, 0.9, 0]],
                  { colour, radius: 0.085 }),
@@ -264,13 +235,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   for (const r of Object.values(ROUTES)) scene.add(r.mesh);
 
   // Cellular is not a path but a broadcast, so it is rings rather than a tube.
-  /*
-   * Turned to face the camera every frame, so they are always drawn as circles.
-   *
-   * Lying in a plane they are seen at whatever angle the camera happens to be at, which
-   * makes a broadcast look like a tilted plate — Saturn, not a signal. A wave leaving an
-   * aerial has no plane, so the honest picture of it is a circle however you are standing.
-   */
+  /** Turned to face the camera every frame, so they are always drawn as circles. */
   const rings = Array.from({ length: 4 }, () => {
     const r = ring(colour);
     r.position.set(0, 1.05, 0);
@@ -306,14 +271,9 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     const flow4 = traffic(mbps);
 
     // The walls opening is the transition: everything else follows from it.
-    /*
-     * three caches whether a material needs the transparent pass, so flipping the flag
-     * without saying so leaves the walls solid however low the opacity goes.
-     *
-     * And a transparent wall must stop writing depth as well as stop being opaque. It was
-     * still filling the depth buffer, so everything behind it was rejected before it was
-     * drawn — which is why the waves appeared to start outside the house instead of at the
-     * router: the small ones, the ones still inside the walls, were being thrown away.
+    /**
+     * three caches whether a material needs the transparent pass, so flipping the flag without
+     * saying so leaves the walls solid however low the opacity goes.
      */
     const clear = open > 0.01;
     if (wallMat.transparent !== clear) {
@@ -356,7 +316,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
       r.quaternion.copy(camera.quaternion);
       r.scale.set(size, size, size);
       // Fading in as well as out, so a ring is never seen springing into existence at the
-      // aerial — the same rule the tubes follow at their ends.
+      // aerial, the same rule the tubes follow at their ends.
       paint.opacity = Math.min(1, phase * 6) * (1 - phase) * 0.5 * air;
     });
 
@@ -391,7 +351,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     stop() {
       cancelAnimationFrame(raf);
       for (const r of Object.values(ROUTES)) r.dispose();
-      // Geometries, materials and render targets are not garbage collected; leaking a
+      // Geometries, materials and render targets are not garbage collected. Leaking a
       // scene per address is the classic version of this bug.
       scene.traverse((o) => {
         const mesh = o as Partial<THREE.Mesh>;

@@ -1,9 +1,7 @@
 """What the mobile network actually reaches an address with, per operator.
 
-A data plan is only a fallback if the operator's own network is any good where the router
-will sit, and the register says so cell by cell: the same 100 m grid the fixed wireless step
-reads, taken from the mobile flags it deliberately ignored. Without this a 30€ unlimited SIM
-ranks identically in a city and on a mountain, and it is worth nothing on the mountain.
+A data plan is only a fallback if the operator's own network is any good where the router will
+sit.
 """
 
 from __future__ import annotations
@@ -43,9 +41,7 @@ class Reach:
     provider: str
     five_g: bool
     floor_mbps: Decimal | None
-    # The top of the band this operator filed here. A tile of tests says what the place can
-    # do; this says what this operator does in it, and the two are not the same claim when
-    # one operator's mast is good and another's is not.
+    # The top of the band this operator filed here.
     ceiling_mbps: Decimal | None = None
 
 

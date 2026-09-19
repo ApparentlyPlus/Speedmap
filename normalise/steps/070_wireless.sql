@@ -1,9 +1,5 @@
 -- The grid is a regular 100 m lattice in Greek Grid, so an address finds its cell by
--- arithmetic rather than containment: 1.5M addresses against 12.8M cells becomes a join on
--- an integer pair. Only the fixed flags are read, because mobile cannot replace a landline;
--- that also keeps the duplicate Vodafone and ORIZON filings out, both being mobile only.
--- A flag of 2 means planned within two years, so offered is tested for 1, never truthiness.
--- Its own rows and no others, for the reason given in 050. See migration 0047.
+-- arithmetic rather than containment. tech flag 2 means planned, so test for 1, not truthy.
 delete from address_coverage where built_by = '070';
 
 with cell as (

@@ -2,11 +2,6 @@
 
 The field names in a vector tile are an API with no enforcement: a renderer asking for a
 field the builder stopped writing gets undefined, paints its fallback, and reports nothing.
-Generating both sides from one file turns that silence into a failed build.
-
-Run it with --check in CI and it asserts the files on disk are what the schema says, which
-is the half that matters: generating is easy to remember while editing the schema and easy
-to forget while reviewing a diff.
 """
 
 from __future__ import annotations

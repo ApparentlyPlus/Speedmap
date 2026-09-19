@@ -1,10 +1,6 @@
 /**
- * One row of the autocomplete.
- *
- * The dot on the right is the speed ramp, shown here so it is already familiar by the time
- * anyone reaches the map. Its slate colour is not the bottom of the ramp: "serves this
- * street, files no speed" is the most common state in the register, and painting it as slow
- * would invent a fact.
+ * One row of the autocomplete. The dot on the right is the speed ramp, shown here so it is
+ * already familiar by the time anyone reaches the map.
  */
 
 import type { Result } from "../api/client";

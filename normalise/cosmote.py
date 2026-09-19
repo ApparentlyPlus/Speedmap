@@ -1,11 +1,7 @@
 """Fold the operator's availability scrape into the address index and the answer cache.
 
 The scrape walked house numbers upward from the start of each street and stopped after five
-consecutive numbers with no service, so it is authoritative about what it found and silent
-above where it stopped. Both halves are recorded: the answers, and how far the asking got.
-
-Folding happens here rather than in SQL because the address index was built with
-street_key(), and a second implementation in SQL would drift from it silently.
+consecutive numbers with no service.
 """
 
 from __future__ import annotations
@@ -28,14 +24,12 @@ from probe.ttl import (
 CHUNK = 50_000
 
 # Which of two filings of one address to keep. The scrape geocoded most rows by
-# interpolating along a street; a rooftop is an actual building and wins.
+# interpolating along a street. A rooftop is an actual building and wins.
 PRECISION = {"rooftop": 0, "interpolated": 1, "street": 2, "locality": 3}
 UNRANKED = len(PRECISION)
 
-# The operator's dimoi are not Καλλικράτης and their names do not resolve: street names
-# repeat nationwide, so a vote over names maps almost nothing. Coordinates do resolve, and
-# one (dimos, area) pair sits in one municipality, so the pair is learned from the rows the
-# scrape placed confidently and then carries the rows that cannot place themselves.
+# The operator's dimoi are not Καλλικράτης and their names do not resolve: street names repeat
+# nationwide, so a vote over names maps almost nothing.
 AREA = """
 create temp table cosmote_area on commit drop as
 select distinct on (c.dimos, coalesce(c.area, ''))
@@ -87,9 +81,7 @@ create temp table stage_cosmote_address (
 ) on commit drop
 """
 
-# Postcode is absent from the scrape, so these rows carry none. The unique key treats nulls
-# as equal, which is why an address already held under a postcode is filtered out in Python
-# rather than left to collide here.
+# Postcode is absent from the scrape, so these rows carry none.
 ADD_ADDRESS = """
 insert into address (
     postcode, street, street_fold, street_no, locality, municipality_id,
@@ -133,10 +125,8 @@ where r.id = c.id
     or c.street_fold is distinct from r.street_fold)
 """
 
-# The ceiling is the last number the scrape recorded, up to five short of the last it
-# actually asked: the numbers between were refused and so were never written down. Reading
-# it this way calls those five unknown and asks again, rather than reporting no service on
-# a guess about how the scan terminated.
+# The ceiling is the last number the scrape recorded, up to five short of the last it actually
+# asked: the numbers between were refused and so were never written down.
 MARK_SCANNED = """
 update address a set checked_to = s.scanned_to
 from (
@@ -146,9 +136,8 @@ from (
 where a.municipality_id = s.municipality_id and a.street_fold = s.street_fold
 """
 
-# The scrape only ever recorded a serviceable answer, so serviceable is true throughout.
-# How long each is trusted depends on what it says: see the probe loop for the rule.
-# An address the operator refuses is absent from the scrape, not present with an empty list.
+# The scrape only ever recorded a serviceable answer, so serviceable is true throughout. How long
+# each is trusted depends on what it says: see the probe loop for the rule.
 CACHE = """
 insert into availability (
     address_id, provider_id, technology, max_down_mbps, serviceable,
@@ -189,8 +178,8 @@ def keys(street: str, locality: str | None) -> tuple[str, str, str]:
 def best_plan(plans: str, catalogue: dict[str, tuple[float, str]]) -> tuple[float, str] | None:
     """The fastest plan the operator offers here, which is what names the technology.
 
-    Vectored copper stops short of 200 Mbps, so the top rung says what is in the ground.
-    An unknown code is ignored rather than guessed: a new one is a catalogue change.
+    Vectored copper stops short of 200 Mbps, so the top rung says what is in the ground. An
+    unknown code is ignored rather than guessed: a new one is a catalogue change.
     """
     known = [catalogue[code] for code in plans.split(",") if code in catalogue]
     return max(known) if known else None

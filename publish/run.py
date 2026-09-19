@@ -1,16 +1,7 @@
 """Build the map tiles, and put them in place only once they are whole.
 
-Two layers go to tippecanoe and come back as one PMTiles archive, which is a single file a
-web server can range-request: no tile server, no directory of a million small files, and a
-CDN in front of it if it ever needs one.
-
-The archive is built under a temporary name and renamed at the end. A rename within a
-filesystem is atomic, so a reader either gets the previous archive or the new one and never
-a half-written one — which matters more here than usual, because the thing being replaced
-is being read by every open map at the time.
-
-tippecanoe is a build dependency, not a runtime one: tiles are cut on a desktop and copied
-to the Pi, because it wants more memory than the Pi has.
+Two layers go to tippecanoe and come back as one PMTiles archive, which is a single file a web
+server can range-request: no tile server, no directory of a million small files.
 """
 
 from __future__ import annotations
@@ -27,31 +18,20 @@ import psycopg
 from db.settings import settings
 from publish import features, fields
 
-# Nothing reachable may be empty. Three separate prototype bugs were a layer that silently
-# stopped drawing at some zoom, and each took longer to find than it should have because an
-# empty map looks the same as a map of nothing.
+# Nothing reachable may be empty.
 MIN_ZOOM = 4
 MAX_ZOOM = 14
 
-# Streets are what the map is for, so they are never dropped to save room; the coarse zooms
-# coalesce them instead. Cells are 600 m squares and may be dropped when they overlap,
-# because at zoom 5 several thousand of them occupy one pixel.
+# Streets are what the map is for, so they are never dropped to save room. The coarse zooms
+# coalesce them instead.
 STREET_RULES = ("--drop-densest-as-needed", "--coalesce-densest-as-needed")
 CELL_RULES = ("--drop-densest-as-needed",)
 
 # 333 polygons, and the only thing drawn at the zooms where the country fits on the screen.
-# Nothing may be dropped or coalesced: a municipality missing from a choropleth is a hole in
-# Greece, and merging two of them averages two figures into one that describes neither.
 REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
 
-# Where the regions stop, because the streets have taken over and nothing draws them above
-# it — web/src/map/style.ts fades them out at the same number.
-#
-# Expressed as a feature filter and not as `--maximum-zoom`, which is global however it is
-# placed on the command line: written next to `--named-layer regions` it read as an
-# instruction about the whole archive and cut streets and cells at ten as well, which turned
-# a 67 MB build into a 24 MB one with every street above zoom ten missing from it. The
-# archive looked fine and the map would have been wrong from the first zoom anybody uses.
+# Where the regions stop, because the streets have taken over and nothing draws them above it —
+# web/src/map/style.ts fades them out at the same number.
 REGIONS_STOP = 10
 FILTER = json.dumps({fields.REGIONS_LAYER: ["<=", "$zoom", REGIONS_STOP]})
 
@@ -85,8 +65,7 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
         print(f"cells:   {features.cells(conn, cells)} features")
         print(f"regions: {features.regions(conn, regions)} features")
         # Beside the archive rather than inside it: it is one shape, it is wanted before the
-        # first tile arrives, and a vector tile of a coastline at zoom 4 is a coastline
-        # someone has already thrown most of away.
+        # first tile arrives.
         edge = out.parent / "greece.json"
         print(f"outline: {features.outline(conn, edge) / 1_000_000:.1f} MB -> {edge}")
 
@@ -97,7 +76,7 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
             "--output", str(staged),
             "--minimum-zoom", str(MIN_ZOOM),
             "--maximum-zoom", str(MAX_ZOOM),
-            # Attributes are the contract; tippecanoe must not decide any of them are dull
+            # Attributes are the contract. Tippecanoe must not decide any of them are dull
             # enough to drop, which it will do to save room if it is allowed to.
             "--no-tile-size-limit",
             "--preserve-input-order",

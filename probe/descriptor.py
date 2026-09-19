@@ -1,13 +1,6 @@
 """What each operator's checker looks like, read at runtime rather than compiled in.
 
-You cannot make a third party's private API stable. One of these domains vanished and
-another went quiet inside a year, and the answer is not better scraping: it is that the
-parts which change when a site is redesigned should be data, so repairing them is an edit
-and a restart rather than a code change and a deploy.
-
-What stays in code is parsing. A table whose header row is not a measurement cannot be
-expressed here, and pretending otherwise would put the fragile half in a format with no
-tests over it.
+You cannot make a third party's private API stable.
 """
 
 from __future__ import annotations

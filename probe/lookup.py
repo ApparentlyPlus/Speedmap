@@ -1,9 +1,6 @@
 """Gather what the decision needs, for one address, for each provider that could serve it.
 
-The street is the unit of evidence. A seller inherits it from every network it resells over,
-so what the operator's own checker learned about a street answers for its wholesale
-customers too: the register knows OTE fibre on 2,901 streets and the scrape knows it on
-50,757, and Nova sells over all of them.
+The street is the unit of evidence.
 """
 
 from __future__ import annotations
@@ -17,7 +14,7 @@ from psycopg.rows import TupleRow
 from probe.decide import Answer, verdict
 
 # The one provider whose checker was walked street by street. Only its silence below a
-# ceiling means a refusal; for everyone else nothing was ever asked.
+# ceiling means a refusal. For everyone else nothing was ever asked.
 SCANNED_BY = "OTE"
 
 INPUTS = """
@@ -91,14 +88,14 @@ def verdicts(
         {"address_id": address_id, "providers": providers, "scanned_by": SCANNED_BY},
     ).fetchall()
 
-    found: dict[str, str] = {}
+    verdicts: dict[str, str] = {}
     for code, serviceable, expires_at, refused, street_no, checked_to, fibre, best in rows:
         answer = (
             Answer(serviceable=serviceable, expires_at=expires_at)
             if expires_at is not None
             else None
         )
-        found[str(code)] = verdict(
+        verdicts[str(code)] = verdict(
             answer,
             now=now,
             street_no=street_no,
@@ -107,4 +104,4 @@ def verdicts(
             street_fibre=bool(fibre),
             refused=bool(refused),
         )
-    return found
+    return verdicts

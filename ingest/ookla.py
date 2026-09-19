@@ -1,12 +1,7 @@
 """Load Ookla's quarterly open data for Greece.
 
 Every other source here is an operator describing itself. This one is people measuring what
-they got, and it is the only thing that can contradict a filing. The Greek picture is worth
-stating plainly: 1.8M fixed tests median 60 Mbps against 519k mobile tests median 113, which
-is why a mobile fallback is a real answer here rather than a consolation.
-
-The file is a global parquet of several million tiles and is read locally: DuckDB over HTTP
-range requests takes hours for the same query that takes no measurable time off disk.
+they got, and it is the only thing that can contradict a filing.
 """
 
 from __future__ import annotations
@@ -79,8 +74,7 @@ def latest(today: date) -> tuple[int, int]:
     """The most recent quarter they have published.
 
     They publish a quarter some weeks after it ends, so walking back from the current one is
-    the only way to know without being told. Two years of walking is a data source that has
-    stopped rather than one that is late.
+    the only way to know without being told.
     """
     year, quarter = today.year, (today.month - 1) // 3 + 1
     for _ in range(8):
@@ -95,9 +89,7 @@ def latest(today: date) -> tuple[int, int]:
 def download(kind: str, year: int, quarter: int, into: Path) -> Path:
     """Fetch a quarter if it is not already here.
 
-    The file is a few hundred megabytes and is read locally rather than over HTTP: the same
-    query against the remote parquet takes hours of range requests instead of no measurable
-    time off disk.
+    The file is a few hundred megabytes and is read locally rather than over HTTP.
     """
     path = into / f"ookla_{kind}_{year}Q{quarter}.parquet"
     if path.exists():
@@ -125,7 +117,7 @@ def cells(path: Path, kind: str, year: int, quarter: int) -> Iterator[Cell]:
             quadkey=str(quadkey),
             family=kind,
             observed_on=observed_on,
-            # Ookla files kilobits; everything else here is megabits.
+            # Ookla files kilobits. Everything else here is megabits.
             down_mbps=down / 1000.0,
             up_mbps=up / 1000.0,
             latency_ms=None if latency is None else int(latency),

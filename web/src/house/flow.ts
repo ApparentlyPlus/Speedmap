@@ -1,15 +1,4 @@
-/**
- * The signal, as light flowing along a path.
- *
- * Particles were the wrong primitive. A particle travelling 0 → 1 has to go back to 0, and
- * however it is faded that reset is a discontinuity you can see — which is what made the
- * motion look like it was stuttering rather than flowing.
- *
- * A tube has no such moment. The geometry is fixed and what moves is a pattern scrolling
- * through it, so every frame is the same picture shifted slightly: there is nothing to
- * restart. It also renders as one draw call however long the path is, and it occludes and is
- * occluded correctly because it is real geometry rather than billboards.
- */
+/** The signal, as light flowing along a path. Particles were the wrong primitive. */
 import * as THREE from "three";
 
 const VERT = `
@@ -89,7 +78,7 @@ export function flow(points: readonly Point[], options: FlowOptions = {}): Flow 
       uSpeed: { value: options.speed ?? 0.3 },
       uDensity: { value: options.density ?? 3 },
       uBright: { value: options.bright ?? 1.6 },
-      // A path that starts at a visible emitter — a dish on a roof — should be bright where
+      // A path that starts at a visible emitter, a dish on a roof, should be bright where
       // it leaves it. One that arrives from off-screen can afford to ease in.
       uFadeIn: { value: options.fadeIn ?? 0.1 },
     },
@@ -119,18 +108,9 @@ export function ring(colour: string): THREE.Mesh {
     color: colour, transparent: true, opacity: 0.4,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     depthWrite: false,
-    /*
-     * Not depth tested at all.
-     *
-     * Sorting is per object, not per fragment, and a ring centred on the router passes
-     * through the house — part of it in front, part behind. Whichever way that one object
-     * sorts, the half on the wrong side is cut away, which drew each wave as an arc with a
-     * clean bite taken out of it along the roofline.
-     *
-     * And the occlusion was wrong to want in the first place: this is radiating energy
-     * rather than a solid, and the whole point of opening the walls is to watch it leave
-     * the router. Light that stops at a wall it is supposed to be passing through is a
-     * worse lie than light drawn in front of one.
+    /**
+     * Not depth tested at all. Sorting is per object, not per fragment, and a ring centred on
+     * the router passes through the house, part of it in front, part behind.
      */
     depthTest: false,
   });

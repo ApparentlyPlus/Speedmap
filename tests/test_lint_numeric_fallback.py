@@ -1,6 +1,4 @@
-"""
-Linter tests for numeric fallback rules.
-"""
+"""Linter tests for numeric fallback rules."""
 
 from __future__ import annotations
 
@@ -17,7 +15,7 @@ def codes(source: str) -> list[str]:
     return [f.code for f in check_source(source, HERE)]
 
 
-# SM001: `or <number>`
+# SM001: `or <number>`.
 
 
 @pytest.mark.parametrize(
@@ -38,13 +36,13 @@ def test_flags_numeric_or_fallback(source: str) -> None:
 @pytest.mark.parametrize(
     "source",
     [
-        # Non-numeric defaults are a different question and not this rule's job
+        # Non-numeric defaults are a different question and not this rule's job.
         "name = row.get('street') or ''",
         "rows = fetched or []",
         "flag = explicit or False",
-        # `and` cannot introduce a value
+        # `and` cannot introduce a value.
         "x = a and 0",
-        # A bare read is exactly what we want people to write
+        # A bare read is exactly what we want people to write.
         "speed = row.get('maxdown')",
     ],
 )
@@ -52,7 +50,7 @@ def test_ignores_non_numeric_and_safe_forms(source: str) -> None:
     assert codes(source) == []
 
 
-# SM002: `.get(key, <number>)`
+# SM002: `.get(key.
 
 
 def test_flags_dict_get_numeric_default() -> None:
@@ -71,7 +69,7 @@ def test_ignores_non_numeric_get_default() -> None:
     assert codes("street = row.get('street', '')") == []
 
 
-# suppression
+# suppression.
 
 
 def test_suppressed_with_a_reason() -> None:
@@ -93,7 +91,7 @@ def test_suppression_is_per_line() -> None:
     assert [(f.code, f.line) for f in findings] == [("SM001", 2)]
 
 
-# Regression tests
+# Regression tests.
 
 
 def test_zero_is_falsy_bug_is_caught() -> None:

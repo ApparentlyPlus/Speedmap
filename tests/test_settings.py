@@ -1,6 +1,4 @@
-"""
-Configuration precedence: environment over .env over defaults.
-"""
+"""Configuration precedence: environment over .env over defaults."""
 
 from __future__ import annotations
 

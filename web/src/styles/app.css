@@ -1,24 +1,7 @@
-/*
- * A near-black ground, matte surfaces, hairlines, and type.
- *
- * Nothing glows. A surface is told from the page behind it by its value and by a single
- * hairline, the way a printed page tells one block from the next — which costs nothing and
- * survives being looked at for an hour. Violet appears where something is chosen or focused
- * and nowhere else, so that when it does appear it means something.
- *
- * The one light left is the lamp under the landing, and it is there because an unlit room
- * and a lit one are the same screenshot: the difference is what says the page is ready
- * rather than empty. It does not follow the reader into the results.
- */
+/* A near-black ground, matte surfaces, hairlines, and type. Nothing glows. */
 
 :root {
-  /*
-   * Neutral throughout. A slate-blue grey reads as a colour choice; this reads as absence.
-   *
-   * Not #000: pure black is a hole rather than a surface, it gives a hairline nothing to be
-   * a hairline against, and on an OLED phone it smears when the page scrolls. A few points
-   * up and the same design has somewhere to sit.
-   */
+  /* Neutral throughout. A slate-blue grey reads as a colour choice. This reads as absence. */
   --ground: #08080a;
   --raised: #101013;
   --raised-high: #161619;
@@ -31,7 +14,7 @@
   --accent: #fff;
   --accent-far: #e4e4e7;
 
-  /* The only two ways a surface is bounded. A rule divides, a line encloses; both are the
+  /* The only two ways a surface is bounded. A rule divides, a line encloses. Both are the
    * same hairline, because a design with one border weight has one border weight. */
   --rule: rgb(255 255 255 / 7%);
   --rule-lit: rgb(255 255 255 / 14%);
@@ -52,10 +35,8 @@
 }
 
 /*
- * One focus treatment for the whole page.
- *
- * Keyboard only: a mouse user who just clicked a card does not need to be told which card
- * they clicked. The offset keeps the ring off the hairline it would otherwise sit on top of.
+ * One focus treatment for the whole page. Keyboard only: a mouse user who just clicked a card
+ * does not need to be told which card they clicked.
  */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -121,11 +102,7 @@ body {
   isolation: isolate;
 }
 
-/*
- * The lamp. Fixed to the bottom of the viewport, warm, and very blurred: two pools, a broad
- * amber wash and a tighter orange core inside it, which is what stops it reading as a flat
- * gradient. It sits behind everything and catches nothing.
- */
+/* The lamp. */
 .network {
   position: fixed;
   z-index: -2;
@@ -145,9 +122,7 @@ body {
   z-index: -1;
   inset: auto 0 -18% 0;
   height: 96vh;
-  /* Three pools rather than one: a wide low wash, a warmer core inside it, and a tall
-   * faint bloom that reaches the type. One ellipse either lights the floor and nothing
-   * else, or washes the whole page flat. */
+  /* faint bloom that reaches the type. One ellipse either lights the floor and nothing */
   background:
     radial-gradient(ellipse 78% 62% at 50% 100%, rgb(255 255 255 / 13%), transparent 70%),
     radial-gradient(ellipse 38% 44% at 50% 100%, rgb(255 255 255 / 7%), transparent 66%),
@@ -170,13 +145,7 @@ body {
   }
 }
 
-/*
- * Optical centre, not true centre: a block centred at 50% reads low.
- *
- * Lifted from the middle rather than pushed down from the top, because a percentage of the
- * viewport and a percentage of the element are different numbers and mixing them was how
- * this ended up at 8% on the first try.
- */
+/* Optical centre, not true centre: a block centred at 50% reads low. */
 .landing-centre {
   position: relative;
   width: min(560px, calc(100% - 48px));
@@ -237,10 +206,7 @@ body {
   clip-path: inset(50%);
 }
 
-/*
- * The field is the shell, not the input. The input inside it is stripped to nothing so the
- * glyph, the light and the text sit in one surface rather than a box inside a box.
- */
+/* The field is the shell, not the input. */
 .search-shell {
   display: grid;
   position: relative;
@@ -313,9 +279,7 @@ body {
   background: var(--raised);
   box-shadow: var(--lift-high);
   list-style: none;
-  /* The room actually left under the field, measured on open and on every viewport change,
-   * because a phone keyboard takes half the screen and no fraction of vh knows that. The
-   * last row is the one worth reaching: a fuzzy match is where the near-misses land. */
+  /* because a phone keyboard takes half the screen and no fraction of vh knows that. The */
   max-height: min(var(--room, 46dvh), 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -417,42 +381,27 @@ body {
 }
 
 /* The lit room, arrived at rather than animated into. Someone who asked for less motion
- * still gets the light; they just do not watch it come on. */
+ * still gets the light. They just do not watch it come on. */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    transition-duration: 0ms !important;
-    animation-duration: 1ms !important;
-    animation-delay: 0ms !important;
+    * {
+       transition-duration: 0ms !important;
+       animation-duration: 1ms !important;
+       animation-delay: 0ms !important;
     /* Without this a looping animation becomes a strobe at 1ms a lap. */
     animation-iteration-count: 1 !important;
   }
 }
 
 /*
- * The address, and what can be had at it.
- *
- * Scrolls, unlike the landing, so the block is placed rather than centred. The lamp does
- * not come along: a light rising through a column of prices lights nothing and reads as a
- * smudge under the last card.
+ * The address, and what can be had at it. Scrolls, unlike the landing, so the block is placed
+ * rather than centred.
  */
-/*
- * The network drops back further here.
- *
- * The cards are barely-there fills bounded by hairlines, so a mesh at landing strength
- * draws its lines straight through them and the card stops being a surface. On the landing
- * it is the only thing on the page and can afford to be seen.
- */
+/* The network drops back further here. */
 .landing-open .network {
   opacity: 0.13;
 }
 
-/*
- * The result: the map is the page, and everything else floats over it.
- *
- * The address is a place before it is a list of prices, so the place is the ground the page
- * stands on rather than a panel beside it — and it is the same map, the same archives and
- * the same light as the map page, so the two read as one product.
- */
+/* The result: the map is the page, and everything else floats over it. */
 .landing-open {
   display: block;
   padding: 0;
@@ -466,12 +415,8 @@ body {
 }
 
 /*
- * No panel.
- *
- * A box around the whole answer says the answer is a thing sitting on a page, when it is
- * the page. The address heads it, one rule closes the heading, and the cards stand on the
- * ground with nothing behind them — which is also the only way the cards' own hairlines
- * read as edges rather than as lines inside a bigger line.
+ * No panel. A box around the whole answer says the answer is a thing sitting on a page, when it
+ * is the page.
  */
 .place {
   display: grid;
@@ -573,14 +518,7 @@ body {
   margin-bottom: 10px;
 }
 
-/*
- * A numbered marker with a rule running out of it, said once over the cards it covers.
- *
- * The ranker's verdict is identical for every card in a band, so printing it on each one
- * put the same sentence on the page twelve times. Up here it is information; down there it
- * was wallpaper. The rule takes the leftover width, which is what stops a short heading and
- * a long one from looking like two different designs.
- */
+/* A numbered marker with a rule running out of it, said once over the cards it covers. */
 .group-head {
   display: flex;
   gap: 12px;
@@ -604,12 +542,7 @@ body {
   background: var(--rule);
 }
 
-/*
- * The rest of the band, on request.
- *
- * Full width and quiet, so it reads as the bottom edge of the list rather than as a control
- * competing with the cards above it.
- */
+/* The rest of the band, on request. */
 .expand {
   display: flex;
   gap: 8px;
@@ -654,14 +587,7 @@ body {
   list-style: none;
 }
 
-/*
- * One offer: who is selling, how fast, what it costs.
- *
- * Three bands divided by rules rather than by space, because space between bands and space
- * around the card are the same gap and the card stops reading as one thing. Matte, bounded
- * by a single hairline, and casting nothing: twenty cards each glowing in their seller's
- * colour read as twenty posters rather than as one list.
- */
+/* One offer: who is selling, how fast, what it costs. */
 .offer {
   border: 1px solid var(--rule);
   border-radius: 12px;
@@ -770,13 +696,7 @@ body {
   text-transform: uppercase;
 }
 
-/*
- * The number the reader came for, in a well of its own.
- *
- * Everything else on the card qualifies this line, so it gets the only large type and the
- * only recess. The well is darker than the card rather than lighter, because a reader
- * scanning a column of these needs the number to sit still, not to advance.
- */
+/* The number the reader came for, in a well of its own. */
 .offer-rate {
   display: flex;
   gap: 10px;
@@ -950,9 +870,8 @@ body {
 
 @media (width <= 560px) {
   /*
-   * The card takes the bottom of the screen and the map keeps the top, so the address is
-   * still somewhere before it is a list of prices. Sized in dvh rather than percent, because
-   * a phone's address bar comes and goes and vh does not know that.
+   * The card takes the bottom of the screen and the map keeps the top, so the address is still
+   * somewhere before it is a list of prices.
    */
   .place {
     inset: auto 8px 8px 8px;
@@ -998,18 +917,13 @@ body {
     font-size: 19px;
   }
 
-  /* The pill would cost the plan name half its room on a phone; the mark already says it. */
+  /* The pill would cost the plan name half its room on a phone. The mark already says it. */
   .offer-brand {
     display: none;
   }
 }
 
-/*
- * The map.
- *
- * Full bleed, with one panel floating over it. The panel is the only chrome: a map that
- * spends its edges on a header has less map in it, and the map is the page.
- */
+/* The map. Full bleed, with one panel floating over it. */
 .atlas {
   display: block;
   position: relative;
@@ -1284,13 +1198,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/*
- * Which silence this is.
- *
- * Four per cent of the country has ever been speed-tested and half its streets have no
- * filed speed, so an empty view is the normal case and the reader has to be told which
- * empty they are looking at — otherwise the map reads as broken every time it is right.
- */
+/* Which silence this is. */
 .atlas-state {
   margin: 14px 0 0;
   min-height: 2.6em;
@@ -1355,13 +1263,7 @@ body {
   font-size: 13px;
 }
 
-/*
- * Nothing filed here.
- *
- * A dead end should not read as a broken page, so it arrives the way an answer does: the
- * mark draws itself, then the line settles under it. Slow enough to be watched once and
- * short enough not to be waited on.
- */
+/* Nothing filed here. */
 .bare {
   display: grid;
   justify-items: start;
@@ -1453,17 +1355,12 @@ body {
   }
 }
 
-/*
- * A street has no house to draw.
- *
- * The card is two rows, a scene over a body, and a street result has only the body — which
- * lands in the scene's row and is cut off at its height.
- */
+/* A street has no house to draw. */
 .place-road {
   grid-template-rows: 1fr;
 }
 
-/* The compact rows in the map panel are built for a 210px column; this card is twice that. */
+/* The compact rows in the map panel are built for a 210px column. This card is twice that. */
 .road-offers {
   display: grid;
   gap: 1px;
@@ -1531,14 +1428,7 @@ body {
 
 
 
-/*
- * The prefecture overlay, which is a switch and not a choice.
- *
- * Everything else in this panel is one of a set — three views, one operator out of seven —
- * and pills say so by sitting in a row looking like alternatives. This is an overlay that
- * is either on or off, so it wears the control that means that. Accent rather than brand:
- * it belongs to no operator.
- */
+/* The prefecture overlay, which is a switch and not a choice. */
 .atlas-toggle {
   display: flex;
   gap: 8px;

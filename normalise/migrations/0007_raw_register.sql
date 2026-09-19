@@ -11,7 +11,7 @@ create table register_fetch (
     updated_at timestamptz not null default now()
 );
 
--- /api/provider
+-- /api/provider.
 create table raw_provider (
     id integer primary key,
     name text,

@@ -13,11 +13,8 @@ from probe.adapter import Target
 from probe.cosmote import Cosmote, offers, read, technology_of
 from probe.naming import Naming, naming
 
-# As their estimate table is built: one tbody per nominal rung, download on the second row
-# and upload on the third, each a label followed by maximum, usual and minimum.
-# Copied from a live answer. The first four-cell row is a header whose cells read
-# Μέγιστη, Συνήθης, Ελάχιστη, and reading it as a measurement is the mistake this shape
-# exists to catch.
+# As their estimate table is built: one tbody per nominal rung, download on the second row and
+# upload on the third, each a label followed by maximum, usual and minimum.
 TABLE = """
 <table id="speedTable">
  <tbody style="display: none;" id="speed24">
@@ -84,7 +81,7 @@ def test_a_real_answer_is_conclusive() -> None:
 
 
 def test_each_rung_is_read_with_its_estimate() -> None:
-    """The usual speed is what the line carries; the maximum is what the advert says."""
+    """The usual speed is what the line carries. The maximum is what the advert says."""
     found = {o.technology: o for o in offers(TABLE)}
     assert found["ADSL"].max_down_mbps == Decimal("18.09")
     assert found["ADSL"].avg_down_mbps == Decimal("12.01")
