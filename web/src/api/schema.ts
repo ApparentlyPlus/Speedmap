@@ -35,9 +35,7 @@ export interface paths {
          * Address Options
          * @description What can be bought here, best first, from what is already known.
          *
-         *     Nothing is asked of an operator on this path. A page that waits eight seconds for three
-         *     checkers is a page nobody sees the end of, so the stored answer is served at once and
-         *     `known` says, per operator, whether asking would add anything.
+         *     Nothing is asked of an operator on this path.
          */
         get: operations["address_options_addresses__address_id__options_get"];
         put?: never;
@@ -62,12 +60,7 @@ export interface paths {
          * @description Ask the operators that are due, and keep what they say.
          *
          *     One operator at a time is the caller's choice, and the reason it exists: a checker takes
-         *     between two and eight seconds, and three of them behind one request means the reader
-         *     waits for the slowest before learning anything. Asked separately, each lands when it
-         *     lands.
-         *
-         *     The one path here that leaves the building. It is slow by nature, it is a write, and it
-         *     is rate limited at the proxy for the same reasons the report endpoint is.
+         *     between two and eight seconds.
          */
         post: operations["address_probe_addresses__address_id__probe_post"];
         delete?: never;
@@ -195,14 +188,7 @@ export interface paths {
          * Ask For
          * @description Make the address at this number, so it can be probed and kept like any other.
          *
-         *     The register knows the street and not the number, which is the common case rather than
-         *     the odd one: it files nothing at all on some streets and the Cosmote scrape walked away
-         *     from others after five empty numbers in a row. Refusing the reader their own front door
-         *     because nobody filed it is the wrong answer when we hold the street it is on.
-         *
-         *     A write, and the second one in this API, so it is rate limited at the proxy alongside
-         *     the report and the probe. It is idempotent: the same number on the same street is the
-         *     same address however many times it is asked for.
+         *     The register knows the street and not the number.
          */
         post: operations["ask_for_streets__street_id__addresses_post"];
         delete?: never;

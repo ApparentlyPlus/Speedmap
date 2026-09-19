@@ -49,7 +49,7 @@ def drawn(seeded: psycopg.Connection[TupleRow]) -> psycopg.Connection[TupleRow]:
     return seeded
 
 
-# A GeoJSON feature is nested and heterogeneous; typing it precisely here would describe
+# A GeoJSON feature is nested and heterogeneous. Typing it precisely here would describe
 # the format rather than test the layer.
 Feature = dict[str, Any]
 
@@ -83,11 +83,9 @@ def test_a_cell_carries_exactly_the_fields_the_contract_names(
 def test_a_cell_is_drawn_as_the_square_that_was_measured(
     drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
 ) -> None:
-    """Ookla publish a centroid; what was measured is a tile. As a point it becomes a dot
-    whose size means nothing, and a tested street looks like a tested suburb.
+    """Ookla publish a centroid. What was measured is a tile. As a point it becomes a dot
 
-    A zoom 16 tile is 611 m of Web Mercator, which is 611·cos(latitude) on the ground — so
-    the square is around 464 m across in Greece and not the 600 m the equator gets.
+    whose size means nothing, and a tested street looks like a tested suburb.
     """
     features.cells(drawn, tmp_path / "cells.geojsonl")
     drawn_cell = read(tmp_path / "cells.geojsonl")[0]["geometry"]

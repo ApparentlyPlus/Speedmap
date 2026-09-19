@@ -1,10 +1,4 @@
-"""
-Apply ordered SQL migrations.
-
-Each file in migrations/ runs once, inside its own transaction, in filename order.
-An applied file is checksummed, so editing one after the fact is an error rather
-than a silent divergence between this tree and the database.
-"""
+"""Apply ordered SQL migrations. Each file in migrations/ runs once."""
 
 from __future__ import annotations
 
@@ -21,7 +15,7 @@ from db.connect import connect
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
-# Fixed key so two concurrent runners serialise instead of racing
+# Fixed key so two concurrent runners serialise instead of racing.
 LOCK_KEY = 8104729
 
 BOOTSTRAP = """
@@ -57,12 +51,12 @@ def applied(conn: psycopg.Connection[TupleRow]) -> dict[str, str]:
     return dict(rows)
 
 
-def drifted(known: dict[str, str], available: list[Migration]) -> list[str]:
-    return [m.version for m in available if m.version in known and known[m.version] != m.checksum]
+def drifted(applied_now: dict[str, str], all_migrations: list[Migration]) -> list[str]:
+    return [m.version for m in all_migrations if m.version in applied_now and applied_now[m.version] != m.checksum]
 
 
-def pending(known: dict[str, str], available: list[Migration]) -> list[Migration]:
-    return [m for m in available if m.version not in known]
+def pending(applied_now: dict[str, str], all_migrations: list[Migration]) -> list[Migration]:
+    return [m for m in all_migrations if m.version not in applied_now]
 
 
 def migrate(conn: psycopg.Connection[TupleRow], *, dry_run: bool = False) -> list[str]:
@@ -70,18 +64,18 @@ def migrate(conn: psycopg.Connection[TupleRow], *, dry_run: bool = False) -> lis
     conn.commit()
     conn.execute("select pg_advisory_lock(%s)", (LOCK_KEY,))
     try:
-        available = discover()
-        known = applied(conn)
+        all_migrations = discover()
+        applied_now = applied(conn)
 
-        drift = drifted(known, available)
+        drift = drifted(applied_now, all_migrations)
         if drift:
             raise SystemExit(f"already applied but changed on disk: {', '.join(drift)}")
 
-        todo = pending(known, available)
+        pending_now = pending(applied_now, all_migrations)
         if dry_run:
-            return [m.version for m in todo]
+            return [m.version for m in pending_now]
 
-        for migration in todo:
+        for migration in pending_now:
             conn.execute(migration.sql())
             conn.execute(
                 "insert into schema_migration (version, checksum) values (%s, %s)",
@@ -90,7 +84,7 @@ def migrate(conn: psycopg.Connection[TupleRow], *, dry_run: bool = False) -> lis
             conn.commit()
             print(f"applied {migration.version}")
 
-        return [m.version for m in todo]
+        return [m.version for m in pending_now]
     finally:
         conn.execute("select pg_advisory_unlock(%s)", (LOCK_KEY,))
         conn.commit()
@@ -103,11 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     with connect(args.dsn) as conn:
-        todo = migrate(conn, dry_run=args.status)
+        pending_now = migrate(conn, dry_run=args.status)
 
     if args.status:
-        print("\n".join(todo) if todo else "up to date")
-    elif not todo:
+        print("\n".join(pending_now) if pending_now else "up to date")
+    elif not pending_now:
         print("up to date")
     return 0
 

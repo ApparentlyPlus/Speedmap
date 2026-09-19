@@ -1,11 +1,7 @@
 """Ask Nova what it will sell at an address.
 
-They want their own spelling, which their address API hands out: a street there is a
-(region, municipality, city, street, zipcode) tuple, and a street name repeats across
-postcodes, so ours picks which of them is meant. Their region and municipality are the
-prefectures and pre-Καλλικράτης municipalities that the other operator uses too.
-
-The answer carries the tariff with it, so an availability check is also a price check.
+They want their own spelling, which their address API hands out: a street there is a (region,
+municipality, city, street, zipcode) tuple.
 """
 
 from __future__ import annotations
@@ -35,9 +31,8 @@ ELIGIBILITY = SPEC.text("eligibility")
 # The entry package their plan page starts every visitor on.
 PRESELECTED = SPEC.payload("preselect")
 
-# Their code names the speed and nothing else about the medium: 2P_FIBER_100 is vectored
-# copper on a copper street and fibre on a fibre one, exactly as the other operator's
-# FBR codes are. The rungs are read the same way, from the fastest offered.
+# Their code names the speed and nothing else about the medium: 2P_FIBER_100 is vectored copper
+# on a copper street and fibre on a fibre one, exactly as the other operator's FBR codes are.
 RUNGS = SPEC.rungs()
 
 
@@ -170,13 +165,8 @@ class Nova:
         preselect: Mapping[str, object] | None = None,
     ) -> Probed:
         """Their prefecture and municipality are the same ones the other operator wants,
-        with a prefix in front, so one recorded spelling answers for both.
 
-        Where the scrape never walked the street, the municipality is very often still
-        known — and this adapter can afford to guess it, because it looks the street up in
-        their own list before asking anything. A wrong guess finds no street and costs one
-        cached GET; a right one is indistinguishable from a recorded spelling. That is the
-        difference between 43% of streets being askable and 97% of them.
+        with a prefix in front, so one recorded spelling answers for both.
         """
         tried = namings(conn, target.municipality_id, target.street_fold,
                         target.lat, target.lon)
@@ -188,7 +178,6 @@ class Nova:
             municipality = SPEC.text("municipality_prefix") + named.dimos
             # Asked here rather than inside ask() so a municipality that does not have this
             # street is a reason to try the next one rather than the end of the attempt.
-            # streets() caches per municipality and initial, so ask() re-reads for free.
             if self.locate(target, region, municipality) is not None:
                 return self.ask(target, region, municipality, preselect)
 
@@ -207,8 +196,7 @@ class Nova:
             raise NotAskableError(f"no street matched {target.street} in {municipality}")
         payload = {
             # Their own flow arrives here having already chosen a package, and an empty one
-            # returns no offers at all. The choice also scopes the answer to that rung and
-            # its neighbours, so asking once returns a quarter of what they sell.
+            # returns no offers at all.
             "packagePreselected": PRESELECTED if preselect is None else preselect,
             "packageSelected": {"code": "", "title": "", "price": None, "packageGroupType": ""},
             "customerInfo": {

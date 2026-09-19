@@ -1,9 +1,6 @@
 /**
- * Greek is the language; English is the translation.
- *
- * Both exist from the first string rather than being retrofitted, because retrofitting is
- * how half a UI ends up hardcoded. A plain table, not a library: there are two languages
- * and no pluralisation rules worth a dependency.
+ * Greek is the language; English is the translation. Both exist from the first string rather
+ * than being retrofitted, because retrofitting is how half a UI ends up hardcoded.
  */
 
 export const LANGUAGES = ["el", "en"] as const;

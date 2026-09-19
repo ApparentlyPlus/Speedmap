@@ -1,9 +1,7 @@
 """Load a scrape of the operator's availability checker.
 
 The scrape carries cadastral parcel polygons that nothing here reads and that account for
-almost all of its thirty gigabytes, so the columns are named rather than selected with a
-star. Coordinates come from the same file: without them the operator's dimoi cannot be
-matched to a municipality, because street names alone repeat across the whole country.
+almost all of its thirty gigabytes.
 """
 
 from __future__ import annotations

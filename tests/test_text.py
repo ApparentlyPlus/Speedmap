@@ -36,7 +36,7 @@ def test_accents_fold_away(raw: str, expected: str) -> None:
 
 
 def test_final_sigma_folds_with_medial_sigma() -> None:
-    """Οδός and ΟΔΟΣ are the same word; upper() handles ς, the accent strip handles ό."""
+    """Οδός and ΟΔΟΣ are the same word. Upper() handles ς, the accent strip handles ό."""
     assert fold("Οδός") == fold("ΟΔΟΣ") == "ΟΔΟΣ"
 
 
@@ -53,7 +53,7 @@ def test_apostrophe_variants_unify() -> None:
     assert fold("Α’ ΠΑΡΟΔΟΣ") == fold("Α' ΠΑΡΟΔΟΣ") == "Α' ΠΑΡΟΔΟΣ"
 
 
-# type words
+# type words.
 
 
 @pytest.mark.parametrize(
@@ -109,7 +109,7 @@ def test_the_two_word_lists_never_overlap() -> None:
     assert not (TYPE_WORDS & IDENTITY_WORDS)
 
 
-# properties
+# properties.
 
 
 @given(st.text())
@@ -132,8 +132,7 @@ def test_fold_leaves_no_combining_marks(text: str) -> None:
     """Unless the marks are all there is.
 
     A name of nothing but combining marks has no accent-free form, and folding it to the
-    empty string would produce a key that matches every row in the table. fold() keeps the
-    characters instead, which is the one case where a mark survives it.
+    empty string would produce a key that matches every row in the table.
     """
     import unicodedata
 
@@ -149,7 +148,7 @@ def test_real_register_names_round_trip(sample: str) -> None:
     assert key.strip() == key
 
 
-# split_number
+# split_number.
 
 
 def test_a_trailing_house_number_comes_off() -> None:

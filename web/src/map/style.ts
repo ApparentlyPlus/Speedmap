@@ -1,16 +1,6 @@
 /**
- * The map style, as typed code rather than a JSON file.
- *
- * MapLibre rejects an entire style on one bad expression: the map does not load at all, and
- * it reports that by firing an event rather than throwing, so the page is blank and looks
- * like a slow network. A JSON file gets that wrong in front of a reader; a builder gets it
- * wrong in front of whoever wrote it, and a unit test gets it wrong in a second.
- *
- * The look is the prototype's, which was right: a near-black ground, water and parks to
- * give the land a shape, roads as a dim wide casing under a brighter core, extruded
- * buildings with a fake occlusion shadow beneath them, and coverage laid over the streets
- * as a tint rather than as a replacement. What it did not have was types, or one definition
- * of the speed ramp shared with the rest of the site.
+ * The map style, as typed code rather than JSON: MapLibre rejects a whole style on one bad
+ * expression and reports it by firing an event, so a unit test catches what a reader would.
  */
 
 import type {
@@ -43,15 +33,8 @@ export const EDGE = "edge";
 /** Greece, with room for Crete and the north in the same view. */
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
 
-/**
- * As far out and as far afield as the map will go.
- *
- * The country runs from Gavdos to the Evros and from Corfu to Kastellorizo; the box is that
- * with about half a degree of sea around it, so an island on the edge is reachable without
- * being pinned to the frame. Past it there is nothing this site has measured or asked
- * about, and a reader who arrives in Bulgaria at zoom 3 has been shown an empty map and
- * told it is ours.
- */
+/** Gavdos to the Evros, Corfu to Kastellorizo, plus half a degree of sea. Past it we have
+ * nothing to say. */
 export const LIMITS: [[number, number], [number, number]] = [
   [18.6, 34.2],
   [30.4, 42.3],
@@ -60,22 +43,10 @@ export const LIMITS: [[number, number], [number, number]] = [
 /** Far enough out to hold the country, and no further. */
 export const FLOOR_ZOOM = 5.6;
 
-/**
- * The ground, and the few things that give it a shape.
- *
- * Nothing here is a colour anyone picked to be pretty: water has to be darker than land or
- * the coast inverts, parks have to be greener than landuse or a city reads as one surface,
- * and the ambient occlusion has to be darker than the building or the shadow glows.
- */
+/** The ground. These are relative, not decorative: water under land or the coast inverts,
+ * occlusion under building or the shadow glows. */
 const C = {
-  // The land, and the whole stack that stands on it.
-  //
-  // These move together or not at all: relief, greenery, buildings and the three road
-  // weights are all set against the land, and dropping the land on its own leaves a city
-  // sitting brighter than the country it is in.
-  //
-  // Two steps below where the navy sea put it. Dim enough that the coverage is the only lit
-  // thing on the map, and the land still reads as a surface rather than as more sea.
+  // The land. Everything below is set against it, so they move together or not at all.
   ground: "#141a22",
   // Relief. A shade up from the land and faintly cool, so a hillside reads as a rise in the
   // ground rather than as a different kind of place.
@@ -83,25 +54,15 @@ const C = {
   // Greenery, desaturated almost to grey. Green on a map about cables is a colour spent on
   // the one thing the map is not about, and it fights the cool end of the ramp.
   park: "#22272c",
-  // Under the land, and blue rather than grey.
-  //
-  // The coast reads by hue as much as by weight: a neutral sea a shade off a neutral land
-  // is a boundary you have to look for, and the same two at the same weights with one of
-  // them blue is a boundary you cannot miss. Dark enough that it is still the thing the
-  // land sits on — the ramp owns the bright blues, and a sea anywhere near 300 Mbps would
-  // be a speed as far as the eye is concerned.
+  // Blue rather than grey, so the coast reads by hue. Dark: the ramp owns the bright blues.
   water: "#0d1117",
   building: "#1e2530",
   occlusion: "#0d121a",
-  // Roads carry the city's shape at the zooms where coverage is a hairline, so they are
-  // lighter than the land by more than they used to be — and still well under the dimmest
-  // band of the ramp, which has to stay the brightest thing on the map.
+  // Roads carry the city's shape where coverage is a hairline, but stay under the ramp.
   road: "#303945",
   roadMinor: "#1f252e",
   roadMajor: "#414d5b",
-  // Names have to hold against three backgrounds: the land, the sea, and a lit street
-  // running under them. Near white with a dark halo wide enough to cut the coverage, since
-  // the one place a label is least readable is exactly where the map is most worth reading.
+  // Must hold against land, sea and a lit street, so: near white with a wide dark halo.
   label: "#d8dce3",
   // Street names, a step down from a town so the two are told apart at a glance.
   labelQuiet: "#9fa7b4",
@@ -109,17 +70,8 @@ const C = {
 } as const;
 
 /**
- * The ramp, interpolated rather than stepped.
- *
- * Measured speeds are continuous and advertised ones are not, and both are drawn here, so
- * both run across the same anchors — the two stay comparable by eye instead of one being
- * banded and the other smooth.
- *
- * Three states before the ramp is consulted at all. A field that is absent is an operator
- * that does not reach this street; one at or below zero reaches it and filed no speed, which
- * is the commonest thing the register says and gets a colour of its own outside the ramp;
- * anything else is a speed. Running "no speed filed" through the ramp interpolated it down
- * to near-black and made eight operators invisible.
+ * The speed ramp. Absent means nothing reaches here and takes UNSERVED, outside the ramp: run
+ * through it, absence interpolates to near-black and reads as a very slow street.
  */
 function ramp(field: keyof Street | keyof Cell): ExpressionSpecification {
   const rising = [...RAMP].reverse();
@@ -132,13 +84,8 @@ function ramp(field: keyof Street | keyof Cell): ExpressionSpecification {
 }
 
 /**
- * How tall a building is, when almost none of them say.
- *
- * Greek OSM rarely carries height or levels. A constant fallback makes a city one flat
- * slab, which is the single clearest tell of a fake three-dimensional map, so the fallback
- * is derived from the feature's own id — anywhere in the range an Athens polykatoikia
- * actually occupies, and deterministic, so a building does not change height between one
- * zoom and the next.
+ * Greek OSM rarely carries height, and a constant fallback makes a city one flat slab. This one
+ * is derived from the feature id: plausible for a polykatoikia, and stable across zooms.
  */
 const HEIGHT: DataDrivenPropertyValueSpecification<number> = [
   "case",
@@ -152,13 +99,7 @@ const ROAD_KINDS: ExpressionSpecification = [
   ["in", ["get", "class"], ["literal", ["ferry", "rail", "path"]]],
 ];
 
-/**
- * A filter for one operator, or none at all.
- *
- * Presence, because a tile carries no key at all for an operator that does not reach the
- * street. The GeoJSON this used to read wrote every operator's key on every feature, so
- * asking whether one was present was true everywhere and every filter matched everything.
- */
+/** A filter for one operator. Presence: the tile omits the key where they do not reach. */
 export function only(provider: string | null): ExpressionSpecification | null {
   if (provider === null) return null;
   const field = STREETS_BY_PROVIDER[provider];
@@ -167,14 +108,7 @@ export function only(provider: string | null): ExpressionSpecification | null {
   return ["has", field] as ExpressionSpecification;
 }
 
-/**
- * How the selection arrives.
- *
- * It used to appear the instant the street was chosen, which is while the camera is still
- * crossing the city — so the light was already burning on a street somewhere off the edge
- * of the screen by the time the reader got there. It waits for the journey instead, and
- * comes up rather than switching on.
- */
+/** The selection waits for the camera to arrive, then comes up rather than switching on. */
 const LIGHT_MS = 800;
 const LIGHT_WAIT = 500;
 
@@ -222,14 +156,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       },
     },
     {
-      /*
-       * An invisible line, wide enough to hit.
-       *
-       * A street is drawn two or three pixels across, and a person aiming at one with a
-       * mouse misses more often than not — with a thumb, almost always. So the thing that
-       * is clicked is not the thing that is drawn: this one is transparent, twenty pixels
-       * wide, and sits under the visible line where it catches everything aimed near it.
-       */
+      // An invisible twenty-pixel line to click. A street is drawn three pixels across,
+      // which nobody can hit with a thumb.
       id: "streets-hit",
       type: "line",
       source: SOURCE,
@@ -263,23 +191,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       },
     },
     {
-      /*
-       * The one street that was chosen, drawn white over its own colour.
-       *
-       * Six streets in a city share a name, and naming one in a panel does not say which
-       * of the six it is. White because the ramp owns every other hue on the map: any
-       * colour bright enough to read as chosen would also read as a speed.
-       *
-       * It carries no operator filter. It was picked outright, and a selection that
-       * disappears because a filter was pressed afterwards is a selection that lies.
-       */
-      /*
-       * A glow under the selection, so it survives being zoomed out to.
-       *
-       * A long street is fitted, not flown to, and fitting one puts the camera at a zoom
-       * where every street is a thread and the chosen one is no thicker than its
-       * neighbours. Widest where the map is densest and the line is thinnest.
-       */
+      // A glow under the chosen street, so it survives the zoom a long street is fitted
+      // at. No operator filter: it was picked outright and must not vanish under one.
       id: "streets-picked-halo",
       type: "line",
       source: SOURCE,
@@ -317,19 +230,8 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
 }
 
 /**
- * The colour each coverage layer takes for one operator.
- *
- * Returned rather than rebuilt into new layers: switching operator is a paint change, and
- * removing a layer and adding it back moves it to the top of the style, above the
- * buildings, which drew the coverage straight over the roofs.
- */
-/**
- * What the streets look like on a map that is about one of them.
- *
- * Behind a result the coverage of every other street is not the subject and competes with
- * it: forty thousand lit roads around the one being asked about, in the same colours, and
- * the answer is the least conspicuous thing on its own map. They go grey and quiet, the
- * subject keeps the ramp, and the reader has one thing to look at.
+ * How the other streets look behind a result: grey and quiet, so the subject is the only lit
+ * thing. Forty thousand lit roads around the answer bury it.
  */
 export const ASIDE = "#2b3037";
 export const ASIDE_OPACITY: DataDrivenPropertyValueSpecification<number> = [
@@ -344,64 +246,27 @@ export function ramps(provider: string | null): Record<string, ExpressionSpecifi
 }
 
 /**
- * What the map is painted by.
- *
- * Coverage is which kind of line reaches a street, drawn at what that line is sold at. It
- * was called Filed while it reported the register's own speeds; it no longer does — see
- * migration 0051 — and a view named for a filing it does not repeat would be the wrong
- * name on the one control that says what the reader is looking at.
- *
- * Measured is what people running a speed test actually got, which is a different claim
- * about a different thing and is usually lower. Mobile is the same measurement for phones,
- * and is kept apart because a mobile figure answers a question nobody asked when they were
- * looking at a street.
+ * Coverage is the line reaching a street at what it retails for. Measured is what people
+ * actually got. Different claims about different things, so never drawn together.
  */
 export const VIEWS = ["coverage", "measured", "mobile"] as const;
 export type View = (typeof VIEWS)[number];
 
-/**
- * How much of a claim a measured cell is, drawn as opacity.
- *
- * A cell built from two tests is a weaker claim than one built from five hundred, and
- * showing it faintly is more honest than dropping it — dropping thin cells is what put most
- * of the holes in the prototype's map, and a hole reads as a broken layer rather than as a
- * quiet one.
- */
+/** Confidence as opacity. Dropping thin cells instead leaves holes, which read as broken. */
 const CONFIDENCE: ExpressionSpecification = [
   "interpolate", ["linear"], ["coalesce", ["get", "tests"], 1],
   1, 0.4, 5, 0.66, 25, 1,
 ];
 
 /**
- * The country, before it has streets.
- *
- * A street is a fraction of a pixel at the zoom where Greece fits on the screen, so below
- * about ten the map was a coastline with nothing inside it: a dark shape and a panel
- * telling the reader to zoom in, somewhere, with no clue where. This is what the register
- * can say at that distance — how much of each municipality fibre reaches — and it is drawn
- * underneath the streets and handed over to them as they arrive.
- *
- * The layer the contract has declared since the schema was written and nothing built. It is
- * built now; see publish/features.py.
- *
- * Painted by share rather than by speed, in a single hue, for the reason given on SHARE:
- * this map has already taught the reader that colour means megabits, and a second rainbow
- * would be read as a third opinion about speed.
+ * The country before it has streets: below zoom ten a street is a fraction of a pixel and the
+ * map was an empty coastline. Drawn under the streets and handed over as they arrive.
  */
 const FADES_AT = 11;
 
 /**
- * What a region is painted by, under each view.
- *
- * Filed is a share — how much of the municipality fibre reaches — and runs on SHARE, one
- * hue getting lighter. Measured and Mobile are speeds, and speeds on this site are the RAMP,
- * the same anchors a street uses: a region and the streets inside it must not teach
- * different colours for the same number.
- *
- * This is why the layer is per-view rather than one choropleth under all three. It used to
- * draw fibre share beneath every view, so switching to Measured left a filed claim lying
- * under a measured map — and the only reason Filed and Measured are separate views at all
- * is that they are separate claims about different things.
+ * Per view, because a filed claim must not sit under a measured map. Coverage is a share and
+ * runs on SHARE; the other two are speeds and run on the same RAMP a street does.
  */
 export function regionPaint(view: View): ExpressionSpecification {
   if (view === "coverage") {
@@ -416,22 +281,14 @@ export function regionPaint(view: View): ExpressionSpecification {
   const rising = [...RAMP].reverse();
   return [
     "case",
-    // Untested, which is most of the country under either family. A region with no
-    // measurement is not a slow region, and drawing it as one would be the same lie the
-    // ramp's UNSERVED exists to avoid on a street.
+    // Untested is most of the country, and is not the same thing as slow.
     ["!", ["has", field]], UNSERVED,
     ["interpolate", ["linear"], ["to-number", ["get", field], 0],
       ...rising.flatMap((band) => [band.floor as number, band.colour])],
   ] as ExpressionSpecification;
 }
 
-/**
- * How much of a claim a region's measurement is, drawn as opacity.
- *
- * The same bargain the measured cells make: a figure from eleven tests is a weaker claim
- * than one from four thousand, and showing it faintly is more honest than dropping it.
- * Filed has no test count and is drawn at full strength, since a filing is a filing.
- */
+/** Confidence as opacity, as the cells do. Coverage has no test count and is drawn full. */
 function regionConfidence(view: View): ExpressionSpecification | number {
   if (view === "coverage") return 1;
   const field: keyof Region = view === "mobile" ? "mobile_tests" : "measured_tests";
@@ -452,19 +309,12 @@ export function regionLayers(view: View = "coverage"): LayerSpecification[] {
       source: SOURCE,
       "source-layer": REGIONS_LAYER,
       maxzoom: FADES_AT,
-      // Off unless the reader turns it on. It is a summary of places, not of lines, and the
-      // map's subject is the line that runs down a street — so it is offered rather than
-      // assumed, and the country opens as the country rather than as a chart of itself.
+      // Off unless asked for: this summarises places, and the map is about lines.
       layout: { visibility: "none" },
       paint: {
         "fill-color": paint,
-        // Gone by the time the streets are worth looking at, and never fully opaque: the
-        // land underneath is what gives the country its edge, and a flat fill over it
-        // turns 333 administrative polygons into the coastline, which they are not.
-        //
-        // Zoom outermost, because `["zoom"]` has to be the input of a top-level
-        // interpolate; nesting it inside the confidence term makes the whole style invalid
-        // and the map never loads at all.
+        // Never fully opaque, or 333 polygons become the coastline. Zoom outermost:
+        // ["zoom"] must be the input of a top-level interpolate or the style is invalid.
         "fill-opacity": [
           "interpolate", ["linear"], ["zoom"],
           5, ["*", 0.62, confidence],
@@ -504,15 +354,12 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
       source: SOURCE,
       "source-layer": CELLS_LAYER,
       filter: ["==", ["get", "family"], family],
-      // Off unless something turns it on. The map opens on filed coverage and switches to
-      // these, and every other map on the site — the one behind a result, above all — wants
-      // streets and not a grid of squares over them.
+      // Off unless something turns it on: every other map here wants streets, not squares.
       layout: { visibility: "none" },
       paint: {
         "fill-color": ramp(field),
-        // Zoom outermost, because `["zoom"]` has to be the input of a top-level interpolate;
-        // nesting it inside the confidence term makes the whole style invalid and the map
-        // never loads at all.
+        // Zoom outermost: ["zoom"] must be the top-level interpolate input, or the style
+        // is rejected whole.
         "fill-opacity": [
           "interpolate", ["linear"], ["zoom"],
           5, ["*", 0.6, CONFIDENCE],
@@ -524,13 +371,7 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
   ];
 }
 
-/**
- * The whole style.
- *
- * The basemap comes from archives built elsewhere — planetiler needs more memory than the
- * machine this runs on — and is read by range request out of one file each. The coverage
- * comes from our own database, which is the half that changes.
- */
+/** The whole style. Basemap archives are built elsewhere. The coverage is ours. */
 export function style(base = "/tiles"): StyleSpecification {
   return {
     version: 8,
@@ -551,18 +392,8 @@ export function style(base = "/tiles"): StyleSpecification {
     // Without it every building is the same flat tone and the city reads as a printed plan.
     light: { anchor: "viewport", color: "#ffffff", intensity: 0.35, position: [1.2, 210, 30] },
     layers: [
-      /*
-       * The sea is the background and the land is drawn on it.
-       *
-       * The other way round — land underneath, sea painted over it — is how this was, and
-       * it means every stretch of open water depends on something being drawn there. Where
-       * nothing was, the background showed through and the Aegean came out in rectangular
-       * slabs of coastline-coloured land, because what was painting the sea was a polygon
-       * with the country cut out of it, cut again into tiles, clipping badly.
-       *
-       * Drawn from underneath there is nothing to go wrong: what is not Greece is simply
-       * not drawn, and what is underneath is already the sea.
-       */
+      // Sea as background, land drawn on it. The other way round needs a world-ring with
+      // Greece cut out, which clips into slabs of land across the Aegean.
       { id: "ground", type: "background", paint: { "background-color": C.water } },
       {
         id: "land",
@@ -638,9 +469,7 @@ export function style(base = "/tiles"): StyleSpecification {
       ...streetLayers(null),
       ...cellLayers("fixed"),
 
-      // A dark flat copy of the footprints, offset a few pixels, sitting under the
-      // extrusions. It costs one fill layer and it is most of why an expensive-looking map
-      // looks expensive.
+      // A dark offset copy under the extrusions: one fill layer, most of the depth.
       {
         id: "building-shadow",
         type: "fill",
@@ -700,7 +529,7 @@ export function style(base = "/tiles"): StyleSpecification {
           "symbol-placement": "line",
         },
         paint: {
-          // A street name sits on the street, which at these zooms is a lit line — so it
+          // A street name sits on the street, which at these zooms is a lit line, so it
           // needs more contrast than a town name floating on open ground, not less.
           "text-color": C.labelQuiet,
           "text-halo-color": C.labelHalo,

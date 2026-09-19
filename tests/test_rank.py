@@ -110,9 +110,8 @@ def test_an_unknown_speed_is_never_fast_enough() -> None:
 def test_a_missing_setup_fee_does_not_cost_an_offer_its_place() -> None:
     """The monthly rate is known, so the offer is ranked on it and marked as a floor.
 
-    It used to be dropped below everything priced and labelled "the cost is not known",
-    which is three HCN plans — 16, 23 and 29 euro a month, all published — sent to the
-    bottom of the page over a setup fee worth about 1.25 a month once it is spread.
+    It used to be dropped below everything priced and labelled "the cost is not known", which
+    is three HCN plans, 16, 23 and 29 euro a month, all published.
     """
     found = rank([
         option("HCN", "sonic", "fibre", 1000, "23", setup=None),

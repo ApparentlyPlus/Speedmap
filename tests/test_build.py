@@ -103,7 +103,7 @@ def test_a_point_inside_resolves_to_its_municipality(
 
 
 def test_a_point_outside_resolves_to_nothing(buildable: psycopg.Connection[TupleRow]) -> None:
-    """Unplaced is a real answer; the nearest municipality would be a guess."""
+    """Unplaced is a real answer. The nearest municipality would be a guess."""
     seed_dimos(buildable)
     run(buildable, municipality_step())
     row = buildable.execute(
@@ -151,7 +151,7 @@ def test_a_point_becomes_an_address(buildable: psycopg.Connection[TupleRow]) -> 
 
 
 def test_a_corner_point_becomes_two_addresses(buildable: psycopg.Connection[TupleRow]) -> None:
-    """6.43% of points carry two; both must be findable, and they share one geometry."""
+    """6.43% of points carry two. Both must be findable, and they share one geometry."""
     seed_point(buildable, "a", "26332,ΠΑΡΟΔΟΣ ΑΝΑΓΝΩΣΤΟΥ,10,Δ. ΠΑΤΡΕΩΝ|26332,ΑΝΑΓΝΩΣΤΟΥ,10,Δ. ΠΑΤΡΕΩΝ")
     assert build_addresses(buildable) == 2
     rows = buildable.execute("select street from address order by street").fetchall()
@@ -301,7 +301,7 @@ def test_a_service_with_no_point_still_becomes_coverage(
 def test_repeated_filings_collapse_to_the_most_recent(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """(coverid, servprov, technolo) is filed more than once; the latest servstar wins."""
+    """(coverid, servprov, technolo) is filed more than once. The latest servstar wins."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     seed_service(buildable, 1, "c1", maxdown=5, servstar="2024-01-01")
     seed_service(buildable, 2, "c1", maxdown=8, servstar="2026-01-01")
@@ -526,7 +526,7 @@ def test_a_point_with_no_street_is_linked_to_nothing(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
     """5.19% of the register's points have no street name, holding 3.50% of all premises.
-    They keep their geometry and their coverage; they are simply not searchable."""
+    They keep their geometry and their coverage. They are simply not searchable."""
     seed_point(buildable, "c1", "24400, , ,Δ. ΓΑΡΓΑΛΙΑΝΩΝ")
     assert build_addresses(buildable) == 0
     assert links(buildable) == []
@@ -560,7 +560,7 @@ def offers(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, str, str]]:
     return [(str(a), str(b), str(c)) for a, b, c in rows]
 
 
-# seed_cabinet is Greek Grid; this is its centroid once reprojected to 4326.
+# seed_cabinet is Greek Grid. This is its centroid once reprojected to 4326.
 INSIDE = (24.0057, 40.8351)
 OUTSIDE = (25.0, 37.0)
 
@@ -618,7 +618,7 @@ def test_a_point_match_beats_an_area_match(buildable: psycopg.Connection[TupleRo
 
 
 def test_several_operators_at_one_address(buildable: psycopg.Connection[TupleRow]) -> None:
-    """59.57% of addresses have three operators; collapsing them would hide competition."""
+    """59.57% of addresses have three operators. Collapsing them would hide competition."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_service(buildable, 1, "c1", servprov=19, technolo=4)
@@ -676,7 +676,7 @@ def test_both_variants_still_link_to_their_points(
 def test_a_type_word_does_not_make_a_second_address(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """ΛΕΩΦ. ΑΛΕΞΑΝΔΡΑΣ 5 and ΑΛΕΞΑΝΔΡΑΣ 5 are one place; the type word is not identity."""
+    """ΛΕΩΦ. ΑΛΕΞΑΝΔΡΑΣ 5 and ΑΛΕΞΑΝΔΡΑΣ 5 are one place. The type word is not identity."""
     seed_point(buildable, "c1", "11473,ΛΕΩΦΟΡΟΣ ΑΛΕΞΑΝΔΡΑΣ,5,ΑΘΗΝΑ")
     seed_point(buildable, "c2", "11473,ΑΛΕΞΑΝΔΡΑΣ,5,ΑΘΗΝΑ")
     assert build_addresses(buildable) == 1

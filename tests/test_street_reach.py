@@ -1,18 +1,6 @@
 """Who reaches a street, and how fast: one derivation, read two ways.
 
-These used to be two steps. 110 gave the street its figure from the addresses on it, falling
-back to the cabinets it crosses when it had none; 120 gave each operator its figure from the
-addresses alone. Nothing made them agree and they did not: 33,760 streets — 42% of the
-country — came out painted a speed with no operator row behind them, so the street glowed
-under "any operator" and vanished the moment a reader pressed one.
-
-tests/invariants/street_best_is_the_best_operator.sql is written against exactly that, and
-had been failing against the real database the whole time. It only ever ran against the
-empty fixture, where every invariant passes.
-
-So street_provider is built once, from both routes, and the street's figure is the maximum
-of it. The tests below are about the two routes and about the clearing; the agreement itself
-is not tested here because it is no longer something that can fail — 120 reads 110's output.
+These used to be two steps.
 """
 
 from __future__ import annotations
@@ -33,9 +21,7 @@ TOUCHED = (
     "raw_wiredservice, raw_geo_coverage_copper, address_coverage, street, street_provider"
 )
 
-# A cabinet in Greek Grid, about 500 m on a side, and a street lying inside it. Both are
-# written directly rather than built from raw_*: what is under test is 110 and 120, and
-# seeding through four earlier steps would make a failure here mean any of five things.
+# A cabinet in Greek Grid, about 500 m on a side, and a street lying inside it.
 CABINET_2100 = (
     '{"type": "MultiPolygon", "coordinates": '
     "[[[[500000.0, 4520000.0], [500500.0, 4520000.0], "
@@ -58,9 +44,7 @@ def reachable(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[T
         "insert into source (name, url) values ('register', 'https://example.invalid') "
         "on conflict (name) do nothing"
     )
-    # A municipality both the street and its doors belong to. The door route joins on it by
-    # equality, and a street and an address that are both null there do not match: null = null
-    # is unknown, not true. In the register both carry one.
+    # A municipality both the street and its doors belong to.
     db.execute(
         "insert into municipality (id, kallikratis_code, name, geom) values "
         "(1, '0000', 'ΔΗΜΟΣ ΤΕΣΤ', %s) on conflict (id) do nothing",
@@ -235,8 +219,7 @@ def test_a_withdrawn_filing_stops_reaching_the_street(
     """The step recomputes rather than fills in.
 
     Both statements used to only ever write a figure, so a street that qualified under a
-    looser rule kept what that rule gave it forever: 3,189 went on being painted from
-    district-wide filings months after those stopped being allowed to name a street.
+    looser rule kept what that rule gave it forever.
     """
     street_id = seed_street(reachable)
     seed_area(reachable, band=6)
@@ -248,7 +231,7 @@ def test_a_withdrawn_filing_stops_reaching_the_street(
     run(reachable, steps())
     assert reach(reachable) == []
     assert figure(reachable) is None
-    # The street itself is untouched; only what was claimed about it has gone.
+    # The street itself is untouched. Only what was claimed about it has gone.
     assert reachable.execute(
         "select count(*) from street where id = %s", (street_id,)
     ).fetchone() == (1,)
@@ -285,8 +268,7 @@ def test_the_filing_can_lower_the_figure_but_never_lift_it(
     """Technology is the anchor and the filing is a cap on it: least(sold, the band's top).
 
     An operator filing a low band is telling us this particular line is bad, and that is
-    worth more than the national retail figure. An operator filing a high one is telling us
-    something the line cannot do — ADSL at 100-300 — and is not worth anything.
+    worth more than the national retail figure.
     """
     seed_street(reachable)
     # Band 3 is "2-10 Mbps", below what vectoring retails at, so it pulls the figure down.
@@ -361,8 +343,7 @@ def test_fibre_with_no_band_is_still_fibre(
     """This is the case that made the decision.
 
     758,885 of 1,071,133 FTTH filings carry no speed band, so 11,880 streets with fibre
-    running down them were painted as copper — the street took its figure from the cabinet
-    because the fibre filing said nothing at all.
+    running down them were painted as copper.
     """
     seed_street(reachable)
     seed_area(reachable, band=6, technology="VECT_VDSL")
@@ -384,11 +365,7 @@ def test_only_four_figures_are_retailed(reachable: psycopg.Connection[TupleRow])
     """The whole set a street can be retailed at, and so the whole set the legend can show.
 
     A filing can only cap a figure below its line's retail speed, never lift it above, so
-    nothing can land in a band higher than one of these — which is why the coverage legend
-    lists four bands and not the ramp's seven.
-
-    web/src/tokens.ts RETAILED carries these on the other side of the wire and cannot read
-    this column. This test is what stops the two drifting: change sold_mbps and it fails.
+    nothing can land in a band higher than one of these.
     """
     sold = reachable.execute(
         "select distinct sold_mbps from technology "

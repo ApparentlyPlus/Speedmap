@@ -1,6 +1,4 @@
-"""
-The register client against a fake register: paging, the silent cap, and drift.
-"""
+"""The register client against a fake register: paging, the silent cap, and drift."""
 
 from __future__ import annotations
 
@@ -35,7 +33,7 @@ def fake_register(rows: list[dict[str, object]], cap: int) -> httpx.MockTranspor
             selected = [{"id": r["id"]} for r in selected]
 
         page = selected[: min(limit, cap)]
-        # PostgREST only counts when asked; without the header the total is '*'
+        # PostgREST only counts when asked.
         counted = request.headers.get("prefer") == "count=exact"
         total = str(len(rows)) if counted else "*"
         return httpx.Response(
@@ -56,7 +54,7 @@ def client_for(transport: httpx.MockTransport) -> RegisterClient:
     )
 
 
-# parse_total
+# parse_total.
 
 
 @pytest.mark.parametrize(
@@ -74,7 +72,7 @@ def test_parse_total(header: str | None, expected: int | None) -> None:
     assert parse_total(header) == expected
 
 
-# retry_delay
+# retry_delay.
 
 
 def test_retry_after_seconds_is_honoured() -> None:
@@ -93,7 +91,7 @@ def test_backoff_grows_without_a_header() -> None:
     assert [retry_delay(response, n) for n in range(4)] == [1.0, 2.0, 4.0, 8.0]
 
 
-# check_columns
+# check_columns.
 
 
 def test_unchanged_columns_pass() -> None:
@@ -110,7 +108,7 @@ def test_removed_column_is_drift() -> None:
         check_columns(TOY, {"id": 1})
 
 
-# the silent cap
+# the silent cap.
 
 
 def test_count_asks_postgrest_to_count() -> None:
@@ -136,7 +134,7 @@ def test_table_shorter_than_the_probe_is_not_a_cap() -> None:
     assert client.page_cap(TOY) == 2000
 
 
-# paging
+# paging.
 
 
 def test_paging_returns_every_row_exactly_once() -> None:
@@ -164,7 +162,7 @@ def test_paging_rejects_a_changed_schema() -> None:
         list(client.pages(TOY, cap=10))
 
 
-# retries
+# retries.
 
 
 def test_transient_failure_is_retried() -> None:

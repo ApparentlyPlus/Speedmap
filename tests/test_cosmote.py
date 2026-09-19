@@ -50,7 +50,7 @@ def sqlite_scrape(path: Path, rows: list[tuple[object, ...]]) -> Path:
 
 
 def test_an_unplaced_address_has_no_point() -> None:
-    """The scrape failed to geocode 97 of its rows; they are still real addresses."""
+    """The scrape failed to geocode 97 of its rows. They are still real addresses."""
     assert point_wkt(None, None) is None
     assert point_wkt(40.7471, None) is None
     assert point_wkt(40.7471, 23.0716) == "POINT(23.0716 40.7471)"

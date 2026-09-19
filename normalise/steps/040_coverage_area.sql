@@ -1,10 +1,5 @@
--- Copper is filed against cabinet service areas, not points. The polygons arrive in Greek
--- Grid and are reprojected here; flattening one to its centroid would lose every street it
--- serves. Per-service detail comes from the service table, because the polygon view carries
--- provider, technology and band as three independent lists that cannot be recombined.
--- Cleared first, so the step recomputes rather than fills in. It was insert-on-conflict
--- with no delete, so a filing the operator has since withdrawn stayed here and stayed on
--- the map, with nothing recording that it had gone. See migration 0047.
+-- Copper is filed per cabinet polygon, not per point. Reprojected from Greek Grid. The
+-- per-service detail comes from the service table because the polygon view is parallel lists.
 delete from coverage_area where source = 'register';
 
 insert into coverage_area (

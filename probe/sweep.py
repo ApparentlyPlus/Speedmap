@@ -1,12 +1,7 @@
 """Re-ask about the addresses whose answers are about to stop being true.
 
-Without this the cache only improves where someone happens to look, and the addresses
-nobody looks at are exactly the ones the register is worst about. A nightly pass over the
-oldest answers means traffic is not the only thing that sharpens the map.
-
-The queue is the query. An answer that is refreshed gets a new expiry and falls out of it;
-one that fails is held off by its own backoff. Nothing else has to remember where the last
-run stopped, which is what makes an interrupted run cost nothing.
+Without this the cache only improves where someone happens to look, and the addresses nobody
+looks at are exactly the ones the register is worst about.
 """
 
 from __future__ import annotations
@@ -68,7 +63,7 @@ def sweep(
     pace: float = PACE,
 ) -> tuple[int, int]:
     """Ask about each in turn. Returns how many were asked and how many answered."""
-    asked = answered = 0
+    reply = answered = 0
     for address_id in stale(conn, now, budget):
         target = target_for(conn, address_id)
         if target is None:
@@ -76,10 +71,10 @@ def sweep(
         found = refresh(conn, target, adapters, datetime.now(UTC))
         if not found:
             continue
-        asked += 1
-        answered += sum(1 for a in found.values() if a.probed is not None)
+        reply += 1
+        answered += sum(1 for a in found.values() if a.result is not None)
         time.sleep(pace)
-    return asked, answered
+    return reply, answered
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -90,10 +85,10 @@ def main(argv: list[str] | None = None) -> int:
 
     adapters: list[Adapter] = [Cosmote(), Vodafone(), Nova()]
     with connect() as conn:
-        asked, answered = sweep(
+        reply, answered = sweep(
             conn, adapters, datetime.now(UTC), budget=args.budget, pace=args.pace
         )
-    print(f"  sweep: {asked} addresses asked, {answered} operators answered")
+    print(f"  sweep: {reply} addresses asked, {answered} operators answered")
     return 0
 
 

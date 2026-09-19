@@ -25,7 +25,7 @@ def mbps(value: str) -> Decimal:
     return Decimal(value)
 
 
-# clamping
+# clamping.
 
 
 @pytest.mark.parametrize(
@@ -59,7 +59,7 @@ def test_clamping_is_reported_not_hidden() -> None:
     assert expected("copper", mbps("10"), ceiling=ADSL).clamped is False
 
 
-# confidence
+# confidence.
 
 
 def test_no_tests_is_no_confidence() -> None:
@@ -82,7 +82,7 @@ def test_confidence_never_falls_as_tests_accumulate(tests: int) -> None:
     assert confidence(tests) <= confidence(tests + 1) + 1e-9
 
 
-# tempering by family
+# tempering by family.
 
 
 def test_fibre_delivers_what_it_says() -> None:
@@ -128,7 +128,7 @@ def test_satellite_is_discounted_from_its_headline() -> None:
     assert result.mbps == mbps("70")
 
 
-# the clamp and the temper together
+# the clamp and the temper together.
 
 
 def test_an_impossible_filing_is_clamped_before_tempering() -> None:
@@ -148,7 +148,7 @@ def test_copper_never_exceeds_its_ceiling(advertised: Decimal, median: Decimal) 
     assert result.mbps <= ADSL
 
 
-# how much a thin measurement is allowed to move the answer
+# how much a thin measurement is allowed to move the answer.
 
 
 def test_a_thin_measurement_does_not_overturn_the_filed_band() -> None:

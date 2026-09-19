@@ -1,9 +1,7 @@
 """Which measurement tile an address falls in.
 
 Ookla publishes at zoom 16 of the usual web map grid, tiles roughly 600 m across, keyed by
-quadkey. The grid is regular, so the tile containing a point is arithmetic on the point
-rather than a search through geometry: the same reason the wireless grid needs no spatial
-index either.
+quadkey.
 """
 
 from __future__ import annotations
@@ -13,9 +11,8 @@ import math
 # Ookla's own zoom. Their tiles are published at this and nothing else.
 ZOOM = 16
 
-# Web Mercator cannot represent the poles, and clamps at the latitude where the projection
-# would run to infinity. Greece is nowhere near it; the clamp is here so a bad coordinate
-# returns a wrong tile rather than raising out of a maths function.
+# Web Mercator cannot represent the poles, and clamps at the latitude where the projection would
+# run to infinity.
 LIMIT = 85.05112878
 
 

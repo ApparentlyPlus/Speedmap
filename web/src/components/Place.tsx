@@ -1,14 +1,6 @@
 /**
- * One address: what is known now, and what is still being asked.
- *
- * The list renders from the cache the moment it arrives, and the operators that need asking
- * are asked separately and in parallel. A checker takes two to eight seconds; behind one
- * request the reader waits for the slowest before learning anything, and silence for eight
- * seconds reads as breakage rather than work.
- *
- * What an operator answered is not narrated. A row of chips saying "asking", "known",
- * "no reply" reports on the machinery rather than on the address, and the reader cannot act
- * on any of it. The list simply grows as answers land.
+ * One address. Renders from cache at once, then grows as the operators answer in parallel. The
+ * machinery is not narrated: the reader cannot act on "asking" or "no reply".
  */
 
 import { useEffect, useState } from "react";
@@ -24,22 +16,10 @@ import { House } from "./House";
 import { Offer } from "./Offer";
 import { Waiting } from "./Waiting";
 
-/**
- * Verdicts that mean nothing would be learned by asking.
- *
- * A refusal counts: they were asked outright and said no, and that answer holds until it
- * expires like any other. Asking again on every visit would be the same rudeness spread
- * thinner, and the server would decline anyway.
- */
+/** Verdicts where asking would learn nothing. A refusal counts until it expires. */
 const SETTLED = new Set(["fresh", "inferred", "refused"]);
 
-/**
- * How many of a band to show before asking.
- *
- * A band can hold twelve near-identical mobile plans, and a reader who wanted the cheapest
- * has already found it in the first three — the rest are there to be checked, not read. The
- * ranker put them in order, so the three at the top are the three that matter.
- */
+/** A band can hold twelve near-identical plans. The ranker already put the best first. */
 const SHOWN = 3;
 
 type Group = {
@@ -47,19 +27,10 @@ type Group = {
   readonly options: readonly Options["options"][number][];
 };
 
-/**
- * The same three sentences, said once each instead of twenty times.
- *
- * The ranker already explains every option, and its explanation is identical for every
- * option in the same band — twelve rows all reading "short of what a household wants" is
- * noise standing where the offer should be. Said once, over the rows it covers, it is
- * information again.
- */
+/** The same three sentences, said once each instead of twenty times. */
 function groups(options: Options["options"]): readonly Group[] {
-  // Two groups, not three. The third held offers with no cost at all, and there are none:
-  // a missing setup fee leaves the monthly rate standing and only makes the total a floor.
-  // It was three HCN plans, all with published monthly rates, sent below everything else
-  // over a connection charge worth about 1.25 a month once spread over the window.
+  // Two groups, not three. The third held offers with no cost at all, and there are none: a
+  // missing setup fee leaves the monthly rate standing and only makes the total a floor.
   const enough = options.filter((o) => o.enough);
   const slower = options.filter((o) => !o.enough);
   return (
@@ -84,13 +55,7 @@ export function Place({
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [chosen, setChosen] = useState<string | null>(null);
   const [where, setWhere] = useState<{ lon: number; lat: number } | null>(null);
-  /*
-   * The street this door is on, for the light that runs along it.
-   *
-   * Not every address has one: the register files a street name per municipality and our
-   * own street table is drawn from OSM, and the two agree for about two doors in three.
-   * When they do not, the result is the same result without the light.
-   */
+  /** The street this door is on, for the light that runs along it. */
   const [shape, setShape] = useState<Geometry | null>(null);
   const [road, setRoad] = useState<number | null>(null);
 
@@ -140,13 +105,7 @@ export function Place({
     return () => stop.abort();
   }, [result.id]);
 
-  /*
-   * One selected offer drives the drawing.
-   *
-   * Its colour is the speed's colour and its family decides where the signal comes from, so
-   * choosing a plan changes the picture rather than just a highlight. Until someone chooses,
-   * it is whatever the ranker put first — which is the thing most people are here for.
-   */
+  /** One selected offer drives the drawing. */
   const offers = known?.options ?? [];
   const selected =
     offers.find((o) => `${o.provider}-${o.plan}` === chosen) ?? offers[0] ?? null;

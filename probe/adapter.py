@@ -1,8 +1,7 @@
-"""What every operator's checker is asked, and what it is expected to answer with.
+"""What every operator's checker is asked, and what it answers with.
 
-Adapters differ in what they need to identify a place: one takes coordinates, another the
-same street name spelled the way it spells it. Target carries enough for all of them and
-each takes what it uses.
+Adapters need different things to identify a place, coordinates, or the street spelled
+their way, so Target carries enough for all of them and each takes what it uses.
 """
 
 from __future__ import annotations
@@ -16,24 +15,13 @@ from psycopg.rows import TupleRow
 
 
 class ProbeError(RuntimeError):
-    """The checker could not be asked. Not an answer, and never cached as one.
-
-    Defined once here rather than three times, once per adapter, which is what it was.
-    """
+    """The checker could not be asked. Not an answer, and never cached as one."""
 
 
 class NotAskableError(ProbeError):
-    """This address cannot be put to this operator at all, which is not the checker failing.
+    """We hold no spelling for this address, so it cannot be put to this operator.
 
-    Both operators that want an address in words want it in their own spelling, and we hold
-    that spelling only for the streets the Cosmote scrape happened to walk — 43% of them,
-    and Πατησίων is not among them. An adapter handed one of the other 57% reports that it
-    cannot look it up, which is the correct thing for it to do and the only thing it can do.
-
-    Recorded, because it is worth knowing how often we cannot ask. Not counted against the
-    operator, because counting it there answers "is this checker working" with the state of
-    our own address book: OTE and Vodafone were both showing as degraded on days when every
-    request they actually made had succeeded.
+    Our gap, not theirs: recorded, but not counted against the operator's health.
     """
 
 
@@ -47,8 +35,8 @@ class Target:
     street: str
     street_no: str
     municipality: str
-    # The keys an operator's own spelling is looked up by, which is not by name: their
-    # municipalities are the pre-Καλλικράτης ones and mostly do not share ours.
+    # Their spelling is looked up by id and fold, not by name: their municipalities are the
+    # pre-Kallikratis ones and mostly do not share ours.
     municipality_id: int = 0
     street_fold: str = ""
     locality: str | None = None
@@ -57,10 +45,9 @@ class Target:
 
 @dataclass(frozen=True)
 class Offer:
-    """One technology an operator will sell here, with what it promises over it.
+    """One technology an operator will sell here.
 
-    Speeds are None when the operator qualified the technology without quoting one, which
-    is normal for wireless: the answer is that it reaches here, not how fast.
+    Speeds are None when they qualified the technology without quoting one, normal for FWA.
     """
 
     technology: str
@@ -73,29 +60,23 @@ class Offer:
 class Probed:
     """What one operator said about one address.
 
-    Not serviceable is an answer and is cached like any other. A checker that failed is not
-    this: it raises, and nothing is written, because a failure is not a refusal.
-
-    Nor is an inconclusive answer. One operator replies that an address needs looking into
-    by hand, which is neither yes nor no, and writing it down as either would be a lie the
-    cache then repeats for six months.
+    Not serviceable is an answer and is cached. A failure raises instead, and an
+    inconclusive reply ("needs looking into by hand") is neither yes nor no.
     """
 
     serviceable: bool
     offers: tuple[Offer, ...] = ()
     raw: dict[str, object] | None = None
     conclusive: bool = True
-    # The response as it arrived, carried so a canary can be diffed over time and a broken
-    # parser re-run against history. Kept only where it earns its size: see the probe loop.
+    # The response as it arrived, kept only where it earns its size: canaries and failures.
     body: str | None = None
 
 
 class Adapter(Protocol):
     """An operator's availability checker.
 
-    Every one of them takes a connection, because two of the three cannot say what they
-    want to be asked without reading how they spell the address first, and the third
-    ignoring it is cheaper than the caller knowing which is which.
+    All of them take a connection. Two need it to read how they spell the address, and the
+    third ignoring it is cheaper than the caller knowing which is which.
     """
 
     code: str

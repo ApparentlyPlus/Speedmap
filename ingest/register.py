@@ -1,11 +1,4 @@
-"""
-Client for the national broadband register's PostgREST API.
-
-The register caps a page without saying so: a request for 20000 rows returns 200
-with 500 of them, no header and no error. The cap is therefore measured at the
-start of a run rather than trusted, and paging is by key rather than offset so a
-resumed run cannot skip or repeat rows if the data shifts underneath it.
-"""
+"""Client for the national broadband register's PostgREST API."""
 
 from __future__ import annotations
 
@@ -58,9 +51,8 @@ DATASETS: tuple[Dataset, ...] = (
                 "vhcn", "id",
             }
         ),
-        # No server-side filter: tech4gf and tech5gf are unindexed upstream, so filtering
-        # costs 6.2s a page against 0.46s unfiltered and is slower overall despite fetching
-        # a quarter of the rows. Mobile and fixed are separated at normalise time instead.
+        # No server-side filter: tech4gf and tech5gf are unindexed upstream, so filtering costs
+        # 6.2s a page against 0.46s unfiltered and is slower overall despite fetching a quarter.
     ),
     Dataset(
         "dimos",

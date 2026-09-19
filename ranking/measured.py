@@ -1,9 +1,6 @@
 """What people actually got near an address, as distinct from what they were sold.
 
-Every other input to a ranking is an operator describing itself. This is the one that can
-contradict them, and it is why the confidence on an expected speed is worth printing: an
-answer resting on four thousand tests in a city is not the same claim as one resting on two
-in a village, and both look identical without it.
+Every other input to a ranking is an operator describing itself.
 """
 
 from __future__ import annotations
@@ -16,9 +13,7 @@ from psycopg.rows import TupleRow
 
 from ranking.tile import quadkey
 
-# Which of Ookla's two worlds a technology of ours lives in. Satellite is in neither: they
-# do not separate it out, and folding a dish into the fixed median would drag it down with
-# the copper that makes up most of the Greek fixed base.
+# Which of Ookla's two worlds a technology of ours lives in.
 WORLD = {
     "fibre": "fixed",
     "coax": "fixed",
@@ -50,8 +45,7 @@ def nearby(
     """The most recent measurements for the tile this address falls in.
 
     A tile is about 600 m across, so this is the street and the few around it rather than
-    the address. Nothing finer exists publicly, and a street is the right unit anyway: it is
-    the cabinet, or the cell, that the address shares with its neighbours.
+    the address.
     """
     found: dict[str, Measured] = {}
     for family, down, up, tests in conn.execute(NEARBY, (quadkey(lat, lon),)).fetchall():

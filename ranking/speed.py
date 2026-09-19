@@ -36,7 +36,7 @@ def clamp(advertised: Decimal | None, ceiling: Decimal | None) -> tuple[Decimal 
     """Hold a filing to what its technology can physically carry.
 
     The register files 942 services above their ceiling, five of them ADSL at a gigabit.
-    Those rows are stored exactly as filed; this is where they stop winning comparisons.
+    Those rows are stored exactly as filed. This is where they stop winning comparisons.
     """
     if advertised is None or ceiling is None:
         return advertised, False
@@ -59,14 +59,7 @@ def tempered(seen: Decimal, filed: Decimal | None, weight: float) -> Decimal:
     """Move from what was filed toward what was measured, by how much the measurement is worth.
 
     Two tests are not six and six are not twenty five, and the difference was being thrown
-    away: confidence was computed, reported on the card, and then ignored by the arithmetic,
-    so a tile holding two results could overrule a band filed at 300 Mbps outright. It did —
-    an address a few hundred metres from its neighbour expected 28 Mbps of mobile where the
-    neighbour expected 100, on the strength of two measurements.
-
-    Thin evidence still moves the answer, because a slow tile over a fast claim is real
-    information and the operator is the interested party. It just does not move it all the
-    way. At twenty five tests it does.
+    away: confidence was computed, reported on the card.
     """
     if filed is None:
         return seen

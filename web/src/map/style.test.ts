@@ -1,11 +1,4 @@
-/**
- * The style, validated the way MapLibre validates it.
- *
- * MapLibre rejects an entire style on one bad expression: no layers, no sources, no map —
- * and it says so by firing an event rather than by throwing, so the page is blank and looks
- * like a slow network. Finding that out in a browser costs an hour; finding it out here
- * costs a second, and needs neither a browser nor a GPU.
- */
+/** The style, validated the way MapLibre validates it. */
 
 import {
   featureFilter,
@@ -69,9 +62,8 @@ describe("no reachable zoom is empty", () => {
 
 describe("the validator itself", () => {
   it("rejects a style that is wrong", () => {
-    // A validator that only ever runs against a valid style is indistinguishable from one
-    // that is broken, so it is shown a broken one: a line layer painted with a colour that
-    // is not a colour, which is the shape most expression mistakes end up taking.
+    // A validator that only ever runs against a valid style is indistinguishable from one that
+    // is broken.
     const broken = {
       ...style(),
       layers: [
@@ -83,9 +75,7 @@ describe("the validator itself", () => {
         },
       ],
     };
-    // Cast, because TypeScript already refuses this one — which is half the guarantee, and
-    // the runtime validator is the other half for the styles that are built rather than
-    // written out.
+    // Cast, because TypeScript already refuses this one, which is half the guarantee.
     expect(validateStyleMin(broken as unknown as StyleSpecification).length).toBeGreaterThan(0);
   });
 
@@ -114,13 +104,9 @@ describe("what the layers say", () => {
   });
 
   it("filters on whether the operator is there at all", () => {
-    /*
-     * A tile carries no key for an operator that does not reach the street — tippecanoe
-     * writes no attribute for a null — so presence is exactly the question.
-     *
-     * This was the other way round while the coverage arrived as GeoJSON, where the builder
-     * wrote every operator's key on every feature and `has` was true everywhere. Run rather
-     * than read, because reading it is how that one got through.
+    /**
+     * A tile carries no key for an operator that does not reach the street, tippecanoe writes
+     * no attribute for a null, so presence is exactly the question.
      */
     const field = String(STREETS_BY_PROVIDER.OTE);
     const run = featureFilter(only("OTE") as never);
@@ -151,12 +137,8 @@ describe("the ramp", () => {
   };
 
   it("rises in ascending order", () => {
-    // The ramp is written fastest first and `interpolate` wants ascending stops: the one
-    // place the two orders meet, and a good place to get it wrong.
-    //
-    // Index three, not five: the ramp used to sit behind two guards — not reached, and
-    // reaches-but-filed-no-speed. The second cannot happen now that the figure starts from
-    // the technology, so the case has one arm fewer and the interpolate moved up.
+    // The ramp is written fastest first and `interpolate` wants ascending stops: the one place
+    // the two orders meet, and a good place to get it wrong.
     const [, , , anchors] = paint() as unknown[];
     const stops = (anchors as unknown[])
       .slice(3)
@@ -172,10 +154,8 @@ describe("the ramp", () => {
   });
 
   it("keeps the three fast bands apart by more than a shade", () => {
-    // The fast end is picked for separation rather than ranked by hue, because the bands
-    // people actually choose between are all up there. When the top went from violet to
-    // blue it landed next to 300's cyan, which is two bands nobody can tell apart at the
-    // width a street is drawn — so the cool end was rebuilt around it.
+    // The fast end is picked for separation rather than ranked by hue, because the bands people
+    // actually choose between are all up there.
     const fast = RAMP.filter((band) => band.floor >= 300).map((band) => band.colour);
     expect(new Set(fast).size).toBe(fast.length);
     for (const colour of fast) {
@@ -201,9 +181,7 @@ function channels(hex: string): [number, number, number] {
 
 describe("what a fresh style draws", () => {
   it("leaves the measured squares off until something asks for them", () => {
-    // The map page turns them on with the view switch. Every other map that mounts this
-    // style — the one behind a result — shows an address, and a grid of squares over it is
-    // the map page's state following the reader somewhere it does not belong.
+    // The map page turns them on with the view switch.
     const cells = style().layers.find((layer) => layer.id === "cells");
     expect(cells?.layout?.visibility).toBe("none");
   });

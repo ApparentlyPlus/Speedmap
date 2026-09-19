@@ -1,10 +1,6 @@
 /**
- * The address, drawn.
- *
- * One canvas and one scene, kept across renders: rebuilding it on every state change would
- * throw away a WebGL context and an environment map several times a second. What React
- * changes is three numbers on the scene — the mode, the colour and the speed — and the
- * scene animates its own way from wherever it was to wherever it has been told to be.
+ * The address, drawn. One canvas and one scene, kept across renders: rebuilding it on every
+ * state change would throw away a WebGL context and an environment map several times a second.
  */
 
 import { useEffect, useRef } from "react";
@@ -25,7 +21,7 @@ export function House({
 
   useEffect(() => {
     if (canvas.current === null) return;
-    // Someone who asked for less motion gets the same scene, held still — which is why it
+    // Someone who asked for less motion gets the same scene, held still, which is why it
     // is composed to be worth looking at as one frame.
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
     const built = house3d(canvas.current, { mode, colour, mbps, still: calm.matches });

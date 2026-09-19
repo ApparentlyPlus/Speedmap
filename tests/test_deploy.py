@@ -1,8 +1,6 @@
 """The units that run this without anyone typing anything.
 
 A unit file is code that nobody runs in development and everybody depends on in production.
-These check the things that rot quietly: a timer whose service was renamed, a job pointing
-at a module that moved, a backup that stopped covering a table because the table was renamed.
 """
 
 from __future__ import annotations
@@ -92,7 +90,7 @@ def test_the_backup_renames_only_once_whole() -> None:
     assert "set -euo pipefail" in script
 
 
-# the one process in front of everything
+# the one process in front of everything.
 
 
 CADDYFILE = DEPLOY / "Caddyfile"

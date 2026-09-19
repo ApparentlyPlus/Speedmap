@@ -29,7 +29,7 @@ def test_the_four_fields_are_read() -> None:
 
 
 def test_a_corner_building_yields_both_addresses() -> None:
-    """6.43% of points are filed under more than one street; dropping one loses a real address."""
+    """6.43% of points are filed under more than one street. Dropping one loses a real address."""
     addresses = parse(CORNER)
     assert [a.street for a in addresses] == [
         "ΠΑΡΟΔΟΣ ΑΝΑΓΝΩΣΤΟΥ ΣΤΑΥΡΟΠΟΥΛΟΥ 10",
@@ -46,7 +46,7 @@ def test_locality_without_a_prefix_is_untouched() -> None:
     assert one("54250,Ηγελόχου,14-16,ΘΕΣΣΑΛΟΝΙΚΗ").locality == "ΘΕΣΣΑΛΟΝΙΚΗ"
 
 
-# street numbers
+# street numbers.
 
 
 @pytest.mark.parametrize(
@@ -68,11 +68,11 @@ def test_a_blank_number_is_absent_not_empty() -> None:
     assert one("30300,ΝΑΥΠΑΚΤΟΣ, ,Δ. ΝΑΥΠΑΚΤΟΥ").street_no is None
 
 
-# postcodes
+# postcodes.
 
 
 def test_a_malformed_postcode_becomes_unknown() -> None:
-    """One row in 3000 has a one-character postcode. Unknown is honest; repaired is not."""
+    """One row in 3000 has a one-character postcode. Unknown is honest. Repaired is not."""
     assert one("5,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ").postcode is None
 
 
@@ -80,7 +80,7 @@ def test_a_non_numeric_postcode_becomes_unknown() -> None:
     assert one("ABCDE,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ").postcode is None
 
 
-# search key
+# search key.
 
 
 def test_search_key_folds_street_and_locality() -> None:
@@ -98,7 +98,7 @@ def test_search_key_keeps_parodos() -> None:
     assert key.startswith("ΠΑΡΟΔΟΣ ")
 
 
-# malformed input
+# malformed input.
 
 
 @pytest.mark.parametrize(
@@ -122,7 +122,7 @@ def test_one_bad_part_does_not_lose_the_good_one() -> None:
 
 
 def test_a_point_filed_without_a_street_yields_no_address() -> None:
-    """Real, and about 1 row in 2000. The point keeps its geometry; it just has no address."""
+    """Real, and about 1 row in 2000. The point keeps its geometry. It just has no address."""
     assert parse_part("56431,,1,ΣΤΑΥΡΟΥΠΟΛΗ") is None
 
 

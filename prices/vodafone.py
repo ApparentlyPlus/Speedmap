@@ -1,8 +1,7 @@
 """Vodafone's fixed catalogue, which they publish whole.
 
-One request returns every residential fixed plan with its price and the qualification code
-the availability check answers in, so a plan and the line it needs are joined by their own
-identifier rather than by matching names.
+One request returns every residential fixed plan with its price and the qualification code the
+availability check answers in.
 """
 
 from __future__ import annotations
@@ -42,8 +41,6 @@ TECHNOLOGY = {
 HARDWARE = {"FWA_4G": "5g_router", "FWA_5G": "5g_router"}
 
 # Their plan pages state an activation fee that the catalogue payload leaves out entirely.
-# A line is 6€ and a wireless home router is 40€, which is most of the difference between
-# the two over a year. Read from vodafone.gr on 2026-09-10.
 ACTIVATION = {"fibre": Decimal(6), "copper": Decimal(6), "wireless": Decimal(40)}
 
 
@@ -90,8 +87,8 @@ def priced(offering: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
 def read(payload: dict[str, Any]) -> list[Tariff]:
     """Every fixed plan they publish, in our vocabulary.
 
-    A plan whose code we do not know is skipped rather than filed under a guess: it would
-    be shown against a line it may not run on.
+    A plan whose code we do not know is skipped rather than filed under a guess: it would be
+    shown against a line it may not run on.
     """
     tariffs: list[Tariff] = []
     subcategories = payload.get("subCategory")
