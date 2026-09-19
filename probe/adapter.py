@@ -15,6 +15,28 @@ import psycopg
 from psycopg.rows import TupleRow
 
 
+class ProbeError(RuntimeError):
+    """The checker could not be asked. Not an answer, and never cached as one.
+
+    Defined once here rather than three times, once per adapter, which is what it was.
+    """
+
+
+class NotAskableError(ProbeError):
+    """This address cannot be put to this operator at all, which is not the checker failing.
+
+    Both operators that want an address in words want it in their own spelling, and we hold
+    that spelling only for the streets the Cosmote scrape happened to walk — 43% of them,
+    and Πατησίων is not among them. An adapter handed one of the other 57% reports that it
+    cannot look it up, which is the correct thing for it to do and the only thing it can do.
+
+    Recorded, because it is worth knowing how often we cannot ask. Not counted against the
+    operator, because counting it there answers "is this checker working" with the state of
+    our own address book: OTE and Vodafone were both showing as degraded on days when every
+    request they actually made had succeeded.
+    """
+
+
 @dataclass(frozen=True)
 class Target:
     """One address, in every form an operator might want to be given it."""

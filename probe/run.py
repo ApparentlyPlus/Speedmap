@@ -21,7 +21,7 @@ import psycopg
 from psycopg.rows import TupleRow
 from psycopg.types.json import Jsonb
 
-from probe.adapter import Adapter, Probed, Target
+from probe.adapter import Adapter, NotAskableError, Probed, Target
 from probe.ttl import FAILED, VOLATILE, ttl
 
 # Three operators, three sessions, one wait.
@@ -36,8 +36,8 @@ limit 1
 """
 
 ATTEMPT = """
-insert into probe_attempt (address_id, provider_id, attempted_at, ok, serviceable, detail, raw)
-select %(address)s, p.id, %(at)s, %(ok)s, %(serviceable)s, %(detail)s, %(raw)s
+insert into probe_attempt (address_id, provider_id, attempted_at, ok, askable, serviceable, detail, raw)
+select %(address)s, p.id, %(at)s, %(ok)s, %(askable)s, %(serviceable)s, %(detail)s, %(raw)s
 from provider p where p.code = %(code)s
 """
 
@@ -69,6 +69,11 @@ class Asked:
     provider: str
     probed: Probed | None
     error: str | None = None
+    # False when the address could not be put to this operator at all — we hold no spelling
+    # for the street, or their own list has no such street. That is a gap in our address
+    # book rather than a checker that is broken, and probe/health.py leaves it out of the
+    # operator's record accordingly. See migration 0057.
+    askable: bool = True
 
 
 def best(probed: Probed) -> Decimal | None:
@@ -103,6 +108,10 @@ def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) ->
     """One operator, with its failure caught: one being down must not take the others."""
     try:
         return Asked(provider=adapter.code, probed=adapter.check(conn, target))
+    except NotAskableError as gap:
+        # Not a failure of theirs. The adapter looked, found it had nothing to look the
+        # address up by, and said so — which is the only correct thing it could have done.
+        return Asked(provider=adapter.code, probed=None, error=str(gap), askable=False)
     except Exception as error:
         return Asked(provider=adapter.code, probed=None, error=str(error))
 
@@ -128,6 +137,7 @@ def store(
         "code": asked.provider,
         "at": now,
         "ok": conclusive,
+        "askable": asked.askable,
         "serviceable": probed.serviceable if probed is not None and conclusive else None,
         "detail": asked.error if probed is None else None,
         "raw": (
