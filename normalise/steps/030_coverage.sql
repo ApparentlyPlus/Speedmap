@@ -1,10 +1,5 @@
--- One filed service per row, for the technologies the register locates as points.
--- Copper is filed as cabinet areas instead and goes to coverage_area in 040.
--- The register files (coverid, servprov, technolo) more than once, so distinct on picks
--- the most recent filing rather than letting on conflict touch the same row twice.
--- Cleared first, so the step recomputes rather than fills in. It was insert-on-conflict
--- with no delete, so a filing the operator has since withdrawn stayed here and stayed on
--- the map, with nothing recording that it had gone. See migration 0047.
+-- One filed service per row, for the technologies the register locates as points. Copper
+-- goes to coverage_area in 040. distinct on because (coverid, servprov, technolo) repeats.
 delete from coverage where source = 'register';
 
 insert into coverage (

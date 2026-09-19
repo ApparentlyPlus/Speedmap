@@ -1,7 +1,6 @@
 /**
- * An operator's own mark, or their initial when they have none.
- *
- * This is a page people scan rather than read, and a logo is recognised before a name is.
+ * An operator's own mark, or their initial when they have none. This is a page people scan
+ * rather than read, and a logo is recognised before a name is.
  */
 
 import { brandOf } from "../brands";

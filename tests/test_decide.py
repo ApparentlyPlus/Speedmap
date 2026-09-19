@@ -19,7 +19,7 @@ def test_an_unexpired_answer_is_fresh() -> None:
 
 
 def test_an_expired_answer_is_stale_not_absent() -> None:
-    """A year-old answer is still evidence; it is shown while the check runs."""
+    """A year-old answer is still evidence. It is shown while the check runs."""
     assert verdict(answer(-1), now=NOW) == STALE
 
 
@@ -39,7 +39,7 @@ def test_a_number_within_the_scan_was_asked_and_refused() -> None:
 
 
 def test_a_number_above_the_scan_was_never_asked() -> None:
-    """Τζελίλη 40 exists and is served; the scan stopped at 1."""
+    """Τζελίλη 40 exists and is served. The scan stopped at 1."""
     assert verdict(None, now=NOW, street_no=40, checked_to=1) == UNKNOWN
 
 
@@ -71,7 +71,7 @@ def test_a_slower_street_is_still_asked() -> None:
 
 
 def test_inference_does_not_override_this_address() -> None:
-    """An answer for this door was asked; the street is only reasoned from."""
+    """An answer for this door was asked. The street is only reasoned from."""
     assert verdict(answer(30), now=NOW, street_best_mbps=Decimal(1000)) == FRESH
 
 

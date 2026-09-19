@@ -1,12 +1,6 @@
 """Their spelling of an address, and how far it is safe to guess at one.
 
-The scrape walked 43% of streets. For the rest the municipality is usually still known, and
-that turns out to be nearly enough — the street-level half of the lookup is mostly not a
-lookup: street_type is ΟΔΟΣ for 64,870 of 64,871 streets, area falls back to the
-municipality, and their spelling of a street is our fold in 96% of rows.
-
-What is left to guess is which of their municipalities ours means, and the two adapters are
-not equally entitled to guess it. These tests are about that asymmetry.
+The scrape walked 43% of streets.
 """
 
 from __future__ import annotations
@@ -79,7 +73,7 @@ def test_an_unwalked_street_falls_back_to_the_municipality(
     found = guesses(scraped)
     assert [n.dimos for n in found] == ["ΑΘΗΝΑΙΩΝ"]
     assert found[0].exact is False
-    # Our fold is their spelling, 96% of the time — so it is what gets sent.
+    # Our fold is their spelling, 96% of the time, so it is what gets sent.
     assert found[0].street == "ΠΑΤΗΣΙΩΝ"
     assert found[0].street_type == STREET_TYPE
 
@@ -110,7 +104,7 @@ def test_geocoding_noise_is_never_even_proposed(
     scraped: psycopg.Connection[TupleRow],
 ) -> None:
     """The scrape puts a few hundred Athens addresses in Ηγουμενίτσα. Counting them has to
-    argue them away with a threshold; proximity does not offer them in the first place."""
+    argue them away with a threshold. Proximity does not offer them in the first place."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ")
     walk(scraped, 1, "ΗΓΟΥΜΕΝΙΤΣΗΣ", "ΑΧΑΡΝΩΝ", area="ΗΓΟΥΜΕΝΙΤΣΑ", lon=20.26, lat=39.50)
     assert [n.dimos for n in guesses(scraped)] == ["ΑΘΗΝΑΙΩΝ"]

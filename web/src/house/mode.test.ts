@@ -1,10 +1,4 @@
-/**
- * Which picture an offer gets.
- *
- * The scene has three modes and the catalogue has four families, so the mapping is a real
- * decision rather than a rename — and getting it wrong draws a satellite dish on a fibre
- * connection, which is a lie told confidently.
- */
+/** Which picture an offer gets. */
 
 import { describe, expect, it } from "vitest";
 

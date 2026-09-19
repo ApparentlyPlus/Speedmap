@@ -1,11 +1,6 @@
 """Ask about addresses whose answer is already known.
 
-An adapter that has been redesigned out from under us does not return an error. It returns
-a page, with a 200, containing nothing — which is indistinguishable from a country with no
-broadband unless something already knows what the answer should be. That is what these are
-for, and why they are worth more than any other monitoring here.
-
-A canary that fails is a statement about the adapter, never about the address.
+An adapter that has been redesigned out from under us does not return an error.
 """
 
 from __future__ import annotations
@@ -24,7 +19,7 @@ from db.connect import connect
 from probe.adapter import Adapter
 from probe.cosmote import Cosmote
 from probe.nova import Nova
-from probe.run import Asked, ask, store, target_for
+from probe.run import Reply, ask, store, target_for
 from probe.vodafone import Vodafone
 
 CANARIES = Path(__file__).parent / "canaries.yaml"
@@ -78,20 +73,20 @@ def load(path: Path = CANARIES) -> list[Canary]:
     ]
 
 
-def judge(canary: Canary, asked: Asked) -> Verdict:
+def judge(canary: Canary, reply: Reply) -> Verdict:
     """Whether the adapter is working, which is not whether the address has service."""
-    probed = asked.probed
-    if probed is None:
-        return Verdict(canary.name, asked.provider, False, f"unreachable: {asked.error}")
-    if not probed.conclusive:
-        return Verdict(canary.name, asked.provider, False, "answered nothing conclusive")
-    if canary.expect == OFFERS and not probed.offers:
+    result = reply.result
+    if result is None:
+        return Verdict(canary.name, reply.provider, False, f"unreachable: {reply.error}")
+    if not result.conclusive:
+        return Verdict(canary.name, reply.provider, False, "answered nothing conclusive")
+    if canary.expect == OFFERS and not result.offers:
         # The failure this exists for: a 200, a page, and no offers on a street that has
         # had service for years.
-        return Verdict(canary.name, asked.provider, False, "no offers where there are some")
-    if canary.expect == REFUSAL and probed.serviceable:
-        return Verdict(canary.name, asked.provider, False, "offers where there are none")
-    return Verdict(canary.name, asked.provider, True, f"{len(probed.offers)} offers")
+        return Verdict(canary.name, reply.provider, False, "no offers where there are some")
+    if canary.expect == REFUSAL and result.serviceable:
+        return Verdict(canary.name, reply.provider, False, "offers where there are none")
+    return Verdict(canary.name, reply.provider, True, f"{len(result.offers)} offers")
 
 
 def run(

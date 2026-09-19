@@ -28,7 +28,7 @@ async def client(db: psycopg.Connection[TupleRow]) -> AsyncIterator[httpx.AsyncC
     main.pool = original
 
 
-# street, street_fold, street_no, locality, search_key, premises
+# street, street_fold, street_no, locality, search_key.
 SAMPLE = [
     ("Αχαρνών", "ΑΧΑΡΝΩΝ", "128", "ΑΘΗΝΑ", "ΑΧΑΡΝΩΝ ΑΘΗΝΑ", 30),
     ("Αχαρνών", "ΑΧΑΡΝΩΝ", "12", "ΑΘΗΝΑ", "ΑΧΑΡΝΩΝ ΑΘΗΝΑ", 4),
@@ -126,7 +126,7 @@ async def test_a_type_word_in_the_query_is_ignored(
     assert [h["name"] for h in hits] == ["Λεωφόρος Αλεξάνδρας"]
 
 
-# Greeklish
+# Greeklish.
 
 
 async def test_greeklish_finds_the_same_address(
@@ -165,7 +165,7 @@ async def test_the_house_number_typed_is_the_one_offered(
 async def test_a_house_number_does_not_narrow_the_street(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """It orders; it does not filter. A number we do not hold still reaches the street."""
+    """It orders. It does not filter. A number we do not hold still reaches the street."""
     hits = await found(client, "ΑΧΑΡΝΩΝ 4000")
     assert [h["street_no"] for h in hits if h["kind"] == "address"] == ["128", "12"]
 
@@ -217,13 +217,13 @@ async def test_a_street_is_not_offered_twice(
 async def test_addresses_are_offered_before_streets(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """An address is actionable; a street is where we fall back to."""
+    """An address is actionable. A street is where we fall back to."""
     hits = await found(client, "ΑΧΑΡΝΩΝ")
     kinds = [h["kind"] for h in hits]
     assert kinds == sorted(kinds, key=lambda k: k != "address")
 
 
-# guards
+# guards.
 
 
 async def test_a_wildcard_is_searched_for_literally(
@@ -259,7 +259,7 @@ async def test_the_limit_is_respected(
     assert len(await found(client, "ΑΧΑΡΝΩΝ", limit=1)) == 1
 
 
-# asking for a door
+# asking for a door.
 
 
 async def test_asking_makes_the_address(
@@ -277,7 +277,7 @@ async def test_asking_makes_the_address(
 async def test_asking_twice_is_the_same_address(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """The reader may ask again; the operators' answers belong to one door, not to a visit."""
+    """The reader may ask again. The operators' answers belong to one door, not to a visit."""
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     first = await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
     again = await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
@@ -300,10 +300,8 @@ async def test_a_made_address_stands_where_its_neighbour_does(
 ) -> None:
     """Half way along the street is a point chosen for being easy to compute.
 
-    It put Τζελίλη 40 nearly half a kilometre from the only address filed on that street,
-    in a different Ookla tile holding two measurements instead of six, expecting 28 Mbps of
-    mobile where its neighbour expects 100. A filed neighbour is real geometry on the real
-    street and the nearest by number is the best guess about where this door sits.
+    It put Τζελίλη 40 nearly half a kilometre from the only address filed on that street, in a
+    different Ookla tile holding two measurements instead of six.
     """
     db.execute(
         "insert into address (street, street_fold, street_no, search_key, latin_key, geom) "
@@ -413,7 +411,7 @@ async def test_a_band_is_reported_as_a_range(
 async def test_the_builder_is_reported_separately(
     client: httpx.AsyncClient, seeded_offer: int
 ) -> None:
-    """Nova sells over FIBERGRID's fibre; collapsing them hides who owns the network."""
+    """Nova sells over FIBERGRID's fibre. Collapsing them hides who owns the network."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     fibre = next(o for o in body["offers"] if o["provider"] == "NOVA")
     assert fibre["infra_provider"] == "FIBERGRID"

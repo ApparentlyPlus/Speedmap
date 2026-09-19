@@ -87,7 +87,7 @@ StageRow = tuple[
 
 
 def flag(value: int | None) -> bool | None:
-    """The register writes these as 0/1; absent stays absent rather than becoming false."""
+    """The register writes these as 0/1. Absent stays absent rather than becoming false."""
     return None if value is None else bool(value)
 
 
@@ -106,10 +106,6 @@ on conflict do nothing
 """
 
 # The distinct spellings, rebuilt with the index they are a projection of.
-#
-# Concurrently, so a rebuild never blanks the relation the search is reading — the same
-# reason 090_wholesale.sql refreshes that way. It is what the fuzzy tier matches against
-# instead of the 1.8M rows here; see migration 0048 and api/main.py's fuzzy_address_sql.
 REFRESH_KEYS = "refresh materialized view concurrently address_spelling"
 
 COPY_INTO = (

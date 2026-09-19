@@ -1,13 +1,7 @@
 """Ask the operators that need asking, and keep what they say.
 
 The three are asked at once because they do not know about each other and a person waiting
-should not pay for that three times over. Each answer is written under a lifetime that
-depends on the answer, so a gigabit is settled for two years and a slow line is asked again
-next month.
-
-Failure is handled separately throughout. An operator that could not be reached is recorded
-as not reached, never as offering nothing, and is left alone for a few hours rather than
-retried on every request until someone notices.
+should not pay for that three times over.
 """
 
 from __future__ import annotations
@@ -63,22 +57,20 @@ on conflict (address_id, provider_id, technology) do update set
 
 
 @dataclass(frozen=True)
-class Asked:
+class Reply:
     """What came back from asking one operator, or why nothing did."""
 
     provider: str
-    probed: Probed | None
+    result: Probed | None
     error: str | None = None
-    # False when the address could not be put to this operator at all — we hold no spelling
-    # for the street, or their own list has no such street. That is a gap in our address
-    # book rather than a checker that is broken, and probe/health.py leaves it out of the
-    # operator's record accordingly. See migration 0057.
+    # False when the address could not be put to this operator at all, we hold no spelling for
+    # the street, or their own list has no such street.
     askable: bool = True
 
 
-def best(probed: Probed) -> Decimal | None:
+def best(result: Probed) -> Decimal | None:
     """The fastest thing offered, which is what the answer's lifetime is keyed on."""
-    quoted = [o.max_down_mbps for o in probed.offers if o.max_down_mbps is not None]
+    quoted = [o.max_down_mbps for o in result.offers if o.max_down_mbps is not None]
     return max(quoted) if quoted else None
 
 
@@ -87,10 +79,6 @@ def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: dat
 
     A failure is left alone for a few hours: asking a broken endpoint on every request is
     how a rate limit turns into a ban, and the answer will not have improved in between.
-
-    A refusal is left alone for a month. It leaves no row in availability to expire, so
-    without this it would be asked again on every visit to the address for ever, which is
-    the same mistake spread thinner.
     """
     row = conn.execute(LAST, {"address": address_id, "code": code}).fetchone()
     if row is None:
@@ -104,65 +92,63 @@ def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: dat
     return True
 
 
-def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) -> Asked:
+def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) -> Reply:
     """One operator, with its failure caught: one being down must not take the others."""
     try:
-        return Asked(provider=adapter.code, probed=adapter.check(conn, target))
+        return Reply(provider=adapter.code, result=adapter.check(conn, target))
     except NotAskableError as gap:
         # Not a failure of theirs. The adapter looked, found it had nothing to look the
-        # address up by, and said so — which is the only correct thing it could have done.
-        return Asked(provider=adapter.code, probed=None, error=str(gap), askable=False)
+        # address up by, and said so, which is the only correct thing it could have done.
+        return Reply(provider=adapter.code, result=None, error=str(gap), askable=False)
     except Exception as error:
-        return Asked(provider=adapter.code, probed=None, error=str(error))
+        return Reply(provider=adapter.code, result=None, error=str(error))
 
 
 def store(
     conn: psycopg.Connection[TupleRow],
     address_id: int,
-    asked: Asked,
+    reply: Reply,
     now: datetime,
     keep_raw: bool = False,
 ) -> int:
     """Record the attempt always, and the answer only when there was one.
 
-    The body is kept when it was asked for — a canary, whose point is to be compared over
-    time — and whenever the answer was not conclusive, which is when a parser is most
-    likely to be the thing at fault. A nightly sweep keeps none of it: two hundred
-    addresses of identical HTML answers no question anyone will ask.
+    The body is kept when it was asked for, a canary, whose point is to be compared over
+    time.
     """
-    probed = asked.probed
-    conclusive = probed is not None and probed.conclusive
+    result = reply.result
+    conclusive = result is not None and result.conclusive
     conn.execute(ATTEMPT, {
         "address": address_id,
-        "code": asked.provider,
+        "code": reply.provider,
         "at": now,
         "ok": conclusive,
-        "askable": asked.askable,
-        "serviceable": probed.serviceable if probed is not None and conclusive else None,
-        "detail": asked.error if probed is None else None,
+        "askable": reply.askable,
+        "serviceable": result.serviceable if result is not None and conclusive else None,
+        "detail": reply.error if result is None else None,
         "raw": (
-            probed.body if probed is not None and (keep_raw or not conclusive) else None
+            result.body if result is not None and (keep_raw or not conclusive) else None
         ),
     })
-    if probed is None or not conclusive:
+    if result is None or not conclusive:
         return 0
 
-    until = now + ttl(best(probed), serviceable=probed.serviceable)
-    written = 0
-    for offer in probed.offers:
+    until = now + ttl(best(result), serviceable=result.serviceable)
+    kept = 0
+    for offer in result.offers:
         conn.execute(KEEP, {
             "address": address_id,
-            "code": asked.provider,
+            "code": reply.provider,
             "technology": offer.technology,
             "max_down": offer.max_down_mbps,
             "avg_down": offer.avg_down_mbps,
             "avg_up": offer.avg_up_mbps,
             "at": now,
             "until": until,
-            "raw": Jsonb(probed.raw) if probed.raw is not None else None,
+            "raw": Jsonb(result.raw) if result.raw is not None else None,
         })
-        written += 1
-    return written
+        kept += 1
+    return kept
 
 
 def refresh(
@@ -171,21 +157,21 @@ def refresh(
     adapters: list[Adapter],
     now: datetime,
     keep_raw: bool = False,
-) -> dict[str, Asked]:
+) -> dict[str, Reply]:
     """Ask every operator that is due, at once, and keep what comes back."""
-    wanted = [a for a in adapters if due(conn, target.address_id, a.code, now)]
-    if not wanted:
+    todo = [a for a in adapters if due(conn, target.address_id, a.code, now)]
+    if not todo:
         return {}
 
     # A separate connection per worker would be the alternative, and two of the adapters
     # only read a row of spelling: the asking is network-bound and the reads are not.
-    with ThreadPoolExecutor(max_workers=min(WIDTH, len(wanted))) as pool:
-        answers = list(pool.map(lambda a: ask(conn, a, target), wanted))
+    with ThreadPoolExecutor(max_workers=min(WIDTH, len(todo))) as pool:
+        replies = list(pool.map(lambda a: ask(conn, a, target), todo))
 
-    for answer in answers:
+    for answer in replies:
         store(conn, target.address_id, answer, now, keep_raw=keep_raw)
     conn.commit()
-    return {a.provider: a for a in answers}
+    return {a.provider: a for a in replies}
 
 
 def target_for(conn: psycopg.Connection[TupleRow], address_id: int) -> Target | None:

@@ -1,11 +1,6 @@
 /**
- * Serve the tile archives in development, the way the reverse proxy serves them in
- * production: one file, read by range requests.
- *
- * The archives are hundreds of megabytes and are built somewhere with a lot of memory, so
- * they are not in the repository and are not copied into the dev server's public directory
- * either. They are read where they lie, and the path is configurable because whoever built
- * them decides where they live.
+ * Serve the tile archives in development, the way the reverse proxy serves them in production:
+ * one file, read by range requests.
  */
 
 import fs from "node:fs";
@@ -52,8 +47,7 @@ export function tiles(directories: readonly string[]): Plugin {
         response.setHeader("Accept-Ranges", "bytes");
 
         // A range is how PMTiles is read at all: the client asks for the header, then the
-        // directory, then one tile. Answering the whole file instead would send 800 MB to
-        // draw one city block.
+        // directory, then one tile.
         const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
         if (range === null) {
           response.setHeader("Content-Length", size);

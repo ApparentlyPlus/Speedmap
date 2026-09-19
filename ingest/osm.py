@@ -49,7 +49,7 @@ def streets(path: Path) -> Iterator[Street]:
         .with_filter(osmium.filter.KeyFilter("highway"))
     )
     for way in processor:
-        # The entity filter narrows this at runtime; the check states it for the type checker.
+        # The entity filter narrows this at runtime. The check states it for the type checker.
         if not isinstance(way, osmium.osm.Way):
             continue
         name = way.tags.get("name")

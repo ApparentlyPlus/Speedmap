@@ -54,16 +54,13 @@ def test_a_cheaper_headline_can_cost_more() -> None:
     assert cheap_cost.total > dear_cost.total
 
 
-# unknown parts
+# unknown parts.
 
 
 def test_an_unknown_setup_fee_makes_the_total_a_floor_not_a_blank() -> None:
     """A scraper that failed to find the fee has not established there isn't one.
 
-    That reasoning is why the unknown is reported rather than assumed away. What it does
-    not justify is discarding the monthly rate as well, which is the larger number and is
-    published: three HCN plans at 16, 23 and 29 euro were shown as having no price at all
-    because nobody had written down a connection charge worth 1.25 a month once spread.
+    That reasoning is why the unknown is reported rather than assumed away.
     """
     cost = blended(Price(monthly_eur=euros("30"), hardware_eur=FREE))
     assert cost.total == euros("30")
@@ -77,14 +74,14 @@ def test_an_unknown_hardware_price_does_the_same() -> None:
 
 
 def test_a_zero_fee_is_not_an_unknown_fee() -> None:
-    """Zero is a fact the scraper found; null is a fact it did not, and they read alike in
-    the total now — so `complete` is the only thing keeping them apart."""
+    """Zero is a fact the scraper found. Null is a fact it did not, and they read alike in
+    the total now, so `complete` is the only thing keeping them apart."""
     cost = blended(Price(monthly_eur=euros("30"), setup_eur=FREE, hardware_eur=FREE))
     assert cost.total == euros("30")
     assert cost.complete is True
 
 
-# promo edge cases
+# promo edge cases.
 
 
 def test_a_promo_without_a_rate_is_not_a_promo() -> None:
@@ -128,7 +125,7 @@ def test_a_nonsense_promo_length_is_no_promo(months: int) -> None:
     assert cost.total == euros("30")
 
 
-# properties
+# properties.
 
 
 money = st.decimals(min_value=0, max_value=500, allow_nan=False, allow_infinity=False, places=2)

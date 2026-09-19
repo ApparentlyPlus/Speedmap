@@ -51,8 +51,6 @@ on conflict (sort_key, municipality_id) do update set
 """
 
 # A road removed from the extract must leave, and its id must not be reused by another.
-# not exists, not NOT IN: municipality_id is nullable and NOT IN never returns true once
-# a null appears, so nothing would ever be pruned.
 PRUNE = """
 delete from street st
 where not exists (

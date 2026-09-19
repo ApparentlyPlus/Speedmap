@@ -1,18 +1,6 @@
 /**
- * The light that runs along a street.
- *
- * A search answers with one street, and saying which one in a panel is not the same as
- * showing it: the reader has to find it on the map themselves. Lighting the whole street
- * says where it is but not which way it runs, and a street lit end to end competes with the
- * coverage colour underneath it — the thing the map is actually for.
- *
- * So a short bright window travels the length of it and starts again.
- *
- * It is drawn by cutting the piece out of the street and handing that to the map, rather
- * than by colouring the whole street with a gradient that is transparent except where the
- * light is. The gradient way reads `line-progress`, which runs nought to one along each
- * line separately — and a street is rarely one line. It is the handful of ways OSM drew it
- * in, so every one of them lit its own light and a road through six junctions had six.
+ * A short bright window travelling the length of a street, to point at it without burying the
+ * coverage colour underneath.
  */
 
 import type { Geometry, Position } from "geojson";
@@ -42,11 +30,8 @@ function clamp(n: number): number {
 }
 
 /**
- * Length in a flat plane, which is what a highlight needs.
- *
- * Degrees of longitude are shorter than degrees of latitude everywhere but the equator, so
- * the x side is scaled by the latitude. Not a geodesic: this decides how fast a light
- * crosses a street, and a street is never long enough for the curve of the earth to show.
+ * Length in a flat plane, which is what a highlight needs. Degrees of longitude are shorter than
+ * degrees of latitude everywhere but the equator, so the x side is scaled by the latitude.
  */
 function span(from: Position, to: Position): number {
   const lift = Math.cos((((from[1] ?? 0) + (to[1] ?? 0)) / 2) * (Math.PI / 180));
@@ -79,13 +64,7 @@ export function pathOf(shape: Geometry): Path | null {
   return { parts, starts: starts.map((begins) => begins / total), total };
 }
 
-/**
- * The piece of the street between two points of its length.
- *
- * Comes back as several lines when the window straddles a gap, which is the whole reason
- * the cut is done here: the light crosses from one piece of the street to the next without
- * ever drawing the nothing in between them.
- */
+/** The piece of the street between two points of its length. */
 export function sliceOf(path: Path, from: number, to: number): Position[][] {
   const cut: Position[][] = [];
 
@@ -123,14 +102,7 @@ function between(one: Position, two: Position, at: number): Position {
   ];
 }
 
-/**
- * Where the light is at one moment of the pass.
- *
- * It wraps rather than fades. The light runs off the end of the street and the same length
- * of it comes back on at the start, so the pass never stops and never restarts — what
- * leaves by one end is already arriving at the other. Brightness is left alone entirely:
- * dimming at the ends is what you do when the light has nowhere to go.
- */
+/** Where the light is at one moment of the pass. It wraps rather than fades. */
 export function momentOf(path: Path, progress: number): { lines: Position[][] } {
   const head = clamp(progress);
   const tail = head - WINDOW;
@@ -140,14 +112,7 @@ export function momentOf(path: Path, progress: number): { lines: Position[][] } 
   return { lines: [...sliceOf(path, 0, head), ...sliceOf(path, 1 + tail, 1)] };
 }
 
-/**
- * The two layers the light is made of.
- *
- * The same shape as the selection highlight on the map page, because the reader has already
- * learned what a white glowing street means there: a crisp line at the width a street is
- * drawn, over a wide blurred copy of itself. A single unblurred line is the same colour and
- * reads as a scratch.
- */
+/** The two layers the light is made of. */
 export function traceLayers(): LayerSpecification[] {
   return [
     {
@@ -177,9 +142,7 @@ export function traceLayers(): LayerSpecification[] {
         // the difference between a highlighter and a smear.
         "line-blur": 0,
         "line-opacity": 0,
-        // Narrower than the street it is marking, at every zoom — about three fifths of it.
-        // Wider, and it stops being a highlight on a street and becomes a different street
-        // drawn in white over the one being asked about.
+        // Narrower than the street it is marking, at every zoom, about three fifths of it.
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 0.3, 12, 0.8, 14, 1.6, 15, 2.7, 16, 4.2, 20, 15,
@@ -189,13 +152,7 @@ export function traceLayers(): LayerSpecification[] {
   ];
 }
 
-/**
- * How bright each layer is. Constant: the light never dims, it only moves.
- *
- * Low. At full white over a lit street the mark stopped being a highlight and became a
- * solid object travelling along the road, and the coverage colour underneath — the thing
- * being pointed at — disappeared under it.
- */
+/** How bright each layer is. Constant: the light never dims, it only moves. Low. */
 export function traceOpacity(): [string, number][] {
   return [
     [GLOW, 0.14],
@@ -203,18 +160,7 @@ export function traceOpacity(): [string, number][] {
   ];
 }
 
-/**
- * The box worth pointing a camera at.
- *
- * A street here is every road of that name in the municipality, because that is what the
- * register files and what a reader means when they type it. Usually that is one road. Often
- * it is not: Μακεδονίας in Κατερίνη is nine unconnected stretches spread over thirteen
- * kilometres, and framing all nine frames the town.
- *
- * So the camera goes to the longest of them, which is the road anyone naming it means, and
- * the light still runs the length of every one — the rest are found by watching it go, not
- * by being fitted into the same shot.
- */
+/** The box worth pointing a camera at. */
 export function focusOf(shape: Geometry): [[number, number], [number, number]] | null {
   const path = pathOf(shape);
   if (path === null) return null;
@@ -232,18 +178,7 @@ export function focusOf(shape: Geometry): [[number, number], [number, number]] |
   return extentOf({ type: "LineString", coordinates: best as Position[] });
 }
 
-/**
- * A box that holds the street whichever way the camera is pointing.
- *
- * Fitting a street fits it as it lies, and the result view turns: a road framed corner to
- * corner at one bearing hangs out of both ends of the frame a quarter turn later, which is
- * what looks like bad centring. Squaring the box off first costs a little zoom on a street
- * that is much longer than it is wide, and buys a street that stays in shot for the whole
- * revolution.
- *
- * Squared on the ground rather than in degrees, since a degree of longitude in Greece is
- * about four fifths of a degree of latitude and a square in degrees is an oblong on a map.
- */
+/** A box that holds the street whichever way the camera is pointing. */
 export function turnable(
   extent: [[number, number], [number, number]],
 ): [[number, number], [number, number]] {
@@ -258,13 +193,7 @@ export function turnable(
   ];
 }
 
-/**
- * The box a street occupies.
- *
- * Read off the shape rather than asked for separately: the camera has to frame the same
- * line the light runs along, and a second source for the extent is a second thing that can
- * disagree with the first.
- */
+/** The box a street occupies. */
 export function extentOf(shape: Geometry): [[number, number], [number, number]] | null {
   let west = Infinity;
   let south = Infinity;

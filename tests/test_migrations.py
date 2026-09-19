@@ -1,6 +1,4 @@
-"""
-The migration runner: ordering, recording, and refusal to run over drift.
-"""
+"""The migration runner: ordering, recording, and refusal to run over drift."""
 
 from __future__ import annotations
 

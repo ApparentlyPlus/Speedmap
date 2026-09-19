@@ -1,12 +1,7 @@
 """The two tile layers, as newline-delimited GeoJSON.
 
 Postgres builds the JSON and COPY streams it out, so 214,000 features never become 214,000
-Python dictionaries on the way to a file. The field names come from the generated contract
-rather than from string literals here: that is the whole point of generating them, and a
-builder that spells one its own way is exactly the drift the contract exists to stop.
-
-Written to a temporary path and moved into place, because a tile build that dies half way
-through must not leave a renderer reading half a layer.
+Python dictionaries on the way to a file.
 """
 
 from __future__ import annotations
@@ -38,21 +33,6 @@ where s.geom is not null
 """
 
 # One feature per municipality, for the zooms where a street is a fraction of a pixel.
-#
-# The contract has declared this layer since the schema was written and nothing ever built
-# it: schema/tiles.yaml named it, publish/fields.py and web/src/map/tiles.ts were generated
-# from it, 130_municipality_coverage.sql computed municipality_coverage to feed it, and the
-# archive came out with two layers where three were promised. Below zoom 10 the map drew a
-# coastline and nothing inside it.
-#
-# Every municipality, not every one with a filed address. 80 of the 333 have none at all,
-# and left to an inner join they come out as holes in the country — which reads as a broken
-# layer rather than as a quiet one. They are drawn with a null figure and no share, which is
-# what the register actually says about them.
-#
-# Simplified, because these are administrative boundaries drawn to the metre and nobody
-# reading a choropleth at zoom 6 is looking at the coastline: about fifty metres, which is
-# under a pixel at the zooms this layer is for.
 REGION_SMOOTH = 0.0005
 
 REGIONS = """
@@ -86,29 +66,14 @@ where m.geom_2d is not null
 """
 
 
-# Half a zoom 16 tile, in Web Mercator metres. Ookla publish the centroid; a square is what
-# was measured, and drawn as a point it becomes a dot whose size means nothing — a tested
-# street and a tested suburb look the same.
-#
-# Expanded in Mercator rather than on the ground, because that is the grid the tile is cut
-# on: 611 m of Mercator is 611·cos(latitude) of ground, so a Greek tile covers about 464 m
-# and not the 600 m the figure is usually quoted as.
+# Half a zoom 16 tile, in Web Mercator metres.
 HALF_TILE = 40075016.686 / (1 << 16) / 2
 
-# How far past the coastline a cell may sit and still be Greek, in degrees: about two
-# kilometres. Ookla's grid is square and the coast is not, so a cell covering a seafront
-# street has its centre offshore. Without the slack the map loses the promenade of every
-# island it has measurements for, which is most of the ones anybody asks about.
+# How far past the coastline a cell may sit and still be Greek, in degrees: about two kilometres.
 SHORE = 0.02
 
-# Only tested cells exist, and the figure is the reason the cell is there, so nothing here
-# is nullable. Greece is about four per cent tested: an empty view is the normal case.
-#
-# Clipped to the country. The measurements arrive as a bounding box around Greece, and that
-# box contains Istanbul, Sofia, Tirana and Skopje — half of every cell on file is a street
-# this site has nothing to say about. The municipalities are the border: they are already
-# here, they are what the rest of the site means by Greece, and unioning them agrees with
-# the coverage register by construction in a way a separately fetched outline would not.
+# Only tested cells exist, and the figure is the reason the cell is there, so nothing here is
+# nullable. Greece is about four per cent tested: an empty view is the normal case.
 CELLS = """
 with greece as (
     select st_buffer(st_union(geom::geometry), {shore}) as area from municipality
@@ -136,14 +101,8 @@ where c.geom is not null
 """
 
 
-# An operator that reaches a street and filed no speed for it, which 49,897 street-operator
-# pairs are. It has to be told apart from an operator that does not reach the street at all:
-# both are an absent number, and only one of them should be drawn when the map is filtered
-# to that operator. So reaching without a speed is one below the bottom of the ramp — where
-# the ramp already paints "not filed" — and not reaching stays null.
-#
-# The `having` is what makes the difference expressible: over no rows the whole subquery
-# yields null, while over a row with a null speed it yields the sentinel.
+# An operator that reaches a street and filed no speed for it, which 49,897 street-operator pairs
+# are.
 SERVED_UNFILED = -1
 
 
@@ -164,9 +123,9 @@ def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> in
     layer untouched, rather than a renderer reading half of one.
     """
     out.parent.mkdir(parents=True, exist_ok=True)
-    written = 0
+    count = 0
     descriptor, name = tempfile.mkstemp(dir=out.parent, prefix=out.name + ".")
-    staged = pathlib.Path(name)
+    tmp = pathlib.Path(name)
     try:
         with (
             os.fdopen(descriptor, "w", encoding="utf-8") as handle,
@@ -178,36 +137,27 @@ def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> in
             for (feature,) in cursor:
                 handle.write(feature)
                 handle.write("\n")
-                written += 1
-        staged.replace(out)
+                count += 1
+        tmp.replace(out)
     except BaseException:
-        staged.unlink(missing_ok=True)
+        tmp.unlink(missing_ok=True)
         raise
-    return written
+    return count
 
 
 def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
     return write(conn, STREETS.format(operators=operators()), out)
 
 
-# How much the coastline is smoothed, in degrees: about twenty metres. Small enough that a
-# harbour is still a harbour at the zoom anyone looks at one, large enough that the outline
-# is a file a phone downloads rather than a map of every rock.
+# How much the coastline is smoothed, in degrees: about twenty metres.
 SMOOTH = 0.0002
 
 # Enough to close the slivers between one municipality and the next without moving the coast
 # anywhere a reader would notice: about a hundred and fifty metres.
 KNIT = 0.0015
 
-# The country itself, as one polygon.
-#
-# The land is published and the sea is not, which is the way round that works. Painting the
-# sea instead needs a polygon with the country cut out of it, and a hole-ridden ring that
-# size is cut into tiles before it is drawn and clips so badly that whole tiles come out
-# filled — rectangular slabs of land across the Aegean, and coastlines that are tile edges.
-#
-# Drawn from underneath, none of that can happen: what is not Greece is simply not drawn,
-# and the background is already the sea.
+# The country itself, as one polygon. The land is published and the sea is not, which is the way
+# round that works.
 OUTLINE = """
 select st_asgeojson(
     -- Valid, because a ring that crosses itself triangulates into whatever the renderer
@@ -227,12 +177,12 @@ def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
     if row is None or row[0] is None:
         raise SystemExit("no municipalities: the country has no outline")
     out.parent.mkdir(parents=True, exist_ok=True)
-    staged = out.with_suffix(out.suffix + ".part")
-    staged.write_text(
+    tmp = out.with_suffix(out.suffix + ".part")
+    tmp.write_text(
         '{"type":"Feature","properties":{},"geometry":' + row[0] + "}",
         encoding="utf-8",
     )
-    staged.replace(out)
+    tmp.replace(out)
     return out.stat().st_size
 
 

@@ -1,8 +1,4 @@
-"""
-Data invariants, each with a control that proves the query actually fires.
-
-An invariant that only ever runs against clean data is indistinguishable from one
-that is broken, so every .sql file must appear in CONTROLS.
+"""Data invariants, each with a control that proves the query actually fires.
 """
 
 from __future__ import annotations

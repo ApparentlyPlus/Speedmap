@@ -1,21 +1,6 @@
 /**
- * The map, rendered by a real browser.
- *
- * The style validator says a style is well formed; it cannot say the map draws. Three bugs
- * got past it in a row and every one of them produced the same symptom — a black rectangle
- * and no error anywhere:
- *
- *   - esbuild's dependency pre-bundling broke MapLibre's worker in development only, so the
- *     style never finished loading, `load` never fired, nothing was ever fetched, and the
- *     built site was perfect the whole time.
- *   - `["has", field]` asks whether a property is present, and the builder writes every
- *     operator's field on every street, so every filter matched everything.
- *   - tearing a map down takes the camera out of the URL, so in development the second map
- *     read a URL the first had already emptied.
- *
- * None of those is visible from a unit test and all of them are obvious here. It needs a
- * dev server and an API, and skips rather than fails when they are not up, which is the
- * same bargain the database tests make.
+ * The map, rendered by a real browser. The style validator says a style is well formed. It
+ * cannot say the map draws.
  */
 
 import { chromium, type Browser, type Page } from "playwright";

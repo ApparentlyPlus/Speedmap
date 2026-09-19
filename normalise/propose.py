@@ -1,21 +1,7 @@
 """An address the register never filed, made because someone asked for it.
 
 The register holds 1.8M addresses and the street layer holds the streets they sit on, and
-the two do not agree: a street can be known while most of its numbers are not. Τζελίλη is
-one — the register files nothing on it, and the Cosmote scrape stopped at number 1 because
-2, 3 and 4 came back empty. Number 40 is a real front door all the same.
-
-So when the street is known and the number is not, the number is made rather than refused.
-The row is a real address from that moment on: it can be probed, cached against, ranked and
-found again, and every operator answer it collects belongs to it rather than to a session.
-
-What it inherits is only what a street can honestly say about a house on it — the postcode
-and locality its neighbours share, and the point of the neighbour nearest it in numbering.
-What it does not inherit
-is coverage: that is looked up for the new point the same way it is looked up for every
-other address, by which cabinet areas contain it and which grid cell it falls in. A point
-match is a filing against a specific building and this building has none, which is the
-truth and is what the ranker should be told.
+the two do not agree: a street can be known while most of its numbers are not.
 """
 
 from __future__ import annotations
@@ -28,10 +14,7 @@ from psycopg.rows import TupleRow
 from normalise.greeklish import from_greek
 from normalise.text import fold
 
-# The postcode and locality a street's known addresses agree on. Modal rather than any:
-# a long street can cross a postcode boundary, and the commonest is the better guess for a
-# number we have never seen. Null when the street has no known addresses at all, which is
-# honest — the probe adapters take a null postcode and do without it.
+# The postcode and locality a street's known addresses agree on.
 NEIGHBOURS = """
 select a.postcode, a.locality, count(*) as seen
 from address a
@@ -49,16 +32,6 @@ from street s where s.id = %s
 """
 
 # The neighbour nearest in numbering, and its point.
-#
-# Half way along the street was the first answer and it was wrong: Τζελίλη 40 landed 489 m
-# from Τζελίλη 1, in a different Ookla tile holding two measurements instead of six, and
-# came back expecting 28 Mbps of mobile where its only known neighbour expects 100. Nothing
-# about number 40 justified that; the midpoint did.
-#
-# A filed neighbour is real geometry on the real street, and the nearest one by number is
-# the best guess available about where along it this door sits. Numbering runs in order, so
-# ordering by the distance between the numbers gets nearer the truth than a point chosen for
-# being easy to compute.
 NEAREST = """
 select a.geom
 from address a
@@ -91,10 +64,7 @@ where street_fold = %(fold)s and street_no = %(number)s
   and postcode is not distinct from %(postcode)s
 """
 
-# The same two lookups every other address gets, run for one point. Neither invents
-# anything: an area match is a cabinet polygon that contains this point, a cell match is the
-# 100 m square it falls in. A point match would be an operator's filing against this
-# building, and there is none, so there is none here.
+# The same two lookups every other address gets, run for one point.
 COVER_AREA = """
 insert into address_coverage (
     address_id, provider_id, technology, infra_provider_id,
@@ -140,9 +110,8 @@ def propose(
 ) -> int | None:
     """The id of the address at this number on this street, creating it if it is new.
 
-    Idempotent by the same unique key the register load uses, so asking twice returns the
-    same address rather than a second one, and an address the register happens to file
-    later collides with this one instead of duplicating it.
+    Idempotent by the same unique key the register load uses, so asking twice returns the same
+    address rather than a second one.
     """
     found = conn.execute(STREET, (street_id,)).fetchone()
     if found is None:

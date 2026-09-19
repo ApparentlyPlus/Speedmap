@@ -1,9 +1,7 @@
 """Nova's catalogue, which they publish only one address at a time.
 
 They have no plan list of their own: the eligibility answer carries the tariff, and it
-carries only the plans that qualify at the address asked about. The prices in it are
-national, so a handful of addresses chosen to span the technologies reconstructs the
-catalogue, and a fibre address is the only place the gigabit rungs ever appear.
+carries only the plans that qualify at the address asked about.
 """
 
 from __future__ import annotations
@@ -17,7 +15,6 @@ from probe.nova import Nova, euros, speed_of, technology_of
 
 # Asking scopes the answer to the rung asked about and the ones either side of it, so the
 # catalogue is swept rather than read: preselecting 100 never mentions a gigabit exists.
-# Their 3 Giga tier answers to none of these and is not sold at the reference address.
 PRESELECTIONS = ("2P_FIBER_100", "2P_FIBER_300", "2P_FIBER_500", "2P_FIBER_1000")
 
 FAMILY = {"FTTH": "fibre", "VECT_VDSL": "copper", "VDSL": "copper", "ADSL": "copper"}
@@ -34,10 +31,8 @@ class Reference:
     postcode: str
 
 
-# Addresses chosen so that between them every rung they sell has somewhere to appear: a
-# street on their own fibre reaches the gigabit tiers, an Athens copper street the rest.
-# Neither is queried for its own sake, and the postcode matters — ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ runs
-# through 54638 and 54639 and only one of them is the one meant.
+# Addresses chosen so that between them every rung they sell has somewhere to appear: a street
+# on their own fibre reaches the gigabit tiers, an Athens copper street the rest.
 REFERENCES = (
     Reference("Ν. ΘΕΣΣΑΛΟΝΙΚΗΣ", "Δ. ΘΕΣΣΑΛΟΝΙΚΗΣ", "ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", "8", "54639"),
     Reference("Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", "100", "10434"),

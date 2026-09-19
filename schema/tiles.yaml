@@ -1,16 +1,4 @@
 # The field names inside a vector tile, written once so both sides cannot drift.
-#
-# These names are an API between the Python that builds the tiles and the TypeScript that
-# paints them, and nothing enforces them at runtime: a renderer asking for a field the
-# builder stopped writing gets undefined, paints the fallback colour, and says nothing. The
-# prototype lost 25.6% of its streets to exactly that and nobody noticed for weeks.
-#
-# So the names live here and both sides are generated from them. Rename one and the build
-# fails; the alternative is a map that is quietly wrong.
-#
-# A nullable field is the difference between "no speed filed" and "no service", which is the
-# distinction the whole ranking rests on and the one a tile is most likely to flatten: a
-# missing number and a zero look identical once they are in a paint expression.
 
 version: 1
 
@@ -33,10 +21,8 @@ layers:
       nprov:
         type: integer
         description: how many operators reach this street at all, filed speed or not
-      # Three states, not two: null is an operator that does not reach this street, -1 is
-      # one that reaches it and filed no speed, and a number is the speed. The middle state
-      # is 49,897 street-operator pairs and is the commonest thing the register says, so a
-      # filter that cannot see it hides most of what an operator actually sells.
+      # Three states, not two: null is an operator that does not reach this street, -1 is one
+      # that reaches it and filed no speed, and a number is the speed.
       p_ote: {type: number, nullable: true, unit: mbps, provider: OTE}
       p_vodafone: {type: number, nullable: true, unit: mbps, provider: VODAFONE}
       p_nova: {type: number, nullable: true, unit: mbps, provider: NOVA}
@@ -73,10 +59,8 @@ layers:
         nullable: true
         unit: mbps
         description: the band's assured speed, held to what the technology can carry
-      # One figure per view, because the choropleth is drawn under whichever view is on and
-      # a filed claim beneath a measured map is the one mixture this site does not make.
-      # Weighted by tests, not averaged over cells: one 900 Mbps cell from two tests must
-      # not outvote forty 30 Mbps cells from five hundred each.
+      # One figure per view, because the choropleth is drawn under whichever view is on and a
+      # filed claim beneath a measured map is the one mixture this site does not make.
       measured_mbps:
         type: number
         nullable: true

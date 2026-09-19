@@ -10,7 +10,7 @@
 -- Asked as "has a figure but no fixed line to have got it from" rather than by recomputing
 -- the figure and comparing. The older form compared against the doors alone and knew
 -- nothing of the cabinets a street crosses, so once a street with no door on it could take
--- its figure from the area around it — which is half of them — the query started reporting
+-- its figure from the area around it, which is half of them, the query started reporting
 -- streets that were perfectly correct: 80 of them at first, and 1,138 once the two
 -- derivations in 110 and 120 were made one. An invariant that cries wolf is worse than none,
 -- because the next person to read it turns it off.

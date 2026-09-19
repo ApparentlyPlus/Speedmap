@@ -1,14 +1,4 @@
-/**
- * A street, when a street is what was asked for.
- *
- * Someone who types a street name without a number is not being vague, they are asking
- * about the road: which operators reach it and how fast. That is a real answer and the
- * register holds it, so it is given — rather than the search insisting on a door first.
- *
- * What it cannot do is price anything. A plan is sold to an address, and the cheapest
- * offer on a street is a different number at each end of it, so this lists who reaches the
- * street and at what speed and stops there.
- */
+/** A street, when a street is what was asked for. */
 
 import { useEffect, useState } from "react";
 import type { Geometry } from "geojson";
@@ -102,36 +92,36 @@ export function Road({
                         Who built the line, when it was not the operator selling it. Three
                         retailers over one cabinet is one line resold three times, and
                         without this it reads as three networks reaching the street.
-                      */}
-                      {offer.infra_provider !== null &&
-                        offer.infra_provider !== offer.provider && (
-                          <span className="road-infra">
-                            {" "}
-                            · {text.over} {offer.infra_provider}
-                          </span>
-                        )}
-                    </span>
-                    <span className="road-speed">
-                      {offer.speed === null ? text.unfiled : offer.speed.label}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+*/}
+                     {offer.infra_provider !== null &&
+                       offer.infra_provider !== offer.provider && (
+                         <span className="road-infra">
+                           {" "}
+                           · {text.over} {offer.infra_provider}
+                         </span>
+                       )}
+                   </span>
+                   <span className="road-speed">
+                     {offer.speed === null ? text.unfiled : offer.speed.label}
+                   </span>
+                 </li>
+               ))}
+             </ul>
+           </>
+         )}
 
-          {found !== null && found.offers.length > 0 && (
-            <footer className="disclaimer">
-              <p>{text.disclaimer}</p>
-            </footer>
-          )}
-        </div>
-      </section>
-    </>
-  );
+         {found !== null && found.offers.length > 0 && (
+           <footer className="disclaimer">
+             <p>{text.disclaimer}</p>
+           </footer>
+         )}
+       </div>
+     </section>
+   </>
+ );
 }
 
-/** A street has no point of its own; the middle of its extent is where to stand. */
+/** A street has no point of its own. The middle of its extent is where to stand. */
 function centre(bbox: readonly number[]): [number, number] | null {
   const [west, south, east, north] = bbox;
   if (west === undefined || south === undefined || east === undefined || north === undefined) {

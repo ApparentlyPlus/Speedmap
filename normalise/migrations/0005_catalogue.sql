@@ -11,7 +11,7 @@ create table plan (
     unique (provider_id, external_key)
 );
 
--- One row per scrape, append-only, so a price change stays answerable later
+-- One row per scrape, append-only, so a price change stays answerable later.
 create table plan_price (
     plan_id int not null references plan (id),
     observed_on date not null,
