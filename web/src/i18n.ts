@@ -63,6 +63,16 @@ type Strings = {
   readonly technology: Readonly<Record<string, string>>;
   readonly groupEnough: string;
   readonly groupSlower: string;
+  /** The credits page, and the small way in to it from a corner of the map. */
+  readonly creditsLink: string;
+  readonly creditsHome: string;
+  readonly creditsTitle: string;
+  readonly creditsIntro: string;
+  readonly creditsData: string;
+  readonly creditsTools: string;
+  readonly creditsCode: string;
+  readonly creditsTerms: string;
+  readonly provides: Readonly<Record<string, string>>;
 };
 
 const el: Strings = {
@@ -130,6 +140,25 @@ const el: Strings = {
   technology: { FWA_5G: "5G", FWA_4G: "4G", VECT_VDSL: "VDSL+", MOBILE: "κινητό", SAT: "δορυφόρος" },
   groupEnough: "Φτάνουν για ένα σπιτικό",
   groupSlower: "Πιο αργά απ' όσο θέλει ένα σπιτικό",
+  creditsLink: "Πηγές",
+  creditsHome: "Αρχική",
+  creditsTitle: "Πηγές και άδειες",
+  creditsIntro:
+    "Ο χάρτης δεν είναι δικός μας. Είναι φτιαγμένος από δεδομένα που δημοσιεύουν άλλοι, " +
+    "και ο καθένας τους ζητά να αναφέρεται. Εδώ αναφέρονται.",
+  creditsData: "Τα δεδομένα",
+  creditsTools: "Τα εργαλεία",
+  creditsCode: "Ο κώδικας",
+  creditsTerms:
+    "Ο κώδικας του site είναι MIT. Τα δεδομένα όμως κρατούν τις δικές τους άδειες: " +
+    "οι μετρήσεις της Ookla είναι μη εμπορικές, και το μητρώο της ΓΓΤΤ επιτρέπει μόνο " +
+    "προσωπική, μη εμπορική χρήση.",
+  provides: {
+    osm: "Γεωμετρία δρόμων και ο χάρτης από κάτω",
+    overture: "Τα κτίρια",
+    ookla: "Μετρημένες ταχύτητες ανά τετράγωνο 600 μέτρων",
+    eett: "Ποιος δηλώνει κάλυψη πού, σε ποια τεχνολογία",
+  },
 };
 
 const en: Strings = {
@@ -197,6 +226,24 @@ const en: Strings = {
   technology: { FWA_5G: "5G", FWA_4G: "4G", VECT_VDSL: "VDSL+", MOBILE: "mobile", SAT: "satellite" },
   groupEnough: "Enough for a household",
   groupSlower: "Slower than a household wants",
+  creditsLink: "Sources",
+  creditsHome: "Home",
+  creditsTitle: "Sources and licences",
+  creditsIntro:
+    "The map is not ours. It is built out of data other people publish, and each of them " +
+    "asks to be named. Here they are.",
+  creditsData: "The data",
+  creditsTools: "The tools",
+  creditsCode: "The code",
+  creditsTerms:
+    "The site's code is MIT. The data keeps its own licences: the Ookla measurements are " +
+    "non-commercial, and the register allows personal, non-commercial use only.",
+  provides: {
+    osm: "Street geometry and the basemap underneath",
+    overture: "The buildings",
+    ookla: "Measured speeds, per 600 m tile",
+    eett: "Who files coverage where, and on which technology",
+  },
 };
 
 const TABLE: Record<Language, Strings> = { el, en };

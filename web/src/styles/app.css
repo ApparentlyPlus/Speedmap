@@ -1482,3 +1482,111 @@ body {
   outline: 1px solid var(--rule-lit);
   outline-offset: 2px;
 }
+
+/* The corner link. Small enough to ignore, present enough to satisfy the licences. */
+.credit {
+  position: fixed;
+  z-index: 2;
+  bottom: 10px;
+  left: 14px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  opacity: 0.55;
+  transition:
+    color var(--settle),
+    opacity var(--settle);
+}
+
+.credit:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.credits {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+.credits .back {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.credits-name {
+  margin: 20px 0 10px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.credits-said {
+  max-width: 52ch;
+  color: var(--ink-dim);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.credits-head {
+  margin: 44px 0 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.credits-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.credits-source {
+  padding: 16px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.credits-list-tight .credits-source {
+  padding: 10px 0;
+}
+
+.credits-who {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 15px;
+}
+
+.credits-who a {
+  color: var(--ink);
+  text-decoration: none;
+  transition: color var(--settle);
+}
+
+.credits-who a:hover {
+  color: var(--accent);
+}
+
+.credits-licence {
+  color: var(--ink-faint) !important;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.credits-gives {
+  margin: 4px 0 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.credits-line {
+  margin: 8px 0 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.6;
+}
