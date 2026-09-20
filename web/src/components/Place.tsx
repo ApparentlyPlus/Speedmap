@@ -12,6 +12,7 @@ import { modeOf } from "../house/mode";
 import { strings, type Language } from "../i18n";
 import { colourFor, mbps } from "../tokens";
 import { Anchored } from "./Anchored";
+import { Credit } from "./Credit";
 import { House } from "./House";
 import { Offer } from "./Offer";
 import { Waiting } from "./Waiting";
@@ -125,6 +126,7 @@ export function Place({
         shape={shape}
         streetId={road}
       />
+      <Credit language={language} />
 
       <section className="place">
         <div className="place-scene">

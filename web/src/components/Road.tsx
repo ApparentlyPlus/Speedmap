@@ -7,6 +7,7 @@ import { street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
 import { Anchored } from "./Anchored";
+import { Credit } from "./Credit";
 import { Waiting } from "./Waiting";
 
 export function Road({
@@ -50,6 +51,7 @@ export function Road({
         shape={(found?.shape as unknown as Geometry | undefined) ?? null}
         streetId={found?.id ?? null}
       />
+      <Credit language={language} />
 
       <section className="place place-road">
         <div className="place-body">

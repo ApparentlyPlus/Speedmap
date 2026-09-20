@@ -10,6 +10,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
+import { Credit } from "../components/Credit";
 import { strings, type Language } from "../i18n";
 import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
@@ -86,6 +87,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       container: box.current,
       style: style(),
       ...(linked ? {} : { center: HOME.centre, zoom: HOME.zoom }),
+      // Credited on /attribution instead, which the corner link goes to.
       attributionControl: false,
       hash: true,
       maxBounds: LIMITS,
@@ -263,6 +265,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   return (
     <main className="atlas" lang={language}>
       <div className="atlas-canvas" ref={box} />
+      <Credit language={language} />
 
       <section className="atlas-panel">
         <a className="atlas-back" href={language === "el" ? "/" : "/en/"}>
