@@ -24,6 +24,13 @@ import {
 
 export const SOURCE = "speedmap";
 
+/**
+ * The measured squares, in an archive of their own. At the country zooms they were half of
+ * every tile, and the coverage map never draws one. Nothing visible reads this source until
+ * the reader asks for Measured, and until then MapLibre leaves it alone.
+ */
+export const MEASURED = "measured";
+
 /** The basemap and the footprints: OpenStreetMap through planetiler, and Overture. */
 export const BASE = "base";
 export const BUILDINGS = "buildings";
@@ -378,7 +385,7 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
     {
       id: "cells",
       type: "fill",
-      source: SOURCE,
+      source: MEASURED,
       "source-layer": CELLS_LAYER,
       filter: ["==", ["get", "family"], family],
       // Off unless something turns it on: every other map here wants streets, not squares.
@@ -411,6 +418,7 @@ export function style(base = "/tiles"): StyleSpecification {
       [BUILDINGS]: { type: "vector", url: `pmtiles://${base}/buildings.pmtiles` },
       // Our own coverage, cut from the database by the same tool that cut the basemap.
       [SOURCE]: { type: "vector", url: `pmtiles://${base}/speedmap.pmtiles` },
+      [MEASURED]: { type: "vector", url: `pmtiles://${base}/cells.pmtiles` },
       // One shape, wanted before the first tile arrives, and a vector tile of a coastline
       // at zoom 4 is a coastline someone has already thrown most of away.
       [EDGE]: { type: "geojson", data: `${base}/greece.json` },
