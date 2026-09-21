@@ -15,6 +15,9 @@ import { strings, type Language } from "../i18n";
 import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
 import {
+  BUILDINGS,
+  BUILDINGS_FROM,
+  BUILDING_LAYERS,
   FLOOR_ZOOM,
   HOME,
   LIMITS,
@@ -42,6 +45,12 @@ const EASE = (t: number): number =>
 
 /** Long enough that a typist does not generate a request per letter. */
 const SETTLE_MS = 250;
+
+/** How long the footprints take to come up once the whole view has them. */
+const RAISE_MS = 220;
+
+/** The longest the city is left blank waiting for a tile that may never arrive. */
+const WAIT_CAP = 3000;
 
 type Showing = "ready" | "failed";
 
@@ -164,6 +173,57 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
         asking = false;
         map.getCanvas().style.cursor = streetUnder(event.point) === null ? "" : "pointer";
       });
+    });
+
+    /**
+     * Buildings arrive a tile at a time, and over Athens one tile is 600 kB and a quarter of
+     * a second, so a zoom in from above them showed the near ones land before the far ones.
+     * Four separate arrivals, at 600, 628, 674 and 718 ms. Hold them at nothing for the
+     * length of the zoom and bring the whole view up at once instead.
+     *
+     * Only when there were none on screen to begin with. Buildings already drawn are never
+     * taken away, so panning and zooming inside the city look as they always did.
+     */
+    const raise = (opacity: "hold" | "show"): void => {
+      for (const [layer, property] of Object.entries(BUILDING_LAYERS)) {
+        if (map.getLayer(layer) === undefined) continue;
+        map.setPaintProperty(layer, `${property}-transition`, {
+          duration: opacity === "show" ? RAISE_MS : 0,
+          delay: 0,
+        });
+        map.setPaintProperty(layer, property, opacity === "show" ? painted[layer] : 0);
+      }
+    };
+    const painted: Record<string, unknown> = {};
+    let held = false;
+    let giveUp = 0;
+
+    const show = (): void => {
+      if (!held) return;
+      held = false;
+      window.clearTimeout(giveUp);
+      raise("show");
+    };
+
+    map.on("zoomstart", () => {
+      if (held || map.getZoom() >= BUILDINGS_FROM) return;
+      for (const layer of Object.keys(BUILDING_LAYERS)) {
+        if (map.getLayer(layer) === undefined) continue;
+        painted[layer] ??= map.getPaintProperty(layer, BUILDING_LAYERS[layer] as string);
+      }
+      held = true;
+      raise("hold");
+      // A tile that never arrives must not leave the city blank.
+      giveUp = window.setTimeout(show, WAIT_CAP);
+    });
+
+    const settled = (): void => {
+      if (!held || map.isZooming()) return;
+      if (map.getZoom() < BUILDINGS_FROM || map.isSourceLoaded(BUILDINGS)) show();
+    };
+    map.on("zoomend", settled);
+    map.on("sourcedata", (event) => {
+      if (event.sourceId === BUILDINGS) settled();
     });
 
     map.on("error", (fault) => {
