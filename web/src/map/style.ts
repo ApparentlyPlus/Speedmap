@@ -156,22 +156,6 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       },
     },
     {
-      // An invisible twenty-pixel line to click. A street is drawn three pixels across,
-      // which nobody can hit with a thumb.
-      id: "streets-hit",
-      type: "line",
-      source: SOURCE,
-      "source-layer": STREETS_LAYER,
-      minzoom: 11,
-      ...(filter ? { filter } : {}),
-      layout: { "line-cap": "round", "line-join": "round" },
-      paint: {
-        "line-color": "#000000",
-        "line-opacity": 0,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 10, 16, 22, 20, 44],
-      },
-    },
-    {
       id: "streets",
       type: "line",
       source: SOURCE,
@@ -198,7 +182,9 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       source: SOURCE,
       "source-layer": STREETS_LAYER,
       filter: NOTHING,
-      layout: { "line-cap": "round", "line-join": "round" },
+      // Hidden rather than merely filtered: a hidden layer is skipped when a tile is built,
+      // where a filtered one still has its filter run against every street in the tile.
+      layout: { "line-cap": "round", "line-join": "round", visibility: "none" },
       paint: {
         "line-color": ACCENT,
         "line-blur": 6,
@@ -215,7 +201,7 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       source: SOURCE,
       "source-layer": STREETS_LAYER,
       filter: NOTHING,
-      layout: { "line-cap": "round", "line-join": "round" },
+      layout: { "line-cap": "round", "line-join": "round", visibility: "none" },
       paint: {
         "line-color": ACCENT,
         "line-opacity": 0,
@@ -227,6 +213,34 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       },
     },
   ];
+}
+
+/**
+ * An invisible twenty-pixel line used to run under every street so that a thumb had
+ * something to hit. It was a second copy of eighty thousand streets, tessellated and
+ * uploaded per tile, drawing nothing. Padding the click does the same job for one query.
+ *
+ * Half the old width, less the half-width of the street itself, because a query already
+ * counts a line as being as wide as it is drawn.
+ */
+export const TOUCH: readonly (readonly [number, number])[] = [
+  [11, 4.5],
+  [16, 7.5],
+  [20, 9],
+];
+
+/** The padding in pixels at a zoom, between the stops and flat outside them. */
+export function touchPad(zoom: number): number {
+  const first = TOUCH[0] as readonly [number, number];
+  const last = TOUCH[TOUCH.length - 1] as readonly [number, number];
+  if (zoom <= first[0]) return first[1];
+  if (zoom >= last[0]) return last[1];
+  for (let i = 1; i < TOUCH.length; i++) {
+    const [z0, p0] = TOUCH[i - 1] as readonly [number, number];
+    const [z1, p1] = TOUCH[i] as readonly [number, number];
+    if (zoom <= z1) return p0 + ((p1 - p0) * (zoom - z0)) / (z1 - z0);
+  }
+  return last[1];
 }
 
 /**
