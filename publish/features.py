@@ -30,6 +30,11 @@ select json_build_object(
 )::text
 from street s
 where s.geom is not null
+-- Ordered, because tippecanoe writes features out in the order it reads them and the
+-- renderer draws them in that order. Without it Postgres may hand back the same rows in a
+-- different sequence on the next build, and two streets that cross swap which one is on top.
+-- That is how a rebuild with no data change still moved several hundred pixels.
+order by s.id
 """
 
 # One feature per municipality, for the zooms where a street is a fraction of a pixel.
@@ -63,6 +68,7 @@ select json_build_object(
 from municipality m
 left join municipality_coverage mc on mc.municipality_id = m.id
 where m.geom_2d is not null
+order by m.id
 """
 
 
@@ -98,6 +104,7 @@ select json_build_object(
 from speed_cell c, greece g
 where c.geom is not null
   and st_intersects(g.area, c.geom::geometry)
+order by c.quadkey
 """
 
 

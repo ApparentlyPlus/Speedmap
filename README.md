@@ -109,6 +109,8 @@ MapLibre GL reading PMTiles archives by range request. Three vector layers, cut 
 
 The squares sit apart because the map draws them or the streets, never both. Sharing an archive meant every zoom out fetched and decompressed squares the coverage view does not draw, half of every tile at the country zooms. Now MapLibre asks for that archive only once the reader switches to Measured.
 
+Features are written in a fixed order. Tippecanoe writes them in the order it reads them and the renderer draws them in that order, so without an `order by` a rebuild can swap which of two crossing streets is on top, which is a visible change from no change at all.
+
 Field names are defined once in `schema/tiles.yaml` and generated into both the Python builder and the TypeScript renderer, so a renamed field breaks the build rather than silently rendering as `undefined`.
 
 MapLibre parses tiles on one worker unless it is told otherwise. `web/src/map/engine.ts` sets the pool to eight and registers one PMTiles protocol for the page.
