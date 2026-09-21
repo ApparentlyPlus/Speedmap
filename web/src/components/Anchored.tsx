@@ -3,12 +3,11 @@
 import { useEffect, useRef } from "react";
 import maplibregl, {
   Map as Maplibre,
-  addProtocol,
   type DataDrivenPropertyValueSpecification,
 } from "maplibre-gl";
 import type { Geometry, Position } from "geojson";
-import { Protocol } from "pmtiles";
 
+import { engine } from "../map/engine";
 import { ASIDE, ASIDE_OPACITY, ramps, style } from "../map/style";
 import {
   GLOW,
@@ -31,8 +30,6 @@ const SUBJECT = "subject";
 const ZOOM = 16.6;
 const PITCH = 58;
 const BEARING = -20;
-
-let registered = false;
 
 /** How far the camera leans once it has arrived. Enough to see the city has sides. */
 const TILT = 42;
@@ -97,10 +94,7 @@ export function Anchored({
 
   useEffect(() => {
     if (box.current === null || mapRef.current !== null) return;
-    if (!registered) {
-      addProtocol("pmtiles", new Protocol().tile);
-      registered = true;
-    }
+    engine();
 
     const map = new Maplibre({
       container: box.current,
