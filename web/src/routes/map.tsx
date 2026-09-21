@@ -4,13 +4,13 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Map as Maplibre, NavigationControl, addProtocol } from "maplibre-gl";
-import { Protocol } from "pmtiles";
+import { Map as Maplibre, NavigationControl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { Credit } from "../components/Credit";
+import { engine } from "../map/engine";
 import { strings, type Language } from "../i18n";
 import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 import { STREETS_BY_PROVIDER, STREETS_LAYER, type Cell } from "../map/tiles";
@@ -67,12 +67,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   useEffect(() => {
     if (box.current === null || mapRef.current !== null) return;
 
-    /**
-     * One archive per basemap layer, read by range request rather than as a directory of a
-     * million small files.
-     */
-    const pmtiles = new Protocol();
-    addProtocol("pmtiles", pmtiles.tile);
+    // The worker pool and the PMTiles protocol, shared with every other map here.
+    engine();
 
     /**
      * The camera in the URL, so a view of one neighbourhood is a link to it. The opening camera
