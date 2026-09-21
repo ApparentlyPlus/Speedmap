@@ -88,6 +88,12 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       hash: true,
       maxBounds: LIMITS,
       minZoom: FLOOR_ZOOM,
+      // Keep what has already been decoded. The default holds about five zooms' worth, which
+      // a zoom out of four levels walks straight past, so coming back to a place cost 96 ms
+      // a move instead of nothing.
+      maxTileCacheZoomLevels: 12,
+      // The archive is replaced whole, weekly, and its URL never changes inside a session.
+      refreshExpiredTiles: false,
     });
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     mapRef.current = map;
