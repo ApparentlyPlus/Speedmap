@@ -96,13 +96,22 @@ Search runs three widening tiers: literal prefix, word-start, then trigram simil
 
 ## Map
 
-MapLibre GL reading PMTiles archives by range request. Three vector layers, cut by tippecanoe at zoom 4 to 14:
+MapLibre GL reading PMTiles archives by range request. Three vector layers, cut by tippecanoe at zoom 4 to 14 into two archives:
+
+`speedmap.pmtiles`
 
 - `streets`: one feature per street, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator cannot sell.
-- `cells`: Ookla tiles as the square that was measured, clipped to the country. About 4% of Greece has any measurement, so an empty view is normal.
 - `regions`: one feature per municipality, for zooms below 11 where a street is a fraction of a pixel.
 
+`cells.pmtiles`
+
+- `cells`: Ookla tiles as the square that was measured, clipped to the country. About 4% of Greece has any measurement, so an empty view is normal.
+
+The squares sit apart because the map draws them or the streets, never both. Sharing an archive meant every zoom out fetched and decompressed squares the coverage view does not draw, half of every tile at the country zooms. Now MapLibre asks for that archive only once the reader switches to Measured.
+
 Field names are defined once in `schema/tiles.yaml` and generated into both the Python builder and the TypeScript renderer, so a renamed field breaks the build rather than silently rendering as `undefined`.
+
+MapLibre parses tiles on one worker unless it is told otherwise. `web/src/map/engine.ts` sets the pool to eight and registers one PMTiles protocol for the page.
 
 The basemap and building footprints are separate archives built with planetiler from an OSM extract and Overture footprints. They are not produced by this repository.
 

@@ -1,7 +1,10 @@
 """Build the map tiles, and put them in place only once they are whole.
 
-Two layers go to tippecanoe and come back as one PMTiles archive, which is a single file a web
-server can range-request: no tile server, no directory of a million small files.
+Two archives, each a single file a web server can range-request: no tile server, no directory
+of a million small files. Streets and municipalities go in one, the measured squares in the
+other. The map draws the squares or the streets and never both, so when they shared an
+archive every zoom out fetched squares nobody was looking at. At zoom 5 that was half the
+tile, 679 kB of the 1.7 MB.
 """
 
 from __future__ import annotations
@@ -35,9 +38,16 @@ REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
 REGIONS_STOP = 10
 FILTER = json.dumps({fields.REGIONS_LAYER: ["<=", "$zoom", REGIONS_STOP]})
 
+# The measured squares, kept out of the coverage archive. MapLibre does not fetch a source
+# that no visible layer reads, so the coverage map now downloads none of them.
+CELLS_ARCHIVE = "cells.pmtiles"
+
 
 def tool(name: str) -> str:
     """The path to a build tool, or a refusal that says which one is missing."""
+    vendored = pathlib.Path(__file__).resolve().parent.parent / "bin" / name
+    if vendored.is_file():
+        return str(vendored)
     found = shutil.which(name)
     if found is None:
         raise SystemExit(
@@ -54,8 +64,27 @@ def layer(name: str, path: pathlib.Path, rules: tuple[str, ...]) -> list[str]:
     ]
 
 
+def cut(staged: pathlib.Path, layers: list[str], rules: list[str]) -> None:
+    """One tippecanoe run, one archive."""
+    subprocess.run(
+        [
+            tool("tippecanoe"),
+            "--output", str(staged),
+            "--minimum-zoom", str(MIN_ZOOM),
+            "--maximum-zoom", str(MAX_ZOOM),
+            # Attributes are the contract. Tippecanoe must not decide any of them are dull
+            # enough to drop, which it will do to save room if it is allowed to.
+            "--no-tile-size-limit",
+            "--preserve-input-order",
+            *layers,
+            *rules,
+        ],
+        check=True,
+    )
+
+
 def build(out: pathlib.Path, work: pathlib.Path) -> None:
-    """Cut both layers into one archive."""
+    """Cut the two archives."""
     streets = work / "streets.geojsonl"
     cells = work / "cells.geojsonl"
     regions = work / "regions.geojsonl"
@@ -69,29 +98,24 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
         edge = out.parent / "greece.json"
         print(f"outline: {features.outline(conn, edge) / 1_000_000:.1f} MB -> {edge}")
 
-    staged = work / "tiles.pmtiles"
-    subprocess.run(
+    coverage = work / "coverage.pmtiles"
+    cut(
+        coverage,
         [
-            tool("tippecanoe"),
-            "--output", str(staged),
-            "--minimum-zoom", str(MIN_ZOOM),
-            "--maximum-zoom", str(MAX_ZOOM),
-            # Attributes are the contract. Tippecanoe must not decide any of them are dull
-            # enough to drop, which it will do to save room if it is allowed to.
-            "--no-tile-size-limit",
-            "--preserve-input-order",
             *layer(fields.STREETS_LAYER, streets, STREET_RULES),
-            *layer(fields.CELLS_LAYER, cells, CELL_RULES),
             *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
-            "--feature-filter", FILTER,
         ],
-        check=True,
+        ["--feature-filter", FILTER],
     )
+
+    measured = work / "measured.pmtiles"
+    cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), [])
 
     out.parent.mkdir(parents=True, exist_ok=True)
     # Atomic within a filesystem, which is why the work directory sits beside the output.
-    staged.replace(out)
-    print(f"wrote {out} ({out.stat().st_size / 1_000_000:.1f} MB)")
+    for staged, name in ((coverage, out), (measured, out.parent / CELLS_ARCHIVE)):
+        staged.replace(name)
+        print(f"wrote {name} ({name.stat().st_size / 1_000_000:.1f} MB)")
 
 
 def main() -> int:
