@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Map as Maplibre, NavigationControl } from "maplibre-gl";
+import { Map as Maplibre, NavigationControl, type Point as MapPoint } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
@@ -24,6 +24,7 @@ import {
   LIT,
   onlyStreet,
   ramps,
+  touchPad,
   regionPaint,
   style,
   type View,
@@ -120,20 +121,49 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       });
     }
 
-    map.on("click", "streets-hit", (event) => {
-      const hit = event.features?.[0];
-      const id = hit?.properties?.["id"];
-      if (typeof id !== "number") return;
+    /**
+     * The street under the pointer, allowing for a line three pixels across and a thumb that
+     * is not. The exact point first so an outright hit wins, then the padded box.
+     */
+    const streetUnder = (at: MapPoint): number | null => {
+      if (map.getLayer(STREETS_LAYER) === undefined) return null;
+      const exact = map.queryRenderedFeatures(at, { layers: [STREETS_LAYER] });
+      const pad = touchPad(map.getZoom());
+      const near =
+        exact.length > 0
+          ? exact
+          : map.queryRenderedFeatures(
+              [
+                [at.x - pad, at.y - pad],
+                [at.x + pad, at.y + pad],
+              ],
+              { layers: [STREETS_LAYER] },
+            );
+      const id = near[0]?.properties?.["id"];
+      return typeof id === "number" ? id : null;
+    };
+
+    map.on("click", (event) => {
+      const id = streetUnder(event.point);
+      if (id === null) return;
       setCell(null);
       street(id)
         .then(setChosen)
         .catch(() => setChosen(null));
     });
-    map.on("mouseenter", "streets-hit", () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", "streets-hit", () => {
-      map.getCanvas().style.cursor = "";
+
+    /**
+     * The cursor, once a frame at most and never while the map is moving. Dragging is when
+     * the main thread has least to spare, and the answer is stale by the next frame anyway.
+     */
+    let asking = false;
+    map.on("mousemove", (event) => {
+      if (asking || map.isMoving()) return;
+      asking = true;
+      requestAnimationFrame(() => {
+        asking = false;
+        map.getCanvas().style.cursor = streetUnder(event.point) === null ? "" : "pointer";
+      });
     });
 
     map.on("error", (fault) => {
@@ -186,17 +216,13 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
         map.setPaintProperty(layer, "line-color", paint);
         map.setFilter(layer, filter);
       }
-      // The hit line is filtered with them, so an operator's filter hides what it hides
-      // rather than leaving invisible streets still clickable underneath.
-      if (map.getLayer("streets-hit") !== undefined)
-        map.setFilter("streets-hit", filter);
 
       /**
        * Filed and measured are two claims about different things, so only one is on at a time:
        * map together, a street tinted by what an operator promised and a square tinted by what
        */
       const streets = view === "coverage";
-      for (const layer of ["streets-halo", "streets", "streets-hit"]) {
+      for (const layer of ["streets-halo", "streets"]) {
         if (map.getLayer(layer) !== undefined) {
           map.setLayoutProperty(
             layer,
@@ -247,6 +273,9 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       const lit = onlyStreet(streetId);
       for (const layer of ["streets-picked-halo", "streets-picked"]) {
         if (map.getLayer(layer) === undefined) continue;
+        // Off entirely when nothing is chosen, so tiles are not built for a layer that is
+        // drawing no streets.
+        map.setLayoutProperty(layer, "visibility", streetId === null ? "none" : "visible");
         map.setFilter(layer, lit);
         // Filters do not transition, opacity does: the street is always drawn, and what
         // fades is how much of it there is to see.
