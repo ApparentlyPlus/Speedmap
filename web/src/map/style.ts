@@ -30,6 +30,19 @@ export const BUILDINGS = "buildings";
 /** The country itself, as one polygon, drawn under everything else. */
 export const EDGE = "edge";
 
+/**
+ * The footprint layers, and the paint property each one's opacity sits under. A city tile of
+ * buildings is the most expensive thing this map decodes, so the two are held back and
+ * brought up together rather than landing a tile at a time.
+ */
+export const BUILDING_LAYERS: Readonly<Record<string, string>> = {
+  building: "fill-extrusion-opacity",
+  "building-shadow": "fill-opacity",
+};
+
+/** The zoom the footprints start at. Below it there are none to wait for. */
+export const BUILDINGS_FROM = 14;
+
 /** Greece, with room for Crete and the north in the same view. */
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
 
