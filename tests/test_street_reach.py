@@ -123,6 +123,41 @@ def seed_door(conn: psycopg.Connection[TupleRow], *, band: int | None, family: s
     conn.commit()
 
 
+def seed_builder_point(
+    conn: psycopg.Connection[TupleRow],
+    *,
+    lon: float = 24.0055,
+    lat: float = 40.8345,
+    prempass: int = 12,
+    addressed: bool = False,
+) -> None:
+    """Built fiber the register located and never named a street for.
+
+    `addressed` links it to a door, which is how a filing that 025 could place looks: the
+    third route must then leave it alone rather than counting it twice.
+    """
+    conn.execute(
+        "update provider set builds_own_network = true, register_id = 903 "
+        "where code = 'TEST'"
+    )
+    conn.execute(
+        "insert into raw_coverpoint (coverid, infrprov, prempass, address, point) values "
+        "('built-1', 903, %s, '64007,ΤΕΣΤ, ,Δ. ΤΕΣΤ', st_setsrid(st_point(%s, %s), 4326))",
+        (prempass, lon, lat),
+    )
+    if addressed:
+        conn.execute(
+            "insert into address (street, street_fold, geom, search_key, latin_key, "
+            "municipality_id) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'SRID=4326;POINT(24.0055 40.8345)', "
+            "'ΤΕΣΤ', 'TEST', 1)"
+        )
+        conn.execute(
+            "insert into address_point (address_id, coverid) "
+            "select a.id, 'built-1' from address a where a.street_fold = 'ΤΕΣΤ'"
+        )
+    conn.commit()
+
+
 def reach(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, float | None]]:
     rows = conn.execute(
         "select p.code, sp.mbps from street_provider sp "
@@ -379,3 +414,43 @@ def test_only_four_figures_are_retailed(reachable: psycopg.Connection[TupleRow])
         "where family in ('copper', 'fiber') and sold_mbps is not null order by 1"
     ).fetchall()
     assert [float(row[0]) for row in sold] == [24.0, 50.0, 100.0, 1000.0]
+
+
+def test_built_fiber_reaches_the_street_it_stands_on(
+    reachable: psycopg.Connection[TupleRow],
+) -> None:
+    """A filing with no street name and no door near it still reaches the road it is on.
+
+    Where the address index is thin the first route finds nothing: Πύλου-Νέστορος holds
+    4,789 fiber points and 50 addresses. OSM knows the road regardless.
+    """
+    seed_street(reachable)
+    seed_builder_point(reachable)
+    run(reachable, steps())
+    assert reach(reachable) == [("TEST", 1000.0)]
+
+
+def test_built_fiber_too_far_from_any_street_reaches_nothing(
+    reachable: psycopg.Connection[TupleRow],
+) -> None:
+    """Past 100 m the nearest street is not evidence that the fiber serves it."""
+    seed_street(reachable)
+    # About 900 m east of the street, which is inside the municipality and outside the cut.
+    seed_builder_point(reachable, lon=24.0160, lat=40.8345)
+    run(reachable, steps())
+    assert reach(reachable) == []
+
+
+def test_built_fiber_already_on_a_door_is_not_counted_twice(
+    reachable: psycopg.Connection[TupleRow],
+) -> None:
+    """The third route is for filings the address layer could not place, and only those.
+
+    The door here carries no filing of its own, so the first route has nothing to report.
+    An empty result is therefore the whole assertion: it says the street route saw a
+    placed coverpoint and declined it. Drop the `not exists` and this returns a gigabit.
+    """
+    seed_street(reachable)
+    seed_builder_point(reachable, addressed=True)
+    run(reachable, steps())
+    assert reach(reachable) == []

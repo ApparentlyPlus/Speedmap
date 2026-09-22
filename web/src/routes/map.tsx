@@ -22,6 +22,7 @@ import {
 } from "../map/tiles";
 import { extentOf, focusOf } from "../map/trace";
 import {
+  BASE,
   BUILDINGS,
   BUILDINGS_FROM,
   BUILDING_LAYERS,
@@ -39,6 +40,11 @@ import {
   style,
   type View,
 } from "../map/style";
+
+/**
+ * Sources the page can do without. Everything else failing is a failure worth saying so.
+ */
+const OPTIONAL_SOURCES = new Set<string>([BASE, BUILDINGS]);
 
 /** How long the map takes to arrive somewhere that was asked for. Long enough to be followed. */
 const TRAVEL_MS = 2200;
@@ -250,6 +256,17 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     });
 
     map.on("error", (fault) => {
+      // The basemap and the building footprints are built by planetiler from an OSM
+      // extract, not by this repository, and a checkout without them is the normal state
+      // of a fresh clone. Losing the land underneath the streets is worth a line in the
+      // console. It is not worth telling the reader the map failed while the map is
+      // drawing every street they came for.
+      const missing = (fault as { sourceId?: string }).sourceId;
+      if (missing !== undefined && OPTIONAL_SOURCES.has(missing)) {
+        // eslint-disable-next-line no-console
+        console.warn(`map: no ${missing} archive, drawing without it`, fault.error);
+        return;
+      }
       setShowing("failed");
       // eslint-disable-next-line no-console
       console.error("map style", fault.error);
