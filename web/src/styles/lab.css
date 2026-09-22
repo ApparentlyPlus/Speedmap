@@ -42,12 +42,12 @@
   background: linear-gradient(
     to right,
     var(--ground) 0%,
-    var(--ground) 62%,
-    rgb(8 8 10 / 97%) 72%,
-    rgb(8 8 10 / 90%) 80%,
-    rgb(8 8 10 / 76%) 87%,
-    rgb(8 8 10 / 52%) 93%,
-    rgb(8 8 10 / 24%) 97%,
+    var(--ground) 68%,
+    rgb(8 8 10 / 96%) 76%,
+    rgb(8 8 10 / 88%) 83%,
+    rgb(8 8 10 / 70%) 89%,
+    rgb(8 8 10 / 44%) 94%,
+    rgb(8 8 10 / 18%) 98%,
     rgb(8 8 10 / 0%) 100%
   );
   pointer-events: none;
@@ -70,7 +70,15 @@
    * the fade has one corner on the panel and the other on the map, and reads as torn
    * rather than as fading.
    */
-  padding-right: 26%;
+  /*
+   * Everything stands on solid ground, and the fade is left empty.
+   *
+   * The rule and the plans used to run to 639 on a 1440 wide window while the ground stops
+   * being solid at 588, so the last forty pixels of every card were sitting on a surface
+   * that was already half map. A card has a border and a corner and it either rests on
+   * something or it does not. The fade reads as a fade when there is nothing in it.
+   */
+  padding-right: 35%;
 
   /*
    * No scrollbar. The panel ends in a fade halfway across the window, and a scrollbar is
@@ -95,7 +103,18 @@
 
   display: grid;
   flex: none;
-  grid-template-columns: var(--scene) minmax(0, 1fr);
+
+  /*
+   * The pair is centred on the column, not stood at the left of it.
+   *
+   * A 1fr second column gave the address the whole remaining width, and an address is
+   * eight characters more often than it is forty: "Ερμού 12" sat against the house with
+   * six hundred pixels of nothing after it, and the two of them read as shoved into the
+   * corner. Sized to the text and centred, the pair holds the middle of the panel however
+   * long the name turns out to be.
+   */
+  grid-template-columns: var(--scene) minmax(0, max-content);
+  justify-content: center;
   align-items: center;
   gap: clamp(14px, 2vw, 32px);
   min-height: var(--scene);
