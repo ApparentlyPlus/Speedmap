@@ -24,7 +24,7 @@ PROVIDER = BY_NAME["provider"]
 COPPER = BY_NAME["geo_coverage_copper"]
 
 PROVIDERS: list[dict[str, Any]] = [
-    {"id": 1, "name": "OTE", "short_name": "OTE"},
+    {"id": 1, "name": "TELEKOM", "short_name": "TELEKOM"},
     {"id": 2, "name": "Nova", "short_name": "NOVA"},
     {"id": 3, "name": "Vodafone", "short_name": "VF"},
 ]
@@ -134,7 +134,7 @@ def test_conflict_updates_every_non_key_column() -> None:
 def test_rows_land_in_the_raw_table(loadable: psycopg.Connection[TupleRow]) -> None:
     assert load(loadable, loader(PROVIDERS), PROVIDER) == 3
     rows = loadable.execute("select id, short_name from raw_provider order by id").fetchall()
-    assert rows == [(1, "OTE"), (2, "NOVA"), (3, "VF")]
+    assert rows == [(1, "TELEKOM"), (2, "NOVA"), (3, "VF")]
 
 
 def test_reloading_is_idempotent(loadable: psycopg.Connection[TupleRow]) -> None:

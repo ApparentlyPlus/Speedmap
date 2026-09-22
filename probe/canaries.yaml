@@ -1,8 +1,8 @@
 # Addresses whose answer is known and does not change, asked on a schedule so that rot is loud
 # rather than silent.
 
-- name: athens-fibre
-  why: central Athens, fibre for years, every operator sells there
+- name: athens-fiber
+  why: central Athens, fiber for years, every operator sells there
   municipality: ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ
   street: ΑΧΑΡΝΩΝ
   street_no: "100"
@@ -16,4 +16,4 @@
   # real and is not in the index.
   street_no: "1"
   expect: offers
-  providers: [OTE]
+  providers: [TELEKOM]

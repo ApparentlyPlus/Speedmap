@@ -23,7 +23,7 @@ def test_technology_vocabulary_is_seeded(db: psycopg.Connection[TupleRow]) -> No
     assert dict(rows) == {
         "ADSL": "copper",
         "DOCSIS": "coax",
-        "FTTH": "fibre",
+        "FTTH": "fiber",
         "FWA": "wireless",
         "MOBILE": "wireless",
         "FWA_4G": "wireless",
@@ -36,7 +36,7 @@ def test_technology_vocabulary_is_seeded(db: psycopg.Connection[TupleRow]) -> No
 
 
 def test_copper_ceilings_are_recorded(db: psycopg.Connection[TupleRow]) -> None:
-    """The ranker clamps to these. Fibre and wireless have no physical ceiling to file."""
+    """The ranker clamps to these. Fiber and wireless have no physical ceiling to file."""
     rows = db.execute(
         "select code, max_plausible_mbps from technology where max_plausible_mbps is not null"
     ).fetchall()
@@ -100,7 +100,7 @@ def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) 
 
 
 def test_coverage_geometries_differ_by_shape(db: psycopg.Connection[TupleRow]) -> None:
-    """Points for fibre, polygons for copper cabinets: flattening an area loses streets."""
+    """Points for fiber, polygons for copper cabinets: flattening an area loses streets."""
     rows = db.execute(
         "select f_table_name, type from geography_columns "
         "where f_table_name in ('coverage', 'coverage_area') order by 1"
@@ -115,7 +115,7 @@ def test_coverage_speed_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
     row = tx.execute(
         "insert into coverage (source, source_ref, provider_id, technology, family, assertion) "
         "values ('test', 'a', (select id from provider where code = 'X'), "
-        "'FTTH', 'fibre', 'declared') returning speed_band_id"
+        "'FTTH', 'fiber', 'declared') returning speed_band_id"
     ).fetchone()
     assert row == (None,)
 
@@ -128,7 +128,7 @@ def test_coverage_is_unique_per_source_place_provider_technology(
     insert = (
         "insert into coverage (source, source_ref, provider_id, technology, family, assertion) "
         "values ('test', 'a', (select id from provider where code = 'X'), "
-        "'FTTH', 'fibre', 'declared')"
+        "'FTTH', 'fiber', 'declared')"
     )
     tx.execute(insert)
     with pytest.raises(psycopg.errors.UniqueViolation):
@@ -179,7 +179,7 @@ def make_plan(conn: psycopg.Connection[TupleRow], external_key: str = "p1") -> i
     conn.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     row = conn.execute(
         "insert into plan (provider_id, external_key, name, family) "
-        "values ((select id from provider where code = 'X'), %s, 'Fibre 100', 'fibre') "
+        "values ((select id from provider where code = 'X'), %s, 'Fiber 100', 'fiber') "
         "returning id",
         (external_key,),
     ).fetchone()
@@ -282,7 +282,7 @@ def test_one_answer_per_address_provider_technology(tx: psycopg.Connection[Tuple
 
 
 def test_one_provider_may_offer_several_technologies(tx: psycopg.Connection[TupleRow]) -> None:
-    """Technology is part of the key: fibre and copper at one address are two answers."""
+    """Technology is part of the key: fiber and copper at one address are two answers."""
     tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     address_id = make_address(tx)
     tx.execute(cache_row(address_id, technology="FTTH"))
@@ -356,7 +356,7 @@ def test_raw_table_exists(db: psycopg.Connection[TupleRow], table: str) -> None:
 def test_raw_geometries_keep_the_projection_they_arrived_in(
     db: psycopg.Connection[TupleRow],
 ) -> None:
-    """Copper is Greek Grid and fibre is WGS84. Reprojecting on the way in loses the original."""
+    """Copper is Greek Grid and fiber is WGS84. Reprojecting on the way in loses the original."""
     rows = db.execute(
         "select f_table_name || '.' || f_geometry_column, srid from geometry_columns "
         "where f_table_name like 'raw_%' order by 1"
@@ -472,14 +472,14 @@ def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -
         "HCN",
         "INALAN",
         "NETFIBER",
-        "OTE",
         "OTE_ULTRAFAST",
+        "TELEKOM",
         "UNITEDFIBER",
     ]
 
 
 def test_a_wholesale_builder_need_not_sell(db: psycopg.Connection[TupleRow]) -> None:
-    """FIBERGRID passes 811,123 premises and files no service; Vodafone sells over its fibre."""
+    """FIBERGRID passes 811,123 premises and files no service; Vodafone sells over its fiber."""
     row = db.execute(
         "select builds_own_network from provider where code = 'FIBERGRID'"
     ).fetchone()
@@ -496,7 +496,7 @@ def test_coverage_records_builder_and_seller_separately(
         "insert into coverage (source, source_ref, provider_id, infra_provider_id, "
         "technology, family, assertion) values ('test', 'a', "
         "(select id from provider where code = 'VODAFONE'), "
-        "(select id from provider where code = 'FIBERGRID'), 'FTTH', 'fibre', 'declared') "
+        "(select id from provider where code = 'FIBERGRID'), 'FTTH', 'fiber', 'declared') "
         "returning provider_id <> infra_provider_id"
     ).fetchone()
     assert row == (True,)

@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.bootstrap import STAGES, Stage, misordered, skipped
+import psycopg
+import pytest
+
+from db.settings import Settings
+from tools.bootstrap import STAGES, Stage, database, misordered, skipped
+
+ADMIN_DSN = "postgresql:///postgres"
+SCRATCH = "speedmap_bootstrap_scratch"
 
 
 def named(name: str) -> Stage:
@@ -77,3 +84,43 @@ def test_an_absent_required_input_is_not_waved_through() -> None:
 def test_a_stage_with_everything_it_needs_is_not_skipped() -> None:
     assert skipped(Stage("x", lambda: 0, "does x")) is None
     assert skipped(named("migrate")) is None
+
+
+def _reachable() -> bool:
+    try:
+        psycopg.connect(ADMIN_DSN, connect_timeout=2).close()
+    except psycopg.OperationalError:
+        return False
+    return True
+
+
+@pytest.mark.skipif(not _reachable(), reason=f"no postgres at {ADMIN_DSN}")
+def test_creating_the_database_is_not_reported_as_a_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The run this command exists for is the one where there is no database yet.
+
+    Every stage returns an exit code and main stops on anything but nought. This one used
+    to return how many databases it had made, so the first bootstrap on a clean machine
+    created the database, printed "[database] failed", and stopped. The second run found
+    the database already there, returned nought, and went on to work perfectly, which is
+    why it survived: the failure only happens once per machine and fixes itself.
+    """
+    monkeypatch.setattr(
+        "tools.bootstrap.settings", Settings(dsn=f"postgresql:///{SCRATCH}")
+    )
+    with psycopg.connect(ADMIN_DSN, autocommit=True) as admin:
+        admin.execute(f"drop database if exists {SCRATCH} with (force)")
+    try:
+        # Nothing there: it has work to do, and still reports success.
+        assert database() == 0
+        with psycopg.connect(ADMIN_DSN, autocommit=True) as admin:
+            found = admin.execute(
+                "select 1 from pg_database where datname = %s", (SCRATCH,)
+            ).fetchone()
+        assert found is not None
+        # And again, with nothing left to do.
+        assert database() == 0
+    finally:
+        with psycopg.connect(ADMIN_DSN, autocommit=True) as admin:
+            admin.execute(f"drop database if exists {SCRATCH} with (force)")

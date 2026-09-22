@@ -17,6 +17,9 @@ type Strings = {
   readonly browseMap: string;
   readonly mapTitle: string;
   readonly operator: string;
+  /** The operators nobody retails from, listed under their own heading. */
+  readonly infrastructure: string;
+  readonly infrastructureHint: string;
   readonly shown: string;
   readonly views: Readonly<Record<string, string>>;
   readonly anyOperator: string;
@@ -84,6 +87,9 @@ const el: Strings = {
   browseMap: "ή δες τον χάρτη",
   mapTitle: "Ο χάρτης κάλυψης",
   operator: "Πάροχος",
+  infrastructure: "Δίκτυο χωρίς λιανική",
+  infrastructureHint:
+    "Έχουν περάσει ίνα εδώ αλλά δεν πουλάνε σύνδεση απευθείας σε νοικοκυριό.",
   shown: "Τι δείχνει",
   views: { coverage: "Κάλυψη", measured: "Μετρημένη", mobile: "Κινητή" },
   anyOperator: "Όλοι",
@@ -132,7 +138,7 @@ const el: Strings = {
     advertised: "διαφημιζόμενο",
   },
   family: {
-    fibre: "οπτική ίνα",
+    fiber: "οπτική ίνα",
     copper: "χαλκός",
     wireless: "ασύρματο",
     satellite: "δορυφορικό",
@@ -170,6 +176,9 @@ const en: Strings = {
   browseMap: "or browse the map",
   mapTitle: "The coverage map",
   operator: "Operator",
+  infrastructure: "Network, not retail",
+  infrastructureHint:
+    "They have run fiber past here but sell no connection to a household directly.",
   shown: "Showing",
   views: { coverage: "Coverage", measured: "Measured", mobile: "Mobile" },
   anyOperator: "Anyone",
@@ -218,7 +227,7 @@ const en: Strings = {
     advertised: "advertised",
   },
   family: {
-    fibre: "fibre",
+    fiber: "fiber",
     copper: "copper",
     wireless: "wireless",
     satellite: "satellite",

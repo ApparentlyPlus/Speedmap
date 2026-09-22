@@ -110,12 +110,12 @@ def test_an_operator_speed_lands_under_its_own_field(
     assert row is not None
     drawn.execute(
         "insert into street_provider (street_id, provider_id, mbps) values "
-        "(%s, (select id from provider where code = 'OTE'), 1000)",
+        "(%s, (select id from provider where code = 'TELEKOM'), 1000)",
         (row[0],),
     )
     features.streets(drawn, tmp_path / "streets.geojsonl")
     written = read(tmp_path / "streets.geojsonl")[0]["properties"]
-    assert written[fields.STREETS_BY_PROVIDER["OTE"]] == 1000
+    assert written[fields.STREETS_BY_PROVIDER["TELEKOM"]] == 1000
 
 
 def test_an_operator_with_no_filed_speed_is_null_and_not_zero(

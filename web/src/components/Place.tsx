@@ -131,7 +131,7 @@ export function Place({
       <section className="place">
         <div className="place-scene">
           <House
-            mode={modeOf(selected?.family ?? "fibre")}
+            mode={modeOf(selected?.family ?? "fiber")}
             colour={colourFor(speed)}
             mbps={Number(speed)}
           />

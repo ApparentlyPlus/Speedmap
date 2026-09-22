@@ -79,8 +79,8 @@ def expected(
     weight = confidence(tests)
     measured = median_mbps is not None and weight > 0.0
 
-    if family in ("fibre", "coax"):
-        # Fibre delivers what it says, so a median of everyone's traffic tells us nothing.
+    if family in ("fiber", "coax"):
+        # Fiber delivers what it says, so a median of everyone's traffic tells us nothing.
         return Expected(held, was_clamped, False, weight)
 
     if family == "copper":
