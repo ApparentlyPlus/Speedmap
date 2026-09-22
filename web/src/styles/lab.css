@@ -39,16 +39,42 @@
 .split-panel-ground {
   position: absolute;
   inset: 0;
+  /*
+   * The stops trace a smootherstep rather than a ramp placed by eye.
+   *
+   * Six stops chosen by hand are six changes of slope, and a change of slope reads as a
+   * line whether or not the value jumped. The one people find is usually the first, where
+   * solid ground gives way to the ramp. This curve leaves at zero slope and arrives at
+   * zero slope, so no point along it changes rate abruptly.
+   *
+   * Only the curve. The ground is still the width of the panel and still solid for the
+   * first 68% of it, so the plans still end twenty-six pixels before it starts to go.
+   */
   background: linear-gradient(
     to right,
     var(--ground) 0%,
-    var(--ground) 68%,
-    rgb(8 8 10 / 96%) 76%,
-    rgb(8 8 10 / 88%) 83%,
-    rgb(8 8 10 / 70%) 89%,
-    rgb(8 8 10 / 44%) 94%,
-    rgb(8 8 10 / 18%) 98%,
-    rgb(8 8 10 / 0%) 100%
+    var(--ground) 68.0%,
+    rgb(8 8 10 / 99.9%) 69.52%,
+    rgb(8 8 10 / 99.25%) 71.05%,
+    rgb(8 8 10 / 97.67%) 72.57%,
+    rgb(8 8 10 / 94.91%) 74.1%,
+    rgb(8 8 10 / 90.86%) 75.62%,
+    rgb(8 8 10 / 85.53%) 77.14%,
+    rgb(8 8 10 / 79.01%) 78.67%,
+    rgb(8 8 10 / 71.49%) 80.19%,
+    rgb(8 8 10 / 63.21%) 81.71%,
+    rgb(8 8 10 / 54.46%) 83.24%,
+    rgb(8 8 10 / 45.54%) 84.76%,
+    rgb(8 8 10 / 36.79%) 86.29%,
+    rgb(8 8 10 / 28.51%) 87.81%,
+    rgb(8 8 10 / 20.99%) 89.33%,
+    rgb(8 8 10 / 14.47%) 90.86%,
+    rgb(8 8 10 / 9.14%) 92.38%,
+    rgb(8 8 10 / 5.09%) 93.9%,
+    rgb(8 8 10 / 2.33%) 95.43%,
+    rgb(8 8 10 / 0.75%) 96.95%,
+    rgb(8 8 10 / 0.1%) 98.48%,
+    rgb(8 8 10 / 0.0%) 100.0%
   );
   pointer-events: none;
 }
@@ -232,10 +258,28 @@
     background: linear-gradient(
       to top,
       var(--ground) 0%,
-      var(--ground) 62%,
-      rgb(8 8 10 / 88%) 76%,
-      rgb(8 8 10 / 46%) 90%,
-      rgb(8 8 10 / 0%) 100%
+      var(--ground) 62.0%,
+      rgb(8 8 10 / 99.9%) 63.81%,
+      rgb(8 8 10 / 99.25%) 65.62%,
+      rgb(8 8 10 / 97.67%) 67.43%,
+      rgb(8 8 10 / 94.91%) 69.24%,
+      rgb(8 8 10 / 90.86%) 71.05%,
+      rgb(8 8 10 / 85.53%) 72.86%,
+      rgb(8 8 10 / 79.01%) 74.67%,
+      rgb(8 8 10 / 71.49%) 76.48%,
+      rgb(8 8 10 / 63.21%) 78.29%,
+      rgb(8 8 10 / 54.46%) 80.1%,
+      rgb(8 8 10 / 45.54%) 81.9%,
+      rgb(8 8 10 / 36.79%) 83.71%,
+      rgb(8 8 10 / 28.51%) 85.52%,
+      rgb(8 8 10 / 20.99%) 87.33%,
+      rgb(8 8 10 / 14.47%) 89.14%,
+      rgb(8 8 10 / 9.14%) 90.95%,
+      rgb(8 8 10 / 5.09%) 92.76%,
+      rgb(8 8 10 / 2.33%) 94.57%,
+      rgb(8 8 10 / 0.75%) 96.38%,
+      rgb(8 8 10 / 0.1%) 98.19%,
+      rgb(8 8 10 / 0.0%) 100.0%
     );
   }
 

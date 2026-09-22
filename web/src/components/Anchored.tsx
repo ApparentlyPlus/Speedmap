@@ -8,7 +8,7 @@ import maplibregl, {
 import type { Geometry, Position } from "geojson";
 
 import { engine } from "../map/engine";
-import { hushed, ramps, style } from "../map/style";
+import { LIMITS, hushed, ramps, style } from "../map/style";
 import {
   GLOW,
   PASS_MS,
@@ -141,6 +141,30 @@ export function Anchored({
       interactive: false,
       attributionControl: false,
     });
+    /*
+     * Told what covers it before it draws anything.
+     *
+     * The padding used to arrive with the flight, so the country the map opens on was
+     * centred on the whole window: half of Greece sat behind the panel, and the view only
+     * slid across to the clear half as the descent ran. Set here it costs nothing, because
+     * nothing has been painted to move.
+     */
+    map.setPadding(clear(map));
+
+    /*
+     * The country fitted to the space it has, rather than opened at a fixed zoom.
+     *
+     * Zoom 6 was chosen when the map had the whole window. With the panel over the left of
+     * it the map has about four tenths of that to draw in, and the same zoom in a narrower
+     * frame is a piece of Greece rather than Greece: it sat high and to one side with the
+     * Peloponnese off the bottom. Fitted to LIMITS it is the whole country however much
+     * room is left for it, on any window.
+     */
+    if (here.current === null) {
+      const opening = map.cameraForBounds(LIMITS);
+      if (opening !== undefined) map.jumpTo(opening);
+    }
+
     mapRef.current = map;
     // The same handle the map page keeps, for the same reason: only a real browser can say
     // whether a light is running along a street. Development only. The build drops it.
@@ -311,8 +335,9 @@ export function Anchored({
          * it arrives with everything else, and the transform is still holding it when the
          * turn starts, which is what keeps the turn about the street.
          */
-        const pad = clear(map);
-        const camera = map.cameraForBounds(extent, { padding: pad, maxZoom: CLOSEST });
+        // No padding argument: the transform has held it since the map was built, and
+        // counting it twice leaves a negative box to fit into and no camera at all.
+        const camera = map.cameraForBounds(extent, { maxZoom: CLOSEST });
         /*
          * The street's own middle, not the centre cameraForBounds hands back.
          *
@@ -354,7 +379,6 @@ export function Anchored({
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
             pitch: TILT,
             bearing: 0,
-            padding: pad,
             curve: DESCENT_CURVE,
             easing: SMOOTH,
             // A reader who asked for stillness gets the frame, arrived at rather than
