@@ -19,7 +19,7 @@ HOUSEHOLD_GB = 200
 
 # Which to prefer when two offers are otherwise equal. A line in the ground does not share its
 # capacity with the neighbourhood at seven in the evening. A cell does.
-STEADINESS = {"fibre": 0, "coax": 1, "copper": 2, "wireless": 3, "satellite": 4}
+STEADINESS = {"fiber": 0, "coax": 1, "copper": 2, "wireless": 3, "satellite": 4}
 UNSTEADY = len(STEADINESS)
 
 ENOUGH = "covers an ordinary household"

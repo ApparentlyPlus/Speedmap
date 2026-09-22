@@ -354,7 +354,7 @@ async def test_a_blank_number_is_refused(
 
 @pytest.fixture
 def seeded_offer(db: psycopg.Connection[TupleRow], seeded_address: None) -> Iterator[int]:
-    """One address with two offers: a fibre one with a band, a copper one without."""
+    """One address with two offers: a fiber one with a band, a copper one without."""
     row = db.execute("select id from address order by id limit 1").fetchone()
     assert row is not None
     address_id = int(row[0])
@@ -362,13 +362,13 @@ def seeded_offer(db: psycopg.Connection[TupleRow], seeded_address: None) -> Iter
         "insert into address_coverage (address_id, provider_id, technology, "
         "infra_provider_id, speed_band_id, family, matched_by) values "
         "(%s, (select id from provider where code='NOVA'), 'FTTH', "
-        "(select id from provider where code='FIBERGRID'), 8, 'fibre', 'point')",
+        "(select id from provider where code='FIBERGRID'), 8, 'fiber', 'point')",
         (address_id,),
     )
     db.execute(
         "insert into address_coverage (address_id, provider_id, technology, "
         "speed_band_id, family, matched_by) values "
-        "(%s, (select id from provider where code='OTE'), 'ADSL', null, 'copper', 'area')",
+        "(%s, (select id from provider where code='TELEKOM'), 'ADSL', null, 'copper', 'area')",
         (address_id,),
     )
     db.commit()
@@ -382,7 +382,7 @@ async def test_an_address_carries_its_offers(
 ) -> None:
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     assert body["street"] == "Αχαρνών"
-    assert {o["provider"] for o in body["offers"]} == {"NOVA", "OTE"}
+    assert {o["provider"] for o in body["offers"]} == {"NOVA", "TELEKOM"}
 
 
 async def test_an_offer_with_no_filed_speed_says_so(
@@ -390,7 +390,7 @@ async def test_an_offer_with_no_filed_speed_says_so(
 ) -> None:
     """73.3% of filed services carry no band. Null must survive to the client, not become 0."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
-    copper = next(o for o in body["offers"] if o["provider"] == "OTE")
+    copper = next(o for o in body["offers"] if o["provider"] == "TELEKOM")
     assert copper["speed"] is None
 
 
@@ -399,8 +399,8 @@ async def test_a_band_is_reported_as_a_range(
 ) -> None:
     """The register files a range, never a number, and the open end stays open."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
-    fibre = next(o for o in body["offers"] if o["provider"] == "NOVA")
-    assert fibre["speed"] == {
+    fiber = next(o for o in body["offers"] if o["provider"] == "NOVA")
+    assert fiber["speed"] == {
         "band": 8,
         "min_mbps": 1000.0,
         "max_mbps": None,
@@ -411,10 +411,10 @@ async def test_a_band_is_reported_as_a_range(
 async def test_the_builder_is_reported_separately(
     client: httpx.AsyncClient, seeded_offer: int
 ) -> None:
-    """Nova sells over FIBERGRID's fibre. Collapsing them hides who owns the network."""
+    """Nova sells over FIBERGRID's fiber. Collapsing them hides who owns the network."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
-    fibre = next(o for o in body["offers"] if o["provider"] == "NOVA")
-    assert fibre["infra_provider"] == "FIBERGRID"
+    fiber = next(o for o in body["offers"] if o["provider"] == "NOVA")
+    assert fiber["infra_provider"] == "FIBERGRID"
 
 
 async def test_how_the_match_was_made_is_reported(
@@ -424,7 +424,7 @@ async def test_how_the_match_was_made_is_reported(
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     assert {o["provider"]: o["matched_by"] for o in body["offers"]} == {
         "NOVA": "point",
-        "OTE": "area",
+        "TELEKOM": "area",
     }
 
 
@@ -464,7 +464,7 @@ async def test_a_report_needs_something_to_say(client: httpx.AsyncClient) -> Non
 async def test_a_report_about_nothing_we_hold_is_refused(client: httpx.AsyncClient) -> None:
     """An id we do not have is a mistaken report, not a server fault."""
     response = await client.post("/reports", json={
-        "kind": "availability", "detail": "This address has fibre, you say it does not.",
+        "kind": "availability", "detail": "This address has fiber, you say it does not.",
         "address_id": 999999999,
     })
     assert response.status_code == 422
@@ -493,7 +493,7 @@ async def test_options_are_ranked_and_priced(client: httpx.AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["need_mbps"] == "100"
-    assert set(body["known"]) == {"OTE", "VODAFONE", "NOVA"}
+    assert set(body["known"]) == {"TELEKOM", "VODAFONE", "NOVA"}
 
 
 async def test_options_for_nothing_are_a_404(client: httpx.AsyncClient) -> None:

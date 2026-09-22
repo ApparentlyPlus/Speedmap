@@ -13,6 +13,7 @@ from psycopg.rows import TupleRow
 
 from normalise.build import Step, discover, run
 
+PIN_STEP = "065_address_street"
 REACH_STEP = "110_street_reach"
 SPEED_STEP = "120_street_speed"
 
@@ -57,7 +58,13 @@ def reachable(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[T
 
 
 def steps() -> list[Step]:
-    wanted = {REACH_STEP, SPEED_STEP}
+    """The pin as well as the reach.
+
+    110 reads `address.street_id` rather than matching on the name, so running it without
+    065 would test a street with nothing attached to it and pass by finding nothing.
+    Discovery returns them in filename order, which is the order they have to run in.
+    """
+    wanted = {PIN_STEP, REACH_STEP, SPEED_STEP}
     return [s for s in discover() if s.name in wanted]
 
 
@@ -99,7 +106,7 @@ def seed_area(
     conn.commit()
 
 
-def seed_door(conn: psycopg.Connection[TupleRow], *, band: int | None, family: str = "fibre",
+def seed_door(conn: psycopg.Connection[TupleRow], *, band: int | None, family: str = "fiber",
               technology: str = "FTTH") -> None:
     """An address on the street, with a filing against it."""
     conn.execute(
@@ -285,7 +292,7 @@ def test_the_filing_can_lower_the_figure_but_never_lift_it(
 
 
 def test_an_unfiled_band_caps_nothing(reachable: psycopg.Connection[TupleRow]) -> None:
-    """70.8% of the million fibre filings carry no band, so this is the common path.
+    """70.8% of the million fiber filings carry no band, so this is the common path.
 
     least() ignores nulls, which is the behaviour that quietly invented 24 Mbps out of
     nothing in 130 and is exactly right here: no band filed means nothing caps the line.
@@ -301,11 +308,11 @@ def test_the_open_topped_band_caps_nothing_either(
 ) -> None:
     """">= 1000 Mbps" has no ceiling at all, and a null ceiling is not a cap of zero.
 
-    Every fibre filing that carries a band carries this one, so getting it wrong would take
-    the whole fibre map to nothing.
+    Every fiber filing that carries a band carries this one, so getting it wrong would take
+    the whole fiber map to nothing.
     """
     seed_street(reachable)
-    seed_door(reachable, band=8, family="fibre", technology="FTTH")
+    seed_door(reachable, band=8, family="fiber", technology="FTTH")
     run(reachable, steps())
     assert figure(reachable) == 1000.0
 
@@ -322,38 +329,38 @@ def test_adsl_is_twenty_four(reachable: psycopg.Connection[TupleRow]) -> None:
 
 
 def test_plain_vdsl_is_fifty(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Every VDSL plan on file is 50: OTE 50, Vodafone 50. Not the 100 the cable can do."""
+    """Every VDSL plan on file is 50: Telekom 50, Vodafone 50. Not the 100 the cable can do."""
     seed_street(reachable)
     seed_area(reachable, band=7, technology="VDSL")
     run(reachable, steps())
     assert figure(reachable) == 50.0
 
 
-def test_fibre_is_a_gigabit(reachable: psycopg.Connection[TupleRow]) -> None:
+def test_fiber_is_a_gigabit(reachable: psycopg.Connection[TupleRow]) -> None:
     """Plans run 100 to 3000, and the register's own top band is open-ended at 1000."""
     seed_street(reachable)
-    seed_door(reachable, band=None, family="fibre", technology="FTTH")
+    seed_door(reachable, band=None, family="fiber", technology="FTTH")
     run(reachable, steps())
     assert figure(reachable) == 1000.0
 
 
-def test_fibre_with_no_band_is_still_fibre(
+def test_fiber_with_no_band_is_still_fiber(
     reachable: psycopg.Connection[TupleRow],
 ) -> None:
     """This is the case that made the decision.
 
-    758,885 of 1,071,133 FTTH filings carry no speed band, so 11,880 streets with fibre
+    758,885 of 1,071,133 FTTH filings carry no speed band, so 11,880 streets with fiber
     running down them were painted as copper.
     """
     seed_street(reachable)
     seed_area(reachable, band=6, technology="VECT_VDSL")
-    seed_door(reachable, band=None, family="fibre", technology="FTTH")
+    seed_door(reachable, band=None, family="fiber", technology="FTTH")
     run(reachable, steps())
     assert figure(reachable) == 1000.0
 
 
 def test_the_best_line_wins(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Fibre beats vectoring beats VDSL beats ADSL, by their own figures rather than by rank."""
+    """Fiber beats vectoring beats VDSL beats ADSL, by their own figures rather than by rank."""
     seed_street(reachable)
     for tech in ("ADSL", "VDSL", "VECT_VDSL"):
         seed_area(reachable, band=None, technology=tech)
@@ -369,6 +376,6 @@ def test_only_four_figures_are_retailed(reachable: psycopg.Connection[TupleRow])
     """
     sold = reachable.execute(
         "select distinct sold_mbps from technology "
-        "where family in ('copper', 'fibre') and sold_mbps is not null order by 1"
+        "where family in ('copper', 'fiber') and sold_mbps is not null order by 1"
     ).fetchall()
     assert [float(row[0]) for row in sold] == [24.0, 50.0, 100.0, 1000.0]

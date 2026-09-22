@@ -59,7 +59,7 @@ def test_everything_but_fresh_is_worth_asking() -> None:
 
 
 def test_a_gigabit_street_needs_no_asking() -> None:
-    """Fibre is dug street by street: a gigabit on this street is a gigabit at this door."""
+    """Fiber is dug street by street: a gigabit on this street is a gigabit at this door."""
     assert verdict(None, now=NOW, street_best_mbps=Decimal(1000)) == INFERRED
     assert verdict(None, now=NOW, street_best_mbps=Decimal(3000)) == INFERRED
 
@@ -76,12 +76,12 @@ def test_inference_does_not_override_this_address() -> None:
 
 
 def test_inference_beats_a_stale_answer() -> None:
-    """Both are evidence, and the street being fibre does not go out of date the same way."""
+    """Both are evidence, and the street being fiber does not go out of date the same way."""
     assert verdict(answer(-1), now=NOW, street_best_mbps=Decimal(1000)) == INFERRED
 
 
 def test_inference_beats_a_refusal_from_an_unfinished_scan() -> None:
-    """A door not yet connected on a fibre street is worth offering, not writing off."""
+    """A door not yet connected on a fiber street is worth offering, not writing off."""
     assert verdict(None, now=NOW, street_no=7, checked_to=14,
                    street_best_mbps=Decimal(1000)) == INFERRED
 
@@ -90,14 +90,14 @@ def test_inference_is_not_a_reason_to_ask() -> None:
     assert INFERRED not in ASK
 
 
-def test_fibre_on_the_street_needs_no_asking() -> None:
-    """The register files 712,026 fibre rows with no band at all, so speed alone misses them."""
-    assert verdict(None, now=NOW, street_fibre=True) == INFERRED
-    assert verdict(None, now=NOW, street_fibre=True, street_best_mbps=None) == INFERRED
+def test_fiber_on_the_street_needs_no_asking() -> None:
+    """The register files 712,026 fiber rows with no band at all, so speed alone misses them."""
+    assert verdict(None, now=NOW, street_fiber=True) == INFERRED
+    assert verdict(None, now=NOW, street_fiber=True, street_best_mbps=None) == INFERRED
 
 
 def test_copper_on_the_street_is_still_asked() -> None:
-    assert verdict(None, now=NOW, street_fibre=False, street_best_mbps=Decimal(100)) == UNKNOWN
+    assert verdict(None, now=NOW, street_fiber=False, street_best_mbps=Decimal(100)) == UNKNOWN
 
 
 def test_a_refusal_is_not_the_same_as_silence() -> None:
@@ -107,6 +107,6 @@ def test_a_refusal_is_not_the_same_as_silence() -> None:
     assert verdict(None, now=NOW, refused=False) == UNKNOWN
 
 
-def test_a_refusal_does_not_survive_a_fibre_street() -> None:
-    """A door not yet connected on a fibre street is worth offering, not writing off."""
-    assert verdict(None, now=NOW, refused=True, street_fibre=True) == INFERRED
+def test_a_refusal_does_not_survive_a_fiber_street() -> None:
+    """A door not yet connected on a fiber street is worth offering, not writing off."""
+    assert verdict(None, now=NOW, refused=True, street_fiber=True) == INFERRED

@@ -4,7 +4,7 @@
 INALAN:
   source: https://inalan.gr/paketa
   observed_on: 2026-09-10
-  # Symmetric throughout: they build and sell their own fibre.
+  # Symmetric throughout: they build and sell their own fiber.
   plans:
     - key: INALAN_300
       name: 300Mbps Phone Unlimited
@@ -24,7 +24,7 @@ INALAN:
       hardware_eur: 0
 
 # Read from their plan pages on 2026-09-10, the retail prices a new customer is quoted.
-OTE:
+TELEKOM:
   source: https://www.telekom.gr/
   observed_on: 2026-09-10
   plans:

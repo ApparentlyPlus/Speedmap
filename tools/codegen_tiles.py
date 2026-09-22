@@ -72,6 +72,21 @@ def python_source(schema: dict[str, Any]) -> str:
             lines += [f'    "{code}": "{field}",' for code, field in by_provider.items()]
             lines += ["}", ""]
 
+        wholesale = [
+            str(spec["provider"])
+            for spec in fields.values()
+            if spec.get("role") == "infrastructure"
+        ]
+        if wholesale:
+            lines += [
+                "# The operators here who retail nothing to a household: wholesale builders,",
+                "# and anyone who files services and publishes no tariff. Drawn like the rest",
+                "# and listed apart, because they are not a supplier anyone can choose.",
+                f"{upper}_INFRASTRUCTURE: Final[tuple[str, ...]] = (",
+            ]
+            lines += [f'    "{code}",' for code in wholesale]
+            lines += [")", ""]
+
         nullable = [field for field, spec in fields.items() if spec.get("nullable")]
         lines += [f"{upper}_NULLABLE: Final = ("]
         lines += [f'    "{field}",' for field in nullable]
@@ -124,6 +139,23 @@ def typescript_source(schema: dict[str, Any]) -> str:
             ]
             lines += [f'  {code}: "{field}",' for code, field in by_provider.items()]
             lines += ["};", ""]
+
+        wholesale = [
+            str(spec["provider"])
+            for spec in fields.values()
+            if spec.get("role") == "infrastructure"
+        ]
+        if wholesale:
+            lines += [
+                "/**",
+                " * The operators here who retail nothing to a household: wholesale builders,",
+                " * and anyone who files services and publishes no tariff. Drawn like the rest",
+                " * and listed apart, because they are not a supplier anyone can choose.",
+                " */",
+                f"export const {name.upper()}_INFRASTRUCTURE: readonly string[] = [",
+            ]
+            lines += [f'  "{code}",' for code in wholesale]
+            lines += ["];", ""]
 
     return "\n".join(lines)
 
