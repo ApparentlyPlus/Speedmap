@@ -351,7 +351,7 @@ export interface components {
             infra_provider: string | null;
             /**
              * Matched By
-             * @description point for a filing here, area for a cabinet
+             * @description point for a filing here, area for a cabinet, built for fiber in the ground that the register never gave an address
              */
             matched_by: string;
             /** Provider */

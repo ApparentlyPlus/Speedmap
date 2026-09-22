@@ -91,7 +91,9 @@ describe.skipIf(!running)("the map in a browser", () => {
     const anyone = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["streets"] }).length,
     );
-    await page.getByRole("button", { name: "DEI", exact: true }).click();
+    // The button carries the name a reader knows rather than the register's code:
+    // the panel said OTE while the data behind it said Telekom until that changed.
+    await page.getByRole("button", { name: "ΔΕΗ Fiber", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["streets"] }).length,
@@ -103,7 +105,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   it("keeps an operator that files no speeds at all", async () => {
     // Inalan reaches 112,739 addresses and files a speed for none of them. A filter that
     // tests for a number rather than for service would hide the lot.
-    await page.getByRole("button", { name: "INALAN", exact: true }).click();
+    await page.getByRole("button", { name: "Inalan", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["streets"] }).length,

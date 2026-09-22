@@ -485,6 +485,30 @@ select distinct on (code, technology) * from (
     -- 5G reaches everywhere is not an operator that reaches this street, and listing it
     -- here would put the same gigabit on every road in the country.
     where s.id = %s and ac.family <> 'wireless'
+
+    union all
+
+    -- Built fiber standing beside the street, which is 110's third route.
+    --
+    -- The map is painted from street_provider and this list is derived here, so the two
+    -- have to read the same sources or the street is drawn a colour the panel cannot
+    -- account for. It was: Χανιά - Θέρισο came out at a gigabit and opened on "no road
+    -- here with declared coverage", because 110 learned this route and the panel did not.
+    --
+    -- The same guard 110 uses, for the same reason: a filing the address layer placed
+    -- reaches the street through the door above, and counting it here as well would list
+    -- one operator twice.
+    select credited.code, credited.display_name, 'FTTH', 'fiber', 'built', null::date,
+           credited.code, null::int, null::numeric, null::numeric, null::text, t.sold_mbps
+    from street s
+    join raw_coverpoint c
+      on c.prempass > 0
+     and st_dwithin(s.geom, c.point::geography, built_fiber_m())
+    join provider filed on filed.register_id = c.infrprov and filed.builds_own_network
+    join provider credited on credited.id = coalesce(filed.credited_to, filed.id)
+    join technology t on t.code = 'FTTH'
+    where s.id = %s
+      and not exists (select 1 from address_point ap where ap.coverid = c.coverid)
 ) reached (
     code, display_name, technology, family, matched, avail_date,
     infra_code, band_id, min_mbps, max_mbps, label, sold_mbps
@@ -505,7 +529,12 @@ class Offer(BaseModel):
     provider_name: str
     technology: str
     family: str
-    matched_by: str = Field(description="point for a filing here, area for a cabinet")
+    matched_by: str = Field(
+        description=(
+            "point for a filing here, area for a cabinet, built for fiber in the "
+            "ground that the register never gave an address"
+        )
+    )
     available_from: date | None
     infra_provider: str | None = Field(description="who built it, when not the seller")
     speed: Speed | None = Field(description="null when the operator filed no speed")
@@ -601,7 +630,7 @@ def street(street_id: int) -> StreetDetail:
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         bbox=(row[5], row[6], row[7], row[8]),
         shape=json.loads(row[9]),
-        offers=offers(rows(STREET_OFFERS, (street_id, street_id))),
+        offers=offers(rows(STREET_OFFERS, (street_id, street_id, street_id))),
     )
 
 
