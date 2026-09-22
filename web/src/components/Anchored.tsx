@@ -40,9 +40,6 @@ const CLOSEST = 17.4;
 /** Just off solid, so a road behind a wall is a hint rather than a secret. */
 const SHEER = 0.9;
 
-/** How long the one move to the street takes. */
-const ARRIVE_MS = 1600;
-
 /** How much zoom the lean is given back. A box is fitted as though the map were flat. */
 const PITCH_ROOM = 0.6;
 
@@ -134,8 +131,18 @@ export function Anchored({
     if (map === null || lon === null || lat === null) return;
     if (here.current !== null) return;
     here.current = [lon, lat];
+    /**
+     * A street supersedes its own midpoint, so it is not visited on the way.
+     *
+     * Both arrive in the same render, out of one response, and the effect below frames the
+     * whole road. Leaning into the door first meant the reader watched the camera climb to
+     * one pitch over 1.2 seconds and then cut to another, which is the jolt: two moves to
+     * reach a place neither of them was aiming at. An address has no road to frame and
+     * still gets its move.
+     */
+    if (shape !== null && shape !== undefined) return;
     map.easeTo({ center: [lon, lat], zoom: ZOOM, pitch: PITCH, duration: 1200 });
-  }, [lon, lat]);
+  }, [lon, lat, shape]);
 
   /** The light, added once the street is known and taken away with it. */
   useEffect(() => {
@@ -243,20 +250,31 @@ export function Anchored({
           maxZoom: CLOSEST,
         });
         if (camera !== undefined && camera.center !== undefined) {
-          map.easeTo({
+          /**
+           * Arrive, rather than travel.
+           *
+           * This used to ease over 1.6 seconds from the camera the map opened on to the
+           * one that frames the street, and those are two different places: the opening
+           * camera is a fixed zoom on the door, the framed one is however far out the
+           * road turns out to be. So the map spent its first second and a half sliding
+           * and zooming between two arbitrary views before the thing the reader asked
+           * for was on screen, and only then began to turn.
+           *
+           * Nothing was being shown during that move. The street is known by now, and
+           * the reader has just asked for it by name, so the frame is put up whole and
+           * the turn starts on it.
+           */
+          map.jumpTo({
             center: camera.center,
             // Room for the lean. The fit is worked out flat, and a tilted camera throws
             // the far half of what it is looking at up the screen and off the top of it.
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
             pitch: TILT,
             bearing: 0,
-            // A reader who asked for stillness gets the same frame, arrived at rather
-            // than flown to.
-            duration: reduced ? 0 : ARRIVE_MS,
           });
-          map.once("moveend", () => {
-            turning = true;
-          });
+          // No move to wait on: a jump fires moveend, but the turn can start on the
+          // frame it is already standing in.
+          turning = true;
         }
       }
 

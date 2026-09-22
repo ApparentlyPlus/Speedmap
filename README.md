@@ -100,6 +100,8 @@ FastAPI, read-only except for three endpoints. Runs on `:8000`.
 | `POST` | `/reports` | Records that something looks wrong |
 | `GET` | `/health/adapters` | Per-operator checker state |
 
+A street's offers are derived in `api/main.py` from the same three routes `110_street_reach` builds the figure from, and `matched_by` says which one answered: `point` for a filing against a door, `area` for a cabinet, `built` for fiber in the ground the register never gave an address. The map's colour and this list come from different queries over the same sources, so they have to be changed together. They were not once: `110` learned the third route and the panel did not, and Χανιά - Θέρισο drew at a gigabit above "no road here with declared coverage".
+
 Search runs three widening tiers: literal prefix, word-start, then trigram similarity. The fuzzy tier matches against a materialised view of the 126,151 distinct address spellings rather than all 1.8M rows, which keeps it near 45 ms instead of 750 ms.
 
 `schema/openapi.json` is generated from the application and checked by `make lint`. The frontend's types are generated from it in turn.
@@ -162,7 +164,7 @@ The dev server proxies the API so both run same-origin, matching production behi
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 726 Python tests and 46 frontend tests. Eight of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`.
+`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 727 Python tests and 49 frontend tests. Eleven of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those eleven cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
 
 `make audit` is separate and runs the nine SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
 
