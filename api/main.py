@@ -122,8 +122,25 @@ ADDRESS_COLUMNS = f"""
 
 # A street's best is the best of the addresses on it, worked out by the build rather than
 # here: asking it per keystroke cost 173ms against a tier that answers in a third of one.
-STREET_COLUMNS = """
-    'street', s.id, s.name, null, null, m.name, null, null, s.best_mbps
+# Which part of town this run of the name is in, when its doors agree on one.
+#
+# A street is one connected road, so a name can be several rows inside a municipality and
+# they reach the list identical: 7,320 names are, and Χανιά - Θέρισο in Χανιά is two of
+# them, both a gigabit, nothing to choose between. The locality its own addresses carry is
+# the only thing that separates them.
+#
+# It is not always there. 10,645 of the rows in those groups have no address at all, mostly
+# rural roads the register never filed a door on, and those arrive bare rather than wearing
+# a label invented for them. mode() rather than any one door, because a long road crosses
+# more than one district and the answer wanted is where most of it is.
+STREET_LOCALITY = """
+    (select mode() within group (order by a.locality)
+     from address a
+     where a.street_id = s.id and a.locality is not null)
+"""
+
+STREET_COLUMNS = f"""
+    'street', s.id, s.name, null, {STREET_LOCALITY}, m.name, null, null, s.best_mbps
 """
 
 # Three tiers, widening only when the one above has not filled the page.
@@ -264,7 +281,13 @@ class Result(BaseModel):
     id: int
     name: str
     street_no: str | None
-    locality: str | None = Field(description="as the register filed it")
+    locality: str | None = Field(
+        description=(
+            "for a door, as the register filed it. For a street, where most of its doors "
+            "say they are, which is what separates two runs of one name in one "
+            "municipality. Null when it has no filed doors to ask"
+        )
+    )
     municipality: str | None
     postcode: str | None
     premises: int | None = Field(description="dwellings passed, null when not filed")
