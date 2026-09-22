@@ -313,7 +313,26 @@ export function Anchored({
          */
         const pad = clear(map);
         const camera = map.cameraForBounds(extent, { padding: pad, maxZoom: CLOSEST });
-        if (camera !== undefined && camera.center !== undefined) {
+        /*
+         * The street's own middle, not the centre cameraForBounds hands back.
+         *
+         * Asked to fit a box inside a lopsided padding, cameraForBounds answers with a
+         * centre already shifted to one side, on the understanding that the transform is
+         * not padded. Padding the transform as well moves it the same way twice: the
+         * street settled about 250 pixels right of the point the map turns about, and
+         * spent every revolution swinging around it at that radius.
+         *
+         * Its zoom is still the right zoom, because that is a question about how big the
+         * box is against how much room there is to put it in, and the room is what the
+         * padding describes. Only the centre is wrong, and the centre wanted is the one
+         * the street already has.
+         */
+        const middle: [number, number] = [
+          (extent[0][0] + extent[1][0]) / 2,
+          (extent[0][1] + extent[1][1]) / 2,
+        ];
+
+        if (camera !== undefined && camera.zoom !== undefined) {
           /**
            * One descent, from the whole country to the street.
            *
@@ -329,7 +348,7 @@ export function Anchored({
            * the frame it lands in.
            */
           map.flyTo({
-            center: camera.center,
+            center: middle,
             // Room for the lean. The fit is worked out flat, and a tilted camera throws
             // the far half of what it is looking at up the screen and off the top of it.
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
