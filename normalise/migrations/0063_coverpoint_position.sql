@@ -1,0 +1,16 @@
+-- Where a coverpoint is, asked of an index rather than of all 2.67 million of them.
+--
+-- raw_coverpoint has been keyed on coverid alone since it was loaded, which suited a table
+-- nothing asked spatial questions of: every consumer arrived holding a coverid. That
+-- changed when the register's unaddressed filings had to be placed by position. 025 and 110
+-- both start from a coverpoint and search for something near it, so they read the address
+-- and street indexes and are fine. The invariant checking where a street's figure came from
+-- runs the other way round, starting from the street and sweeping the points, and without
+-- an index that is a sequential scan of the whole table per street: nine minutes for a
+-- check that now takes twenty seconds.
+--
+-- Indexed on point::geography rather than on point. Every caller casts, because the thing
+-- on the other side is a geography and the answer wanted is metres, and a gist index on the
+-- bare geometry cannot serve a predicate through the cast. An index on the wrong side of it
+-- is read by nobody and still written on every load of the register.
+create index raw_coverpoint_position_idx on raw_coverpoint using gist ((point::geography));
