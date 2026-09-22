@@ -29,22 +29,22 @@ def order(ranked: list[Ranked]) -> list[str]:
 
 
 def test_a_line_comes_first_and_then_the_cheapest_of_them() -> None:
-    """Fibre before copper, and within fibre the cheaper one. All three cover a household."""
+    """Fiber before copper, and within fiber the cheaper one. All three cover a household."""
     found = rank([
-        option("DEI", "fibre 1G", "fibre", 1000, "19.90"),
-        option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL"),
-        option("VODAFONE", "fibre 300", "fibre", 300, "24.22"),
+        option("DEI", "fiber 1G", "fiber", 1000, "19.90"),
+        option("NOVA", "fiber 100", "copper", 100, "21", technology="VECT_VDSL"),
+        option("VODAFONE", "fiber 300", "fiber", 300, "24.22"),
     ])
-    assert order(found) == ["fibre 1G", "fibre 300", "fibre 100"]
+    assert order(found) == ["fiber 1G", "fiber 300", "fiber 100"]
     assert found[0].why == BEST
     assert all(r.enough for r in found)
 
 
-def test_fibre_beats_a_cheaper_cell() -> None:
+def test_fiber_beats_a_cheaper_cell() -> None:
     """A cell is shared with the street at seven in the evening and a line is not."""
     found = rank([
-        option("OTE", "gigamax", "wireless", 240, "30.00", technology="MOBILE"),
-        option("INALAN", "inalan 1G", "fibre", 1000, "34.00"),
+        option("TELEKOM", "gigamax", "wireless", 240, "30.00", technology="MOBILE"),
+        option("INALAN", "inalan 1G", "fiber", 1000, "34.00"),
     ])
     assert order(found) == ["inalan 1G", "gigamax"]
 
@@ -52,16 +52,16 @@ def test_fibre_beats_a_cheaper_cell() -> None:
 def test_a_dearer_gigabit_loses_to_a_cheaper_one() -> None:
     """Above the bar the extra speed is a number on a bill, not a difference anyone sees."""
     found = rank([
-        option("DEI", "fibre 2.5G", "fibre", 2500, "52.90"),
-        option("NOVA", "fibre 300", "fibre", 300, "23"),
+        option("DEI", "fiber 2.5G", "fiber", 2500, "52.90"),
+        option("NOVA", "fiber 300", "fiber", 300, "23"),
     ])
-    assert order(found) == ["fibre 300", "fibre 2.5G"]
+    assert order(found) == ["fiber 300", "fiber 2.5G"]
 
 
 def test_below_the_bar_speed_decides_not_price() -> None:
     """The choice is no longer which good option but which least bad one."""
     found = rank([
-        option("OTE", "adsl 24", "copper", 24, "19.90", technology="ADSL"),
+        option("TELEKOM", "adsl 24", "copper", 24, "19.90", technology="ADSL"),
         option("VODAFONE", "vdsl 50", "copper", 50, "26", technology="VDSL"),
     ])
     assert order(found) == ["vdsl 50", "adsl 24"]
@@ -73,26 +73,26 @@ def test_below_the_bar_speed_decides_not_price() -> None:
 def test_a_line_is_preferred_to_a_cell_at_the_same_price() -> None:
     """A cell shares its capacity with the neighbourhood at seven in the evening."""
     found = rank([
-        option("OTE", "5g wifi", "wireless", 300, "30.90", technology="FWA_5G"),
-        option("OTE", "fibre 500", "fibre", 500, "30.90"),
+        option("TELEKOM", "5g wifi", "wireless", 300, "30.90", technology="FWA_5G"),
+        option("TELEKOM", "fiber 500", "fiber", 500, "30.90"),
     ])
-    assert order(found) == ["fibre 500", "5g wifi"]
+    assert order(found) == ["fiber 500", "5g wifi"]
 
 
 def test_a_dish_ranks_last_among_equals() -> None:
     found = rank([
         option("STARLINK", "starlink", "satellite", 100, "35", hardware=0),
-        option("OTE", "5g wifi", "wireless", 100, "35", technology="FWA_5G"),
-        option("NOVA", "fibre", "fibre", 100, "35"),
+        option("TELEKOM", "5g wifi", "wireless", 100, "35", technology="FWA_5G"),
+        option("NOVA", "fiber", "fiber", 100, "35"),
     ])
-    assert order(found) == ["fibre", "5g wifi", "starlink"]
+    assert order(found) == ["fiber", "5g wifi", "starlink"]
 
 
 def test_the_dish_loses_on_its_hardware_not_its_headline() -> None:
     """35 a month against 35,90 and the dish still loses: 349€ is 14,54 a month of it."""
     found = rank([
         option("STARLINK", "starlink", "satellite", 100, "35", hardware=349),
-        option("OTE", "5g wifi", "wireless", 300, "35.90", technology="FWA_5G", hardware=0),
+        option("TELEKOM", "5g wifi", "wireless", 300, "35.90", technology="FWA_5G", hardware=0),
     ])
     assert order(found) == ["5g wifi", "starlink"]
 
@@ -101,7 +101,7 @@ def test_an_unknown_speed_is_never_fast_enough() -> None:
     """Not knowing how fast a wireless link is here is not evidence that it is fast."""
     found = rank([
         option("VODAFONE", "wireless home", "wireless", None, "26.90", technology="FWA"),
-        option("OTE", "adsl", "copper", 24, "24", technology="ADSL"),
+        option("TELEKOM", "adsl", "copper", 24, "24", technology="ADSL"),
     ])
     assert order(found) == ["adsl", "wireless home"]
     assert not any(r.enough for r in found)
@@ -114,11 +114,11 @@ def test_a_missing_setup_fee_does_not_cost_an_offer_its_place() -> None:
     is three HCN plans, 16, 23 and 29 euro a month, all published.
     """
     found = rank([
-        option("HCN", "sonic", "fibre", 1000, "23", setup=None),
-        option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL"),
+        option("HCN", "sonic", "fiber", 1000, "23", setup=None),
+        option("NOVA", "fiber 100", "copper", 100, "21", technology="VECT_VDSL"),
     ])
-    # Fibre beats vectoring on steadiness, and both clear the bar, so it leads on merit.
-    assert order(found) == ["sonic", "fibre 100"]
+    # Fiber beats vectoring on steadiness, and both clear the bar, so it leads on merit.
+    assert order(found) == ["sonic", "fiber 100"]
     assert found[0].why == FROM
     assert found[0].enough is True
     assert found[0].option.cost.complete is False
@@ -126,7 +126,7 @@ def test_a_missing_setup_fee_does_not_cost_an_offer_its_place() -> None:
 
 
 def test_a_fully_published_price_is_not_marked_as_a_floor() -> None:
-    found = rank([option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL")])
+    found = rank([option("NOVA", "fiber 100", "copper", 100, "21", technology="VECT_VDSL")])
     assert found[0].option.cost.complete is True
     assert found[0].why != FROM
 
@@ -138,16 +138,16 @@ def test_nothing_at_all_ranks_nothing() -> None:
 def test_the_bar_is_a_judgement_that_can_be_moved() -> None:
     """Someone who works from home may want the gigabit the household does not."""
     options = [
-        option("DEI", "fibre 1G", "fibre", 1000, "19.90"),
-        option("NOVA", "fibre 100", "copper", 100, "21", technology="VECT_VDSL"),
+        option("DEI", "fiber 1G", "fiber", 1000, "19.90"),
+        option("NOVA", "fiber 100", "copper", 100, "21", technology="VECT_VDSL"),
     ]
-    assert rank(options, need=Decimal(500))[0].option.plan == "fibre 1G"
+    assert rank(options, need=Decimal(500))[0].option.plan == "fiber 1G"
     assert rank(options, need=Decimal(500))[1].enough is False
 
 
 def metered(gb: int | None, mbps: int, monthly: str) -> Option:
     return Option(
-        provider="OTE", provider_name="Telekom", plan=f"gigamax {gb}",
+        provider="TELEKOM", provider_name="Telekom", plan=f"gigamax {gb}",
         technology="MOBILE", family="wireless",
         expected_mbps=Decimal(mbps),
         cost=blended(Price(monthly_eur=Decimal(monthly),
@@ -174,7 +174,7 @@ def test_the_cheapest_metered_plan_never_wins_on_price_alone() -> None:
     """Ranking on cost alone would put a 9GB SIM above every line at the address."""
     found = rank([
         metered(9, 240, "24.00"),
-        option("OTE", "5g wifi", "wireless", 240, "35.90", technology="FWA_5G"),
+        option("TELEKOM", "5g wifi", "wireless", 240, "35.90", technology="FWA_5G"),
     ])
     assert order(found) == ["5g wifi", "gigamax 9"]
 

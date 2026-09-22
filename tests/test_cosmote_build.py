@@ -89,7 +89,7 @@ def test_the_catalogue_comes_from_the_plan_table(scrape: psycopg.Connection[Tupl
     """The operator's codes are plans, so they live with every other provider's."""
     rows = scrape.execute(
         "select external_key, technology from plan pl join provider pr on pr.id = pl.provider_id "
-        "where pr.code = 'OTE' order by pl.down_mbps"
+        "where pr.code = 'TELEKOM' order by pl.down_mbps"
     ).fetchall()
     assert rows[0] == ("ADSL_24M", "ADSL")
     assert rows[-1] == ("FBR_3G", "FTTH")

@@ -32,7 +32,7 @@ ELIGIBILITY = SPEC.text("eligibility")
 PRESELECTED = SPEC.payload("preselect")
 
 # Their code names the speed and nothing else about the medium: 2P_FIBER_100 is vectored copper
-# on a copper street and fibre on a fibre one, exactly as the other operator's FBR codes are.
+# on a copper street and fiber on a fiber one, exactly as the other operator's FBR codes are.
 RUNGS = SPEC.rungs()
 
 

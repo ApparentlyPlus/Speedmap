@@ -18,7 +18,7 @@ PUBLISHED = Path(__file__).parent / "published.yaml"
 
 # Which family a technology belongs to, so a plan lands in the same vocabulary as coverage.
 FAMILY = {
-    "FTTH": "fibre",
+    "FTTH": "fiber",
     "DOCSIS": "coax",
     "VECT_VDSL": "copper",
     "VDSL": "copper",

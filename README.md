@@ -2,23 +2,23 @@
 
 Speedmap shows what broadband is available at an address in Greece. It joins EETT's national coverage register to an address index built from the same register and street geometry from OpenStreetMap, then draws every street in the country coloured by the best line that reaches it. Where an operator publishes a tariff, the result also carries a price; where someone has run a speed test nearby, it carries a measurement.
 
-The database holds 1,796,105 addresses, 80,756 streets across 333 municipalities, and 12.8M coverage rows, at roughly 17 GB.
+The database holds 1,796,105 addresses, 91,672 streets across 333 municipalities, and 14.6M coverage rows, at roughly 18 GB.
 
 ## Data Sources
 
 | Source | Provides | Volume |
 |---|---|---|
 | EETT register (`broadband-assist.gov.gr`) | Filed services: who reaches where, on which technology, at which speed class | 1,362,340 services, 24 operators |
-| OpenStreetMap | Street geometry, grouped into named streets per municipality | 80,756 streets |
+| OpenStreetMap | Street geometry, grouped into connected runs of a named road per municipality | 91,672 streets |
 | Ookla open data | Measured download and upload speeds, per 600 m tile | 133,026 cells |
-| Operator availability checkers | Live serviceability for OTE, Vodafone and Nova | on demand |
+| Operator availability checkers | Live serviceability for Telekom, Vodafone and Nova | on demand |
 | Published tariffs | Monthly price, setup fee, contract length, data cap | 74 plans, 25 providers |
 
 The register is an unauthenticated PostgREST API. Its page cap is 500 and it truncates silently rather than erroring, so the loader steps by 500 and records its resume key per dataset.
 
 ## How The Speed Figure Is Derived
 
-The register files speed *classes*, not speeds: the finest value available is a band such as "100-300 Mbps". It also leaves the band empty on most filings, including 70.8% of the 1,071,133 fibre rows.
+The register files speed *classes*, not speeds: the finest value available is a band such as "100-300 Mbps". It also leaves the band empty on most filings, including 70.8% of the 1,071,133 fiber rows.
 
 The figure shown is therefore anchored on the technology rather than read from the band:
 
@@ -32,22 +32,22 @@ best_mbps = least(technology.sold_mbps, the filed band's ceiling)
 |---|---|---|
 | ADSL | 24 | The single ADSL plan on file |
 | VDSL | 50 | Every VDSL plan on file is 50 |
-| Vectored VDSL | 100 | OTE, Vodafone and Nova all retail 100 |
+| Vectored VDSL | 100 | Telekom, Vodafone and Nova all retail 100 |
 | DOCSIS | 300 | No coax is filed in Greece; set so a future filing reports something |
 | FTTH | 1000 | Plans run 100 to 3000 |
 
 The cap uses `a4a_nordown`, the register's normally available speed, rather than `a4a_maxdown`. It is filed in exactly the rows `maxdown` is and is never higher, so it can only lower a figure. Using it roughly doubles the number of streets identifiable as being on 10 Mbps or less.
 
-A filing can pull a figure down but never lift it. Resulting distribution across the 75,353 streets that have a figure:
+A filing can pull a figure down but never lift it. Resulting distribution across the 84,355 streets that have a figure:
 
 | Mbps | Streets | Share |
 |---|---|---|
-| 1000 | 24,778 | 32.9% |
-| 100 | 36,249 | 48.1% |
-| 50 | 6,860 | 9.1% |
-| 30 | 3,361 | 4.5% |
-| 24 | 608 | 0.8% |
-| 10 or less | 3,497 | 4.6% |
+| 1000 | 38,886 | 46.1% |
+| 100 | 30,290 | 35.9% |
+| 50 | 6,252 | 7.4% |
+| 30 | 3,907 | 4.6% |
+| 24 | 692 | 0.8% |
+| 10 or less | 4,328 | 5.1% |
 
 ## Pipeline
 
@@ -56,23 +56,30 @@ Raw register tables land in `raw_*` and are never modified. Everything else is d
 | Step | Produces |
 |---|---|
 | `010_municipality` | The 333 Kallikratis municipalities, reprojected to 4326 |
-| `030_coverage` | Point-located services (fibre, coax) |
+| `030_coverage` | Point-located services (fiber, coax) |
 | `040_coverage_area` | Copper cabinet polygons, reprojected from Greek Grid |
 | `050_address_coverage` | What reaches each address, by point match or cabinet containment |
+| `065_address_street` | Pins each address to the nearest road of its name |
 | `070_wireless` | Fixed wireless, matched to the 100 m register grid by arithmetic |
 | `090_wholesale` | Refreshes the seller-to-infrastructure view |
-| `100_builder_coverage` | Altnets that pass premises but file no retail service |
+| `100_builder_coverage` | Anyone who passes premises but files no retail service there |
 | `110_street_reach` | Which operators reach each street, and at what speed |
 | `120_street_speed` | The street's own figure, taken from `110` |
-| `130_municipality_coverage` | Per-municipality fibre share and measured averages |
+| `130_municipality_coverage` | Per-municipality fiber share and measured averages |
 
 Each step deletes its own previous output before rebuilding, so a withdrawn filing disappears rather than persisting. `address_coverage` is written by three steps, so rows carry a `built_by` column identifying which one owns them.
 
-A street's reach comes from two routes unioned: filings against addresses on the street, and cabinet polygons the street intersects. Builders file addresses and no polygons, and roughly half of all streets have no filed address, so either route alone loses a different half. Cabinet polygons are capped at 5,000,000 m² by `cabinet_m2()`; larger filings are exchange regions and say nothing about an individual street.
+The register keeps two books and both are read. A service filing says an operator sells a line at a point; an infrastructure filing says one has built past a door. Reading only the first understates anyone who builds and files little: Telekom passes 1.09 million doors and files 36,012 services, so the map credited it with 23,041 fiber addresses against Vodafone's 601,473, which described who fills in which form rather than what is in the ground. `100_builder_coverage` credits premises passed to whoever passed them, incumbent and altnet alike.
+
+Operators carry a `role`. A `retail` operator is one a household can buy from. The `infrastructure` ones cannot be bought from directly: wholesale builders who pass premises for others to sell over, plus Metadosis, which files services and publishes no tariff. Both colour the map, since fiber in the ground decides whether anyone will ever sell a gigabit down the street, but they are listed apart so the panel stops offering suppliers nobody can choose.
+
+The register also files one company under four names. OTE, OTE UltraFast and two rural concessions are all Telekom to anyone buying a line. The alias rows stay in `provider`, because `register_id` is how `raw_*` is joined, and every step resolves through `credited_to` before storing an id.
+
+A street's reach comes from two routes unioned: filings against addresses pinned to the street, and cabinet polygons the street intersects. Builders file addresses and no polygons, and roughly half of all streets have no filed address, so either route alone loses a different half. Cabinet polygons are capped at 5,000,000 m² by `cabinet_m2()`; larger filings are exchange regions and say nothing about an individual street.
 
 Mobile and fixed wireless are excluded from street and municipality figures. 5G reaches nearly every address and files a 300-1000 band where it does, which flattens the map to a single value.
 
-Schema changes are ordered, checksummed migrations in `normalise/migrations/` (57 of them), applied by `make migrate`.
+Schema changes are ordered, checksummed migrations in `normalise/migrations/` (61 of them), applied by `make migrate`.
 
 ## API
 
@@ -100,7 +107,7 @@ MapLibre GL reading PMTiles archives by range request. Three vector layers, cut 
 
 `speedmap.pmtiles`
 
-- `streets`: one feature per street, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator cannot sell.
+- `streets`: one feature per street, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator cannot sell. A field carries `role: infrastructure` in `schema/tiles.yaml` when its operator retails nothing, and the panel reads that rather than listing them again.
 - `regions`: one feature per municipality, for zooms below 11 where a street is a fraction of a pixel.
 
 `cells.pmtiles`
@@ -152,16 +159,16 @@ The dev server proxies the API so both run same-origin, matching production behi
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 713 Python tests and 46 frontend tests. Eight of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`.
+`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 721 Python tests and 46 frontend tests. Eight of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`.
 
-`make audit` is separate and runs the six SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
+`make audit` is separate and runs the eight SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
 
 ## Known Limitations
 
-- Addresses match streets about 63% of the time. The join is on municipality and folded street name; where it misses, there is no street geometry to show.
-- A street is every road of that name within a municipality. Usually one road, sometimes several disconnected stretches kilometres apart.
+- Addresses match streets about 63% of the time. `065_address_street` pins each one to the nearest road of its name in its municipality; where no road of that name exists, there is no geometry to show and the pin stays null.
+- A street is one connected run of road. Ways within about 55 m of each other are one street, which steps over a square or a dual carriageway without merging two roads a block apart. Where a name covers several runs, each is its own row: before this, one row held all of them, a cabinet reaching one coloured the lot, and 516 of those rows spanned more than 20 km.
 - The register files ADSL above its physical ceiling on 512 rows, including five at a gigabit. Those are held to 24 Mbps, so the map disagrees with the filing in those places.
-- The Cosmote address scrape covers 43% of streets, which limits which addresses the OTE and Nova checkers can be asked about. Nova's adapter works around this by searching the operator's live street list; Cosmote's cannot.
+- The Cosmote address scrape covers 43% of streets, which limits which addresses the Telekom and Nova checkers can be asked about. Nova's adapter works around this by searching the operator's live street list; Telekom's cannot. The scrape and its adapter keep the name of the site they read, which is `cosmote.gr`; the operator they write to the database is `TELEKOM`.
 - A street figure describes the best line reaching the street, not line quality at a specific door. Distance from the cabinet is not modelled. The measured view is the counterweight.
 - Prices are absent for operators that publish none, and three HCN plans have no setup fee published, so their totals are floors rather than exact.
 

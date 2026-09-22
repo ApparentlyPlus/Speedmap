@@ -19,7 +19,7 @@ TABLES = "probe_attempt, availability, address, municipality, raw_dimos"
 class Fake:
     """An operator that always answers, so the sweep is tested and nobody is asked."""
 
-    code = "OTE"
+    code = "TELEKOM"
 
     def __init__(self) -> None:
         self.asked: list[int] = []
@@ -53,7 +53,7 @@ def place(conn: psycopg.Connection[TupleRow], address_id: int, premises: int | N
     conn.execute(
         "insert into availability (address_id, provider_id, technology, serviceable, source, "
         "assertion, observed_at, expires_at) select %s, p.id, 'FTTH', true, 'isp-live', "
-        "'declared', %s, %s from provider p where p.code = 'OTE'",
+        "'declared', %s, %s from provider p where p.code = 'TELEKOM'",
         (address_id, expires - timedelta(days=30), expires),
     )
     conn.commit()

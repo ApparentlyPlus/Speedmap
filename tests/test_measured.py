@@ -20,7 +20,7 @@ def test_a_technology_is_matched_to_one_of_their_two_worlds() -> None:
     """Satellite is in neither: folding a dish into the fixed median drags it down."""
     found = {"fixed": fixed_at(100, 50), "mobile": mobile_at(200, 50)}
     assert for_family(found, "copper") is found["fixed"]
-    assert for_family(found, "fibre") is found["fixed"]
+    assert for_family(found, "fiber") is found["fixed"]
     assert for_family(found, "wireless") is found["mobile"]
     assert for_family(found, "satellite") is None
 
@@ -39,9 +39,9 @@ def test_a_measurement_beats_a_filed_band() -> None:
     assert got.confidence > 0.9
 
 
-def test_fibre_does_not_claim_to_be_measured() -> None:
+def test_fiber_does_not_claim_to_be_measured() -> None:
     """It delivers what it says, so the median is ignored, so calling it measured is a lie."""
-    got = speed("fibre", Decimal(1000), None, None, None, fixed_at(173, 898))
+    got = speed("fiber", Decimal(1000), None, None, None, fixed_at(173, 898))
     assert got.mbps == Decimal(1000)
     assert got.basis == "advertised"
     assert got.tests == 0

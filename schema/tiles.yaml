@@ -23,20 +23,28 @@ layers:
         description: how many operators reach this street at all, filed speed or not
       # Three states, not two: null is an operator that does not reach this street, -1 is one
       # that reaches it and filed no speed, and a number is the speed.
-      p_ote: {type: number, nullable: true, unit: mbps, provider: OTE}
+      p_telekom: {type: number, nullable: true, unit: mbps, provider: TELEKOM}
       p_vodafone: {type: number, nullable: true, unit: mbps, provider: VODAFONE}
       p_nova: {type: number, nullable: true, unit: mbps, provider: NOVA}
       p_dei: {type: number, nullable: true, unit: mbps, provider: DEI}
       p_inalan: {type: number, nullable: true, unit: mbps, provider: INALAN}
       p_hcn: {type: number, nullable: true, unit: mbps, provider: HCN}
-      p_metadosis: {type: number, nullable: true, unit: mbps, provider: METADOSIS}
+      # Operators nobody can buy from directly: wholesale builders, and Metadosis, which
+      # files services and publishes no tariff. Drawn, because fiber in the ground decides
+      # whether anyone can ever sell a gigabit here. Listed apart, because putting them up
+      # as a choice of supplier offers the reader something they cannot take.
+      p_metadosis: {type: number, nullable: true, unit: mbps, provider: METADOSIS, role: infrastructure}
+      p_fibergrid: {type: number, nullable: true, unit: mbps, provider: FIBERGRID, role: infrastructure}
+      p_unitedfiber: {type: number, nullable: true, unit: mbps, provider: UNITEDFIBER, role: infrastructure}
+      p_fiber2all: {type: number, nullable: true, unit: mbps, provider: FIBER2ALL, role: infrastructure}
+      p_netfiber: {type: number, nullable: true, unit: mbps, provider: NETFIBER, role: infrastructure}
 
   regions:
     description: >
       One feature per municipality, for the zooms where a street is a fraction of a pixel.
       A map with no basemap and nothing drawn at low zoom is a black rectangle telling the
       reader to zoom in, somewhere, with no clue where — so the country has to have a shape
-      before it has streets. Fibre rather than the fastest anything: the fastest anything is
+      before it has streets. Fiber rather than the fastest anything: the fastest anything is
       5G, which reaches nearly every address, and a map of it is one colour.
     geometry: polygon
     fields:
@@ -48,10 +56,10 @@ layers:
       addresses:
         type: integer
         description: filed addresses in it, which is the denominator of the share
-      fibre:
+      fiber:
         type: integer
-        description: how many of them fibre reaches
-      fibre_share:
+        description: how many of them fiber reaches
+      fiber_share:
         type: number
         description: nought to one; what the Filed view is painted by
       best_mbps:

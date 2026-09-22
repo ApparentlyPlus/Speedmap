@@ -5,15 +5,15 @@ truncate municipality_coverage;
 -- The filed half. sold_mbps is the same anchor 110 uses, so a municipality and the streets
 -- inside it cannot disagree. Fixed lines only, and every municipality: 80 have no address
 -- filed and would otherwise be holes under a view that has something to say about them.
-insert into municipality_coverage (municipality_id, addresses, fibre, best_mbps)
+insert into municipality_coverage (municipality_id, addresses, fiber, best_mbps)
 select m.id,
        count(a.id),
-       count(*) filter (where cov.fibre),
+       count(*) filter (where cov.fiber),
        max(cov.mbps)
 from municipality m
 left join address a on a.municipality_id = m.id
 left join lateral (
-    select bool_or(ac.family = 'fibre') as fibre,
+    select bool_or(ac.family = 'fiber') as fiber,
            max(t.sold_mbps) as mbps
     from address_coverage ac
     join technology t on t.code = ac.technology

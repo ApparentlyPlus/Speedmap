@@ -64,7 +64,7 @@ export const ACCENT = "#ffffff";
 export const FAR = "#6366f1";
 
 /**
- * Fibre share per municipality, nought to one. One hue getting lighter, not a second rainbow:
+ * Fiber share per municipality, nought to one. One hue getting lighter, not a second rainbow:
  * the ramp already taught the reader that hue means megabits.
  */
 export const SHARE: readonly (readonly [number, string])[] = [
