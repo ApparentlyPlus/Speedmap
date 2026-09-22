@@ -5,7 +5,7 @@
 -- "this operator has built past this door". Vodafone owns no network at all and still files
 -- 832,701 services over other people's. Telekom has built past 1.09 million doors and
 -- bothers to file 36,012. Read the service book on its own and Telekom lands on 23,041
--- fiber addresses against Vodafone's 601,473, which is a measure of paperwork.
+-- fiber addresses against Vodafone's 601,473, a figure that measures paperwork.
 --
 -- Two things narrowed this step to almost nothing and both are gone. `p.kind = 'altnet'`
 -- excluded the incumbent by category, though Telekom's fiber is fiber on the same terms as
