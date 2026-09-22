@@ -29,10 +29,10 @@ TECHNOLOGY = {
     "ADSL": ("ADSL", "copper", 24),
     "VDSL_50": ("VDSL", "copper", 50),
     "VDSL_100": ("VECT_VDSL", "copper", 100),
-    "FTTH_100": ("FTTH", "fibre", 100),
-    "FTTH_300": ("FTTH", "fibre", 300),
-    "FTTH_500": ("FTTH", "fibre", 500),
-    "FTTH_1000": ("FTTH", "fibre", 1000),
+    "FTTH_100": ("FTTH", "fiber", 100),
+    "FTTH_300": ("FTTH", "fiber", 300),
+    "FTTH_500": ("FTTH", "fiber", 500),
+    "FTTH_1000": ("FTTH", "fiber", 1000),
     "FWA 4G": ("FWA_4G", "wireless", None),
     "FWA 5G": ("FWA_5G", "wireless", None),
 }
@@ -41,7 +41,7 @@ TECHNOLOGY = {
 HARDWARE = {"FWA_4G": "5g_router", "FWA_5G": "5g_router"}
 
 # Their plan pages state an activation fee that the catalogue payload leaves out entirely.
-ACTIVATION = {"fibre": Decimal(6), "copper": Decimal(6), "wireless": Decimal(40)}
+ACTIVATION = {"fiber": Decimal(6), "copper": Decimal(6), "wireless": Decimal(40)}
 
 
 class CatalogueError(RuntimeError):

@@ -50,13 +50,13 @@ select json_build_object(
         'id', m.id,
         'name', m.name,
         'addresses', coalesce(mc.addresses, 0),
-        'fibre', coalesce(mc.fibre, 0),
+        'fiber', coalesce(mc.fiber, 0),
         -- Nought to one, and nought when nothing is filed rather than null: the ramp this
         -- is painted by is a share, and a share of no addresses is not a speed nobody knows,
         -- it is a municipality the register has not described.
-        'fibre_share', case
+        'fiber_share', case
             when coalesce(mc.addresses, 0) = 0 then 0
-            else round(mc.fibre::numeric / mc.addresses, 4)
+            else round(mc.fiber::numeric / mc.addresses, 4)
         end,
         'best_mbps', mc.best_mbps,
         'measured_mbps', round(mc.measured_mbps, 1),

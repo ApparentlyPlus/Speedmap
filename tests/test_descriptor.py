@@ -16,7 +16,7 @@ OPERATORS = sorted(descriptors())
 # What each module reads out of its own entry. A key renamed in the file and not here is a
 # crash on the first probe of the day. This makes it a failing test instead.
 READS = {
-    "OTE": ("base", "warm", "availability", "form", "constants", "inconclusive",
+    "TELEKOM": ("base", "warm", "availability", "form", "constants", "inconclusive",
             "prefecture_prefix", "municipality_prefix", "rungs", "headers"),
     "VODAFONE": ("base", "warm", "qualify", "proxy", "process", "retail_party",
                  "technology", "bare", "headers"),
@@ -47,7 +47,7 @@ def test_every_base_is_a_url(code: str) -> None:
 def test_rungs_run_fastest_first_and_reach_the_bottom() -> None:
     """They are read in order and the first match wins, so an unsorted list silently
     returns the wrong technology rather than failing."""
-    for code in ("OTE", "NOVA"):
+    for code in ("TELEKOM", "NOVA"):
         rungs = Descriptor(code).rungs()
         assert rungs
         floors = [floor for floor, _ in rungs]

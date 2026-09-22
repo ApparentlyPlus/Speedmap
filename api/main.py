@@ -148,6 +148,15 @@ class Term:
     number: str | None
 
 
+# The house number the reader typed, ahead of every other way of ordering a street's doors.
+#
+# It hangs on `nulls last`. `street_no = '107'` is true on the door, false on its neighbours
+# and *null* on the 126,000 rows the register filed with no number at all, and a plain
+# `desc` in Postgres sorts nulls first. Asking for Μητροπόλεως 107 therefore answered with
+# three numberless Μητροπόλεως rows and put the thing that was asked for fourth.
+NUMBER_FIRST = "(a.street_no = %s) desc nulls last, "
+
+
 def condition(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]:
     """The where clause for one tier, and the values it takes.
 
@@ -192,7 +201,7 @@ def fuzzy_address_sql(key: str, term: Term, limit: int) -> tuple[str, tuple[obje
     tokens = term.folded.split(" ")
     joined = " ".join(tokens)
     prefix, anywhere = joined + "%", "% " + joined + "%"
-    wanted, number = ("a.street_no = %s desc, ", [term.number]) if term.number else ("", [])
+    wanted, number = (NUMBER_FIRST, [term.number]) if term.number else ("", [])
     return (
         f"""
     select {ADDRESS_COLUMNS}
@@ -220,7 +229,7 @@ def address_sql(key: str, tier: str, term: Term, limit: int) -> tuple[str, tuple
     ranked, ranking = order(column, tier, tokens)
     # The number the reader typed, ahead of every other way of ordering the street's
     # addresses: it is the most specific thing they said and it was being thrown away.
-    wanted, number = ("a.street_no = %s desc, ", [term.number]) if term.number else ("", [])
+    wanted, number = (NUMBER_FIRST, [term.number]) if term.number else ("", [])
     return (
         f"""
     select {ADDRESS_COLUMNS}
@@ -418,8 +427,7 @@ select a.id, a.street, a.street_no, a.locality, m.name, a.postcode,
        s.id
 from address a
 left join municipality m on m.id = a.municipality_id
-left join street s
-       on s.municipality_id = a.municipality_id and s.name_fold = a.street_fold
+left join street s on s.id = a.street_id
 where a.id = %s
 """
 
@@ -467,8 +475,7 @@ select distinct on (code, technology) * from (
 
     select {OFFER_COLUMNS.format(matched="'point'")}
     from street s
-    join address a
-      on a.municipality_id = s.municipality_id and a.street_fold = s.name_fold
+    join address a on a.street_id = s.id
     join address_coverage ac on ac.address_id = a.id
     join provider p on p.id = ac.provider_id
     join technology t on t.code = ac.technology
@@ -655,7 +662,7 @@ def names(conn: object, codes: list[str]) -> dict[str, str]:
 
 # The three that sell to households and can be asked. The rest are read from the register
 # and from what they publish, because there is nothing of theirs to ask.
-RETAIL = ["OTE", "VODAFONE", "NOVA"]
+RETAIL = ["TELEKOM", "VODAFONE", "NOVA"]
 
 
 class Cost(BaseModel):
@@ -789,7 +796,7 @@ class Probed(BaseModel):
 
 
 ADAPTERS: dict[str, Callable[[], Adapter]] = {
-    "OTE": Cosmote,
+    "TELEKOM": Cosmote,
     "VODAFONE": Vodafone,
     "NOVA": Nova,
 }

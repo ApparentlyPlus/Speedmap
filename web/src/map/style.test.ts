@@ -108,8 +108,8 @@ describe("what the layers say", () => {
      * A tile carries no key for an operator that does not reach the street, tippecanoe writes
      * no attribute for a null, so presence is exactly the question.
      */
-    const field = String(STREETS_BY_PROVIDER.OTE);
-    const run = featureFilter(only("OTE") as never);
+    const field = String(STREETS_BY_PROVIDER.TELEKOM);
+    const run = featureFilter(only("TELEKOM") as never);
     const asked = (properties: Record<string, number>): boolean =>
       run.filter({ zoom: 13 } as never, { type: 2, properties } as never, undefined as never);
 

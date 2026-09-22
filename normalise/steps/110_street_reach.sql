@@ -16,8 +16,10 @@ select src.street_id, src.provider_id, max(src.mbps)
 from (
     select s.id as street_id, ac.provider_id, least(t.sold_mbps, coalesce(nb.max_mbps, sb.max_mbps)) as mbps
     from street s
-    join address a
-      on a.municipality_id = s.municipality_id and a.street_fold = s.name_fold
+    -- The pin 065 worked out, rather than the name. Matching on the name here would hand
+    -- every component of a name the filings of all the others, which is the bleeding the
+    -- split into components exists to stop.
+    join address a on a.street_id = s.id
     join address_coverage ac on ac.address_id = a.id
     join technology t on t.code = ac.technology
     left join speed_band sb on sb.id = ac.speed_band_id

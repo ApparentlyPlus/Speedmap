@@ -307,7 +307,7 @@ export function regionPaint(view: View): ExpressionSpecification {
     return [
       "interpolate",
       ["linear"],
-      ["coalesce", ["get", "fibre_share" satisfies keyof Region], 0],
+      ["coalesce", ["get", "fiber_share" satisfies keyof Region], 0],
       ...SHARE.flatMap(([at, colour]) => [at, colour]),
     ] as ExpressionSpecification;
   }

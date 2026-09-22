@@ -61,14 +61,14 @@ def test_the_fastest_offer_sets_the_lifetime() -> None:
 def test_an_answer_is_kept_for_as_long_as_it_is_worth(
     reply: psycopg.Connection[TupleRow],
 ) -> None:
-    written = store(reply, 1, Reply("OTE", result(offer("FTTH", 1000))), NOW)
+    written = store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW)
     assert written == 1
     row = reply.execute("select expires_at - observed_at from availability").fetchone()
     assert row == (SETTLED,)
 
 
 def test_a_slow_answer_is_asked_again_sooner(reply: psycopg.Connection[TupleRow]) -> None:
-    store(reply, 1, Reply("OTE", result(offer("VDSL", 50))), NOW)
+    store(reply, 1, Reply("TELEKOM", result(offer("VDSL", 50))), NOW)
     row = reply.execute("select expires_at - observed_at from availability").fetchone()
     assert row == (VOLATILE,)
 
@@ -84,7 +84,7 @@ def test_a_failure_is_recorded_as_a_failure_and_nothing_else(
     reply: psycopg.Connection[TupleRow],
 ) -> None:
     """A checker that could not be reached has not said an address is unserved."""
-    assert store(reply, 1, Reply("OTE", None, error="timed out"), NOW) == 0
+    assert store(reply, 1, Reply("TELEKOM", None, error="timed out"), NOW) == 0
     assert rows(reply, "availability") == 0
     row = reply.execute("select ok, serviceable, detail from probe_attempt").fetchone()
     assert row == (False, None, "timed out")
@@ -113,7 +113,7 @@ def test_a_real_failure_is_still_theirs(reply: psycopg.Connection[TupleRow]) -> 
 def test_being_told_to_investigate_is_not_an_answer_either(
     reply: psycopg.Connection[TupleRow],
 ) -> None:
-    assert store(reply, 1, Reply("OTE", result(conclusive=False, serviceable=False)), NOW) == 0
+    assert store(reply, 1, Reply("TELEKOM", result(conclusive=False, serviceable=False)), NOW) == 0
     assert rows(reply, "availability") == 0
     assert reply.execute("select ok from probe_attempt").fetchone() == (False,)
 
@@ -131,23 +131,23 @@ def test_a_broken_checker_is_left_alone_for_a_few_hours(
     reply: psycopg.Connection[TupleRow],
 ) -> None:
     """Asking it on every request is how a rate limit becomes a ban."""
-    store(reply, 1, Reply("OTE", None, error="503"), NOW)
+    store(reply, 1, Reply("TELEKOM", None, error="503"), NOW)
     reply.commit()
-    assert due(reply, 1, "OTE", NOW + timedelta(hours=1)) is False
-    assert due(reply, 1, "OTE", NOW + timedelta(hours=7)) is True
+    assert due(reply, 1, "TELEKOM", NOW + timedelta(hours=1)) is False
+    assert due(reply, 1, "TELEKOM", NOW + timedelta(hours=7)) is True
 
 
 def test_an_operator_that_answered_may_be_asked_again(
     reply: psycopg.Connection[TupleRow],
 ) -> None:
     """The backoff is for failure. A real answer is governed by its own lifetime."""
-    store(reply, 1, Reply("OTE", result(offer("FTTH", 1000))), NOW)
+    store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW)
     reply.commit()
-    assert due(reply, 1, "OTE", NOW + timedelta(minutes=1)) is True
+    assert due(reply, 1, "TELEKOM", NOW + timedelta(minutes=1)) is True
 
 
 def test_an_operator_never_asked_is_due(reply: psycopg.Connection[TupleRow]) -> None:
-    assert due(reply, 1, "OTE", NOW) is True
+    assert due(reply, 1, "TELEKOM", NOW) is True
 
 
 def test_a_refusal_is_remembered_for_a_month(reply: psycopg.Connection[TupleRow]) -> None:

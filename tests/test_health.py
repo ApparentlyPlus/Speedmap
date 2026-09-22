@@ -37,7 +37,7 @@ def test_the_reader_is_told_a_date_not_a_status() -> None:
     """An operator missing from a comparison is a worse lie than a visible gap."""
     gone = Health("NOVA", BROKEN, datetime(2026, 3, 12, tzinfo=UTC), 6, 0)
     assert gone.says == "has not answered since 12 March"
-    assert Health("OTE", HEALTHY, NOW, 6, 6).says == "answering"
+    assert Health("TELEKOM", HEALTHY, NOW, 6, 6).says == "answering"
     assert Health("X", BROKEN, None, 3, 0).says == "has never answered"
 
 
