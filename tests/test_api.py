@@ -559,3 +559,40 @@ async def test_one_operator_can_be_asked_alone(client: httpx.AsyncClient) -> Non
         f"/addresses/{found[0]['id']}/probe", params={"provider": "NOPE"}
     )
     assert response.status_code == 422
+
+
+async def test_a_street_lit_by_built_fiber_says_who_lights_it(
+    client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
+) -> None:
+    """The colour and the panel come from different queries and must name the same operator.
+
+    street_provider paints the map and this list is derived in api/main.py, so the two are
+    two copies of 110's routes. When 110 gained a third and the panel did not, Χανιά -
+    Θέρισο drew at a gigabit and opened on "no road here with declared coverage". Nothing
+    failed: the street had a figure, the figure was right, and the panel below it was empty.
+    """
+    db.execute(
+        "insert into provider (code, display_name, kind, builds_own_network, register_id) "
+        "values ('BUILDER', 'Builder', 'altnet', true, 904) on conflict (code) do nothing"
+    )
+    row = db.execute(
+        "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom) "
+        "values ('ΦΩΣ', 'ΦΩΣ', 'FOS', 'ΦΩΣ', 'residential', 1, "
+        "'SRID=4326;MULTILINESTRING((23.0 40.7, 23.01 40.71))') returning id"
+    ).fetchone()
+    assert row is not None
+    street_id = int(row[0])
+    # Built fiber beside the road, with no address anywhere: route one and route two both
+    # have nothing to say about this street.
+    db.execute(
+        "insert into raw_coverpoint (coverid, infrprov, prempass, address, point) values "
+        "('lit-1', 904, 9, '64007,ΦΩΣ, ,Δ. ΤΕΣΤ', st_setsrid(st_point(23.0, 40.7), 4326))"
+    )
+    db.commit()
+
+    body = (await client.get(f"/streets/{street_id}")).json()
+    assert [(o["provider"], o["matched_by"]) for o in body["offers"]] == [("BUILDER", "built")]
+
+    db.execute("truncate street, raw_coverpoint cascade")
+    db.execute("delete from provider where code = 'BUILDER'")
+    db.commit()
