@@ -8,13 +8,13 @@ import maplibregl, {
 import type { Geometry, Position } from "geojson";
 
 import { engine } from "../map/engine";
-import { ASIDE, ASIDE_OPACITY, ramps, style } from "../map/style";
+import { hushed, ramps, style } from "../map/style";
 import {
   GLOW,
   PASS_MS,
   TRACE,
   focusOf,
-  turnable,
+
   momentOf,
   pathOf,
   traceLayers,
@@ -46,6 +46,32 @@ const PITCH_ROOM = 0.6;
 /** Degrees a second. A turn takes two minutes, which is slower than anyone will watch. */
 const SPIN = 3;
 
+/**
+ * How long the descent from the country to the street takes.
+ *
+ * Long. The map opens on the whole of Greece and the street is one road in it, so this is
+ * ten zoom levels of travel and the reader is meant to watch it happen: the country
+ * becomes a prefecture, then a town, then the road they asked about, and they can see
+ * where it sits. Rushing that is what made it read as a jolt rather than a journey.
+ */
+const DESCENT_MS = 3600;
+
+/**
+ * How far the camera pulls back on the way. One is a straight line in.
+ *
+ * flyTo arcs out before it comes in, which is right when crossing the country at street
+ * zoom and wrong here: the camera already has the whole country in frame, so any arc at
+ * all is a lurch backwards out of it before the descent starts.
+ */
+const DESCENT_CURVE = 1;
+
+/**
+ * Slow at both ends, quick through the middle. Linear travel starts and stops at full
+ * speed, which reads as a jolt at each end however long the journey is.
+ */
+const SMOOTH = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+
 /** Whether this reader wants things to move at all. */
 function stillness(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -61,10 +87,15 @@ function clear(map: Maplibre): { top: number; right: number; bottom: number; lef
   const box = map.getContainer().getBoundingClientRect();
   const card = document.querySelector(".place")?.getBoundingClientRect();
 
-  // Only where the card covers the map rather than sits beside it. On a narrow screen it
-  // lies across the bottom, and a street fitted under it is a street nobody can see.
-  if (card !== undefined && card.width >= box.width * 0.75) {
+  // The card covers the map rather than sitting beside it, in both layouts. On a narrow
+  // screen it lies across the bottom; on a wide one it is a column down the left. Only the
+  // first was allowed for, so on a desktop the street was fitted to the whole canvas and
+  // then centred, which put half of it behind the panel.
+  if (card === undefined) return pad;
+  if (card.width >= box.width * 0.75) {
     pad.bottom = Math.min(box.bottom - card.top + 16, box.height * 0.6);
+  } else {
+    pad.left = Math.min(card.right - box.left + edge, box.width * 0.6);
   }
   return pad;
 }
@@ -95,7 +126,7 @@ export function Anchored({
 
     const map = new Maplibre({
       container: box.current,
-      style: style(),
+      style: hushed(style()),
       // Where it opens.
       center: here.current ?? [24.0, 38.4],
       zoom: here.current === null ? 6 : ZOOM,
@@ -198,13 +229,6 @@ export function Anchored({
         ]);
       }
 
-      if (map.getLayer("streets-halo") !== undefined) {
-        map.setLayoutProperty("streets-halo", "visibility", "none");
-      }
-      if (map.getLayer("streets") !== undefined) {
-        map.setPaintProperty("streets", "line-color", ASIDE);
-        map.setPaintProperty("streets", "line-opacity", ASIDE_OPACITY);
-      }
       if (streetId !== null && streetId !== undefined && map.getLayer(SUBJECT) === undefined) {
         map.addLayer(
           {
@@ -245,36 +269,52 @@ export function Anchored({
         // However far out that turns out to be. One name can cover thirty kilometres of
         // rural road, and thirty kilometres of rural road is the answer to what was asked.
         /** One move, not four. */
-        const camera = map.cameraForBounds(turnable(extent), {
+        /**
+         * Fitted to the street, not to the circle it sweeps.
+         *
+         * turnable() squares the box so that a street lying east to west is still whole
+         * when the camera has turned ninety degrees onto it. That is correct and it is
+         * also why the road arrived as a thread across the middle of the screen: a 1.9 km
+         * street was being framed inside a 1.9 km square, most of which is the city either
+         * side of it. Fitting the street's own box puts the street across the frame. The
+         * turn is three degrees a second, so the ends drift out slowly and come back, and
+         * a street worth looking at is worth filling the screen with first.
+         */
+        const camera = map.cameraForBounds(extent, {
           padding: clear(map),
           maxZoom: CLOSEST,
         });
         if (camera !== undefined && camera.center !== undefined) {
           /**
-           * Arrive, rather than travel.
+           * One descent, from the whole country to the street.
            *
-           * This used to ease over 1.6 seconds from the camera the map opened on to the
-           * one that frames the street, and those are two different places: the opening
-           * camera is a fixed zoom on the door, the framed one is however far out the
-           * road turns out to be. So the map spent its first second and a half sliding
-           * and zooming between two arbitrary views before the thing the reader asked
-           * for was on screen, and only then began to turn.
+           * There used to be two moves. The map opened on Greece, eased 1.2 seconds to the
+           * midpoint of the street at a fixed zoom, then eased 1.6 more to the frame that
+           * actually holds the road, at a different pitch. Neither was aiming where the
+           * pair of them ended up, so the camera lurched once on the way and again on
+           * arrival. Skipping straight to the frame fixed the lurch and lost the journey:
+           * the street appeared with no sense of where in the country it was.
            *
-           * Nothing was being shown during that move. The street is known by now, and
-           * the reader has just asked for it by name, so the frame is put up whole and
-           * the turn starts on it.
+           * So the door is not visited at all, and what is left is a single slow fall out
+           * of the country view the map opened on. Ten zoom levels, eased at both ends,
+           * and the turn starts when it lands.
            */
-          map.jumpTo({
+          map.flyTo({
             center: camera.center,
             // Room for the lean. The fit is worked out flat, and a tilted camera throws
             // the far half of what it is looking at up the screen and off the top of it.
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
             pitch: TILT,
             bearing: 0,
+            curve: DESCENT_CURVE,
+            easing: SMOOTH,
+            // A reader who asked for stillness gets the frame, arrived at rather than
+            // flown to.
+            duration: reduced ? 0 : DESCENT_MS,
           });
-          // No move to wait on: a jump fires moveend, but the turn can start on the
-          // frame it is already standing in.
-          turning = true;
+          map.once("moveend", () => {
+            turning = true;
+          });
         }
       }
 
