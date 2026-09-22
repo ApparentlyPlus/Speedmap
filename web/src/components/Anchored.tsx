@@ -155,7 +155,7 @@ export function Anchored({
       map.resize();
       // The panel is a share of the window, so what it covers changes with the window and
       // the point the map turns about has to move with it.
-      if (map.getSource(TRACE) !== undefined) map.setPadding(clear(map));
+      if (map.getSource(TRACE) !== undefined) map.easeTo({ padding: clear(map), duration: 0 });
     });
     watching.observe(box.current);
 
@@ -303,11 +303,16 @@ export function Anchored({
          * what is left. That is the point the street is framed on and the point the map
          * turns about, and they have to be the same point.
          */
-        map.setPadding(clear(map));
-        // No padding passed here: the transform is already holding it, and counting it
-        // twice leaves a negative box to fit into, which comes back undefined and the
-        // camera never moves at all.
-        const camera = map.cameraForBounds(extent, { maxZoom: CLOSEST });
+        /*
+         * The padding travels with the flight rather than being set before it.
+         *
+         * setPadding moves the map the instant it is called, so the camera jumped sideways
+         * and then began its descent from wherever the jump had left it. Passed to flyTo
+         * it arrives with everything else, and the transform is still holding it when the
+         * turn starts, which is what keeps the turn about the street.
+         */
+        const pad = clear(map);
+        const camera = map.cameraForBounds(extent, { padding: pad, maxZoom: CLOSEST });
         if (camera !== undefined && camera.center !== undefined) {
           /**
            * One descent, from the whole country to the street.
@@ -330,6 +335,7 @@ export function Anchored({
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
             pitch: TILT,
             bearing: 0,
+            padding: pad,
             curve: DESCENT_CURVE,
             easing: SMOOTH,
             // A reader who asked for stillness gets the frame, arrived at rather than

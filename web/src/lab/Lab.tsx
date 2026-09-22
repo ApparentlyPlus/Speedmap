@@ -8,7 +8,7 @@
  * the only way to see that is to flip between them in one second.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { languageOf, type Language } from "../i18n";
 import { SCENARIOS, SHAPE, STREET_ID, WHERE } from "./fixtures";
@@ -17,6 +17,22 @@ import "../styles/lab.css";
 
 export function Lab(): React.ReactElement {
   const [at, setAt] = useState(0);
+
+  /**
+   * The address arrives late, because it does.
+   *
+   * Place fetches it after the map is already on screen, and the map reads that: given a
+   * position at construction it opens on the street, and given none it opens on the
+   * country and falls to the street when one turns up. Handing the fixture over at mount
+   * skipped the whole descent, so the bench was showing a screen nobody will ever see and
+   * the thing most worth looking at could not be looked at.
+   */
+  const [found, setFound] = useState(false);
+  useEffect(() => {
+    setFound(false);
+    const timer = window.setTimeout(() => setFound(true), 420);
+    return () => window.clearTimeout(timer);
+  }, [at]);
   const [language, setLanguage] = useState<Language>(languageOf(window.location.pathname));
   const scenario = SCENARIOS[at] ?? SCENARIOS[0];
   if (scenario === undefined) throw new Error("no scenarios to show");
@@ -28,9 +44,9 @@ export function Lab(): React.ReactElement {
         name={scenario.name}
         place={scenario.place}
         answer={scenario.answer}
-        shape={SHAPE}
-        where={WHERE}
-        streetId={STREET_ID}
+        shape={found ? SHAPE : null}
+        where={found ? WHERE : null}
+        streetId={found ? STREET_ID : null}
         language={language}
       />
 

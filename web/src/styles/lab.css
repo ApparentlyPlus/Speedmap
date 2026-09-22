@@ -71,16 +71,34 @@
    * rather than as fading.
    */
   padding-right: 26%;
+
+  /*
+   * No scrollbar. The panel ends in a fade halfway across the window, and a scrollbar is
+   * drawn at the edge of the scrolling box, which put a grey rail straight down the middle
+   * of the screen with map on both sides of it.
+   */
+  scrollbar-width: none;
 }
 
 /* The drawing and the address, on one line, sharing a baseline band. */
+/*
+ * The drawing gets a square, the address gets the rest.
+ *
+ * Sized in fractions, the first column took whatever half the panel width happened to be
+ * and the canvas came out 513 by 232. A scene composed in a square, rendered into a
+ * letterbox, is framed on its height and then floats in the middle of all that spare
+ * width, so the house sat well left of the address it was paired with and nothing in the
+ * row lined up. The column is the square now, and the canvas fills it exactly.
+ */
 .split-head {
+  --scene: clamp(180px, 25vh, 290px);
+
   display: grid;
   flex: none;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr);
+  grid-template-columns: var(--scene) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(10px, 1.4vw, 20px);
-  min-height: clamp(190px, 27vh, 320px);
+  gap: clamp(14px, 2vw, 32px);
+  min-height: var(--scene);
 }
 
 /*
@@ -88,15 +106,12 @@
  * and the aerial have room above the house rather than being cut off by a band height.
  */
 .split-scene {
-  aspect-ratio: 1;
-  width: 100%;
-  max-height: clamp(190px, 27vh, 320px);
   /*
-   * Out past the text column on the left. The drawing is a picture rather than a block of
-   * content, and lining its bounding box up with the paragraph below puts a margin down
-   * the middle of a house that has no straight edge to align.
+   * Square, and flush with the column. Hanging it out to the left put the drawing on one
+   * margin and the rule, the sentence and every plan under it on another.
    */
-  margin-left: clamp(-34px, -2vw, -12px);
+  width: var(--scene);
+  height: var(--scene);
 }
 
 .split-title {
@@ -144,7 +159,11 @@
  * answer and the list is the evidence.
  */
 .split-verdict {
-  max-width: 46ch;
+  /*
+   * The same column as the plans. 46ch is a comfortable measure and it is also 76 pixels
+   * narrower than the cards below, which reads as the paragraph being indented from the
+   * right for no reason anybody can see.
+   */
   margin: 0 0 clamp(20px, 2.6vh, 32px);
   color: var(--ink-dim);
   font-size: clamp(15px, 1.15vw, 18px);
@@ -166,6 +185,10 @@
   margin: 0;
   color: var(--ink-faint);
   font-size: 14px;
+}
+
+.split-panel-body::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes split-in {
@@ -202,13 +225,9 @@
   }
 
   .split-head {
-    min-height: 0;
-    grid-template-columns: 128px minmax(0, 1fr);
-  }
+    --scene: 128px;
 
-  .split-scene {
-    max-height: 128px;
-    margin-left: 0;
+    min-height: 0;
   }
 }
 
