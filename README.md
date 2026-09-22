@@ -139,6 +139,25 @@ make bootstrap    # migrate, load the register, build derived tables
 make api          # http://localhost:8000
 ```
 
+`bootstrap` creates the database, so it is the one command that runs against a machine with
+nothing on it. Every stage is idempotent and declares what it comes after, and the order is
+asserted in `tests/test_bootstrap.py` rather than kept in anyone's head.
+
+What a clone reproduces, and what it does not:
+
+| Input | From | In a clone |
+|---|---|---|
+| The register | `broadband-assist.gov.gr`, paged and resumable | Yes, over several hours |
+| Street geometry | `download.geofabrik.de`, the Greece extract | Yes |
+| Measured speeds | Ookla's open S3 bucket | Yes |
+| Tariffs | `prices/published.yaml` and the operators' pages | Yes |
+| The Cosmote address scrape | Months of asking, several gigabytes | No. The stage skips and says what is lost: 326,249 addresses, and two checkers that can then only be asked about streets it walked |
+| `bin/tippecanoe` | Vendored, and gitignored along with everything else binary | No. Install it, or `make tiles` says which tool is missing |
+| `greece.pmtiles`, `buildings.pmtiles` | planetiler, over an OSM extract and Overture footprints | No, and nothing here builds them. The map draws its streets without them and logs which archive is absent |
+
+A clone therefore reaches a loaded database and its own coverage tiles. The land underneath
+them comes from somewhere else.
+
 ```bash
 cd web
 npm install
