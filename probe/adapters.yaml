@@ -1,6 +1,6 @@
 # What each operator's checker looks like today.
 
-OTE:
+TELEKOM:
   base: https://www.telekom.gr
   # Their availability call will not answer without the cookie this page sets.
   warm: /eshop/jsp/eligibility.jsp

@@ -16,7 +16,7 @@ STALE = "stale"
 REFUSED = "refused"
 UNKNOWN = "unknown"
 
-# Fibre is dug street by street, so fibre somewhere along a street is near enough to fibre
+# Fiber is dug street by street, so fiber somewhere along a street is near enough to fiber
 # at every door. Copper varies by cabinet distance and is asked rather than assumed.
 CONFIDENT_MBPS = Decimal(1000)
 
@@ -39,7 +39,7 @@ def verdict(
     street_no: int | None = None,
     checked_to: int | None = None,
     street_best_mbps: Decimal | None = None,
-    street_fibre: bool = False,
+    street_fiber: bool = False,
     refused: bool = False,
 ) -> str:
     """How much is known about this address, and whether the operator need be asked.
@@ -49,7 +49,7 @@ def verdict(
     """
     if answer is not None and answer.expires_at > now:
         return FRESH
-    if street_fibre or (street_best_mbps is not None and street_best_mbps >= CONFIDENT_MBPS):
+    if street_fiber or (street_best_mbps is not None and street_best_mbps >= CONFIDENT_MBPS):
         return INFERRED
     if answer is not None:
         return STALE

@@ -15,9 +15,18 @@
 -- derivations in 110 and 120 were made one. An invariant that cries wolf is worse than none,
 -- because the next person to read it turns it off.
 --
--- Both routes, the same two 110_street_reach.sql builds the figure from: the doors filed on
--- the street, and the cabinets it runs through. A street with a speed and neither is a
--- street wearing a number nothing fixed ever gave it.
+-- It cried wolf a third time, 394 streets' worth, when 110 gained a route it did not know
+-- about. Every route 110 reads has to be a route this reads, so the list below is the same
+-- list, in the same order:
+--
+--   * the doors pinned to the street, through street_id rather than the folded name. 065
+--     decides which run of a name a door belongs to, and asking by name again would let a
+--     door two kilometres away vouch for a figure it had nothing to do with.
+--   * the cabinets it runs through, cut at cabinet_m2().
+--   * the built fiber standing within built_fiber_m() of it. That is how a village reaches
+--     a gigabit when the address index holds fifty doors for the whole municipality.
+--
+-- A street with a speed and none of the three is wearing a number nothing fixed ever gave it.
 select s.id, s.name, s.best_mbps
 from street s
 where s.best_mbps is not null
@@ -25,8 +34,7 @@ where s.best_mbps is not null
       select 1
       from address a
       join address_coverage ac on ac.address_id = a.id
-      where a.municipality_id is not distinct from s.municipality_id
-        and a.street_fold = s.name_fold
+      where a.street_id = s.id
         and ac.family <> 'wireless'
   )
   and not exists (
@@ -35,4 +43,12 @@ where s.best_mbps is not null
       where ca.family <> 'wireless'
         and ca.area_m2 <= cabinet_m2()
         and st_intersects(ca.geom_2d, s.geom::geometry)
+  )
+  and not exists (
+      select 1
+      from raw_coverpoint c
+      join provider p on p.register_id = c.infrprov
+      where c.prempass > 0
+        and p.builds_own_network
+        and st_dwithin(s.geom, c.point::geography, built_fiber_m())
   );

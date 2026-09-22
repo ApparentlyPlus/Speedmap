@@ -8,7 +8,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { RAMP, UNSERVED } from "../tokens";
-import { BASE, BUILDINGS, SOURCE, only, streetLayers, style } from "./style";
+import { ASIDE, BASE, BUILDINGS, SOURCE, hushed, only, streetLayers, style } from "./style";
 import { STREETS_BY_PROVIDER } from "./tiles";
 
 
@@ -108,8 +108,8 @@ describe("what the layers say", () => {
      * A tile carries no key for an operator that does not reach the street, tippecanoe writes
      * no attribute for a null, so presence is exactly the question.
      */
-    const field = String(STREETS_BY_PROVIDER.OTE);
-    const run = featureFilter(only("OTE") as never);
+    const field = String(STREETS_BY_PROVIDER.TELEKOM);
+    const run = featureFilter(only("TELEKOM") as never);
     const asked = (properties: Record<string, number>): boolean =>
       run.filter({ zoom: 13 } as never, { type: 2, properties } as never, undefined as never);
 
@@ -184,5 +184,34 @@ describe("what a fresh style draws", () => {
     // The map page turns them on with the view switch.
     const cells = style().layers.find((layer) => layer.id === "cells");
     expect(cells?.layout?.visibility).toBe("none");
+  });
+});
+
+
+describe("the result map's style", () => {
+  it("is already quiet when it is handed over", () => {
+    /**
+     * The colours used to be taken down after the style had loaded, so the result map
+     * painted one frame of full coverage colour across the whole country and then dropped
+     * it. The descent started on that flinch, which is what read as jagged before the
+     * camera had moved at all.
+     */
+    const quiet = hushed(style());
+    const halo = quiet.layers.find((layer) => layer.id === "streets-halo");
+    const streets = quiet.layers.find((layer) => layer.id === "streets");
+    expect(halo?.layout?.visibility).toBe("none");
+    expect(streets?.type).toBe("line");
+    expect(
+      (streets as { paint?: Record<string, unknown> }).paint?.["line-color"],
+    ).toBe(ASIDE);
+  });
+
+  it("leaves the map page's own style painted", () => {
+    // Only the result map hushes. The atlas is the coverage, and hushing it would leave a
+    // page whose entire subject is grey.
+    const streets = style().layers.find((layer) => layer.id === "streets");
+    expect(
+      (streets as { paint?: Record<string, unknown> }).paint?.["line-color"],
+    ).not.toBe(ASIDE);
   });
 });

@@ -85,9 +85,9 @@ def test_confidence_never_falls_as_tests_accumulate(tests: int) -> None:
 # tempering by family.
 
 
-def test_fibre_delivers_what_it_says() -> None:
-    """A cell median mixes every operator and technology, so it says nothing about a fibre line."""
-    result = expected("fibre", mbps("1000"), median_mbps=mbps("60"), tests=50)
+def test_fiber_delivers_what_it_says() -> None:
+    """A cell median mixes every operator and technology, so it says nothing about a fiber line."""
+    result = expected("fiber", mbps("1000"), median_mbps=mbps("60"), tests=50)
     assert result.mbps == mbps("1000")
     assert result.measured is False
 

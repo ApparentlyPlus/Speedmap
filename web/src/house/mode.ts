@@ -3,7 +3,7 @@
 import type { Mode } from "./house3d";
 
 const BY_FAMILY: Readonly<Record<string, Mode>> = {
-  fibre: "landline",
+  fiber: "landline",
   copper: "landline",
   coax: "landline",
   wireless: "cellular",

@@ -46,7 +46,7 @@ order by c.dimos, coalesce(c.area, ''), count(*) desc
 CATALOGUE = """
 select pl.external_key, pl.down_mbps, pl.technology
 from plan pl join provider pr on pr.id = pl.provider_id
-where pr.code = 'OTE' and pl.technology is not null and pl.down_mbps is not null
+where pr.code = 'TELEKOM' and pl.technology is not null and pl.down_mbps is not null
 """
 
 HELD = """
@@ -155,7 +155,7 @@ select distinct on (s.address_id)
     end,
     jsonb_build_object('plans', s.plans)
 from stage_cosmote s
-cross join (select id from provider where code = 'OTE') p
+cross join (select id from provider where code = 'TELEKOM') p
 order by s.address_id, s.observed_at desc, s.max_down_mbps desc
 on conflict (address_id, provider_id, technology) do update set
     max_down_mbps = excluded.max_down_mbps,

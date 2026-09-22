@@ -17,7 +17,7 @@ from probe.nova import Nova, euros, speed_of, technology_of
 # catalogue is swept rather than read: preselecting 100 never mentions a gigabit exists.
 PRESELECTIONS = ("2P_FIBER_100", "2P_FIBER_300", "2P_FIBER_500", "2P_FIBER_1000")
 
-FAMILY = {"FTTH": "fibre", "VECT_VDSL": "copper", "VDSL": "copper", "ADSL": "copper"}
+FAMILY = {"FTTH": "fiber", "VECT_VDSL": "copper", "VDSL": "copper", "ADSL": "copper"}
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class Reference:
 
 
 # Addresses chosen so that between them every rung they sell has somewhere to appear: a street
-# on their own fibre reaches the gigabit tiers, an Athens copper street the rest.
+# on their own fiber reaches the gigabit tiers, an Athens copper street the rest.
 REFERENCES = (
     Reference("Ν. ΘΕΣΣΑΛΟΝΙΚΗΣ", "Δ. ΘΕΣΣΑΛΟΝΙΚΗΣ", "ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", "8", "54639"),
     Reference("Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", "100", "10434"),

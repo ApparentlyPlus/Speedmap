@@ -19,7 +19,7 @@ from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import Naming, naming
 
-SPEC = Descriptor("OTE")
+SPEC = Descriptor("TELEKOM")
 
 BASE = SPEC.text("base")
 ELIGIBILITY = SPEC.text("warm")
@@ -133,7 +133,7 @@ def read(html: str) -> Probed:
 class Cosmote:
     """A session against their eligibility page, reused across checks."""
 
-    code: str = "OTE"
+    code: str = "TELEKOM"
     client: httpx.Client | None = None
     user_agent: str = settings.user_agent
 

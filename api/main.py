@@ -122,8 +122,25 @@ ADDRESS_COLUMNS = f"""
 
 # A street's best is the best of the addresses on it, worked out by the build rather than
 # here: asking it per keystroke cost 173ms against a tier that answers in a third of one.
-STREET_COLUMNS = """
-    'street', s.id, s.name, null, null, m.name, null, null, s.best_mbps
+# Which part of town this run of the name is in, when its doors agree on one.
+#
+# A street is one connected road, so a name can be several rows inside a municipality and
+# they reach the list identical: 7,320 names are, and Χανιά - Θέρισο in Χανιά is two of
+# them, both a gigabit, nothing to choose between. The locality its own addresses carry is
+# the only thing that separates them.
+#
+# It is not always there. 10,645 of the rows in those groups have no address at all, mostly
+# rural roads the register never filed a door on, and those arrive bare rather than wearing
+# a label invented for them. mode() rather than any one door, because a long road crosses
+# more than one district and the answer wanted is where most of it is.
+STREET_LOCALITY = """
+    (select mode() within group (order by a.locality)
+     from address a
+     where a.street_id = s.id and a.locality is not null)
+"""
+
+STREET_COLUMNS = f"""
+    'street', s.id, s.name, null, {STREET_LOCALITY}, m.name, null, null, s.best_mbps
 """
 
 # Three tiers, widening only when the one above has not filled the page.
@@ -146,6 +163,15 @@ class Term:
 
     folded: str
     number: str | None
+
+
+# The house number the reader typed, ahead of every other way of ordering a street's doors.
+#
+# It hangs on `nulls last`. `street_no = '107'` is true on the door, false on its neighbours
+# and *null* on the 126,000 rows the register filed with no number at all, and a plain
+# `desc` in Postgres sorts nulls first. Asking for Μητροπόλεως 107 therefore answered with
+# three numberless Μητροπόλεως rows and put the thing that was asked for fourth.
+NUMBER_FIRST = "(a.street_no = %s) desc nulls last, "
 
 
 def condition(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]:
@@ -192,7 +218,7 @@ def fuzzy_address_sql(key: str, term: Term, limit: int) -> tuple[str, tuple[obje
     tokens = term.folded.split(" ")
     joined = " ".join(tokens)
     prefix, anywhere = joined + "%", "% " + joined + "%"
-    wanted, number = ("a.street_no = %s desc, ", [term.number]) if term.number else ("", [])
+    wanted, number = (NUMBER_FIRST, [term.number]) if term.number else ("", [])
     return (
         f"""
     select {ADDRESS_COLUMNS}
@@ -220,7 +246,7 @@ def address_sql(key: str, tier: str, term: Term, limit: int) -> tuple[str, tuple
     ranked, ranking = order(column, tier, tokens)
     # The number the reader typed, ahead of every other way of ordering the street's
     # addresses: it is the most specific thing they said and it was being thrown away.
-    wanted, number = ("a.street_no = %s desc, ", [term.number]) if term.number else ("", [])
+    wanted, number = (NUMBER_FIRST, [term.number]) if term.number else ("", [])
     return (
         f"""
     select {ADDRESS_COLUMNS}
@@ -255,7 +281,13 @@ class Result(BaseModel):
     id: int
     name: str
     street_no: str | None
-    locality: str | None = Field(description="as the register filed it")
+    locality: str | None = Field(
+        description=(
+            "for a door, as the register filed it. For a street, where most of its doors "
+            "say they are, the one thing separating two runs of a name in one "
+            "municipality. Null when it has no filed doors to ask"
+        )
+    )
     municipality: str | None
     postcode: str | None
     premises: int | None = Field(description="dwellings passed, null when not filed")
@@ -418,8 +450,7 @@ select a.id, a.street, a.street_no, a.locality, m.name, a.postcode,
        s.id
 from address a
 left join municipality m on m.id = a.municipality_id
-left join street s
-       on s.municipality_id = a.municipality_id and s.name_fold = a.street_fold
+left join street s on s.id = a.street_id
 where a.id = %s
 """
 
@@ -467,8 +498,7 @@ select distinct on (code, technology) * from (
 
     select {OFFER_COLUMNS.format(matched="'point'")}
     from street s
-    join address a
-      on a.municipality_id = s.municipality_id and a.street_fold = s.name_fold
+    join address a on a.street_id = s.id
     join address_coverage ac on ac.address_id = a.id
     join provider p on p.id = ac.provider_id
     join technology t on t.code = ac.technology
@@ -478,6 +508,30 @@ select distinct on (code, technology) * from (
     -- 5G reaches everywhere is not an operator that reaches this street, and listing it
     -- here would put the same gigabit on every road in the country.
     where s.id = %s and ac.family <> 'wireless'
+
+    union all
+
+    -- Built fiber standing beside the street: 110's third route, read here too.
+    --
+    -- The map is painted from street_provider and this list is derived here, so the two
+    -- have to read the same sources or the street is drawn a colour the panel cannot
+    -- account for. It was: Χανιά - Θέρισο came out at a gigabit and opened on "no road
+    -- here with declared coverage", because 110 learned this route and the panel did not.
+    --
+    -- The same guard 110 uses, for the same reason: a filing the address layer placed
+    -- reaches the street through the door above, and counting it here as well would list
+    -- one operator twice.
+    select credited.code, credited.display_name, 'FTTH', 'fiber', 'built', null::date,
+           credited.code, null::int, null::numeric, null::numeric, null::text, t.sold_mbps
+    from street s
+    join raw_coverpoint c
+      on c.prempass > 0
+     and st_dwithin(s.geom, c.point::geography, built_fiber_m())
+    join provider filed on filed.register_id = c.infrprov and filed.builds_own_network
+    join provider credited on credited.id = coalesce(filed.credited_to, filed.id)
+    join technology t on t.code = 'FTTH'
+    where s.id = %s
+      and not exists (select 1 from address_point ap where ap.coverid = c.coverid)
 ) reached (
     code, display_name, technology, family, matched, avail_date,
     infra_code, band_id, min_mbps, max_mbps, label, sold_mbps
@@ -498,7 +552,12 @@ class Offer(BaseModel):
     provider_name: str
     technology: str
     family: str
-    matched_by: str = Field(description="point for a filing here, area for a cabinet")
+    matched_by: str = Field(
+        description=(
+            "point for a filing here, area for a cabinet, built for fiber in the "
+            "ground that the register never gave an address"
+        )
+    )
     available_from: date | None
     infra_provider: str | None = Field(description="who built it, when not the seller")
     speed: Speed | None = Field(description="null when the operator filed no speed")
@@ -594,7 +653,7 @@ def street(street_id: int) -> StreetDetail:
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         bbox=(row[5], row[6], row[7], row[8]),
         shape=json.loads(row[9]),
-        offers=offers(rows(STREET_OFFERS, (street_id, street_id))),
+        offers=offers(rows(STREET_OFFERS, (street_id, street_id, street_id))),
     )
 
 
@@ -655,7 +714,7 @@ def names(conn: object, codes: list[str]) -> dict[str, str]:
 
 # The three that sell to households and can be asked. The rest are read from the register
 # and from what they publish, because there is nothing of theirs to ask.
-RETAIL = ["OTE", "VODAFONE", "NOVA"]
+RETAIL = ["TELEKOM", "VODAFONE", "NOVA"]
 
 
 class Cost(BaseModel):
@@ -789,7 +848,7 @@ class Probed(BaseModel):
 
 
 ADAPTERS: dict[str, Callable[[], Adapter]] = {
-    "OTE": Cosmote,
+    "TELEKOM": Cosmote,
     "VODAFONE": Vodafone,
     "NOVA": Nova,
 }

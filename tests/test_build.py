@@ -261,7 +261,7 @@ def test_a_filed_service_becomes_coverage(buildable: psycopg.Connection[TupleRow
         "join provider ip on ip.id = c.infra_provider_id "
         "join speed_band sb on sb.id = c.speed_band_id"
     ).fetchone()
-    assert row == ("register", "METADOSIS", "OTE", "FTTH", "fibre", ">= 1000 Mbps", "declared")
+    assert row == ("register", "METADOSIS", "TELEKOM", "FTTH", "fiber", ">= 1000 Mbps", "declared")
 
 
 def test_a_service_filed_without_a_speed_has_no_band(
@@ -410,7 +410,7 @@ def test_copper_is_kept_out_of_the_point_table(buildable: psycopg.Connection[Tup
     assert row == (0,)
 
 
-def test_fibre_is_kept_out_of_the_area_table(buildable: psycopg.Connection[TupleRow]) -> None:
+def test_fiber_is_kept_out_of_the_area_table(buildable: psycopg.Connection[TupleRow]) -> None:
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     seed_service(buildable, 1, "c1", technolo=4)
     assert run(buildable, area_step())[AREA_STEP] == 0
@@ -633,7 +633,7 @@ def test_several_operators_at_one_address(buildable: psycopg.Connection[TupleRow
 
 
 def test_an_offer_may_have_no_speed(buildable: psycopg.Connection[TupleRow]) -> None:
-    """72.8% of fibre offers carry no band. Absent must survive the whole pipeline."""
+    """72.8% of fiber offers carry no band. Absent must survive the whole pipeline."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_service(buildable, 1, "c1", technolo=4, maxdown=None)

@@ -307,7 +307,7 @@ export function regionPaint(view: View): ExpressionSpecification {
     return [
       "interpolate",
       ["linear"],
-      ["coalesce", ["get", "fibre_share" satisfies keyof Region], 0],
+      ["coalesce", ["get", "fiber_share" satisfies keyof Region], 0],
       ...SHARE.flatMap(([at, colour]) => [at, colour]),
     ] as ExpressionSpecification;
   }
@@ -406,6 +406,27 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
 }
 
 /** The whole style. Basemap archives are built elsewhere. The coverage is ours. */
+/**
+ * The coverage colours taken down to a murmur, before anything is drawn.
+ *
+ * The result map is about one street, and the rest of the city is context. Anchored used to
+ * quiet them once the style had loaded. That is one frame too late: the map painted the
+ * country in full coverage colour, then dropped the lot to grey, and the descent began on
+ * the flinch. Handed a style already quiet, it opens on the frame it should.
+ */
+export function hushed(spec: StyleSpecification): StyleSpecification {
+  for (const layer of spec.layers) {
+    if (layer.id === "streets-halo") {
+      layer.layout = { ...layer.layout, visibility: "none" };
+    }
+    if (layer.id === "streets" && layer.type === "line") {
+      layer.paint = { ...layer.paint, "line-color": ASIDE, "line-opacity": ASIDE_OPACITY };
+    }
+  }
+  return spec;
+}
+
+
 export function style(base = "/tiles"): StyleSpecification {
   return {
     version: 8,
