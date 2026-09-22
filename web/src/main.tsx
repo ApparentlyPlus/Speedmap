@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import "@fontsource-variable/dm-sans";
 
 import { languageOf } from "./i18n";
+import { Lab } from "./lab/Lab";
 import { Credits } from "./routes/credits";
 import { Landing } from "./routes/index";
 import { MapPage } from "./routes/map";
@@ -19,6 +20,9 @@ function Page(): React.ReactElement {
   const page = (name: string): boolean => path === `/${name}` || path === `/${language}/${name}`;
   if (page("map")) return <MapPage language={language} />;
   if (page("attribution")) return <Credits />;
+  // The bench for whatever is being redesigned. Dev only: the import is behind the same
+  // flag, so a build has no route to it and no code for it either.
+  if (import.meta.env.DEV && page("lab")) return <Lab />;
   return <Landing />;
 }
 

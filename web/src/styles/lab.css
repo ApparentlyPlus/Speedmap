@@ -1,0 +1,261 @@
+/*
+ * The split result screen. Half the page is what was found, half is where it is, and the
+ * join between them is a gradient rather than an edge.
+ */
+
+.split {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+/*
+ * The panel is a column, not a card: no border, no radius, no shadow. Those said "this
+ * floats above the map". It does not float above it any more, it is the other half of it.
+ */
+.split-panel {
+  display: grid;
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto 0 0;
+  /*
+   * Wider than half. The map wants the right of the screen, not exactly half of it, and
+   * holding the panel to 50vw meant the text stopped well short of the middle to leave
+   * room for the fade. The fade lives in the overhang instead, so the content can run up
+   * to the midpoint and the thinning happens past it.
+   */
+  width: 60vw;
+  animation: split-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/*
+ * Its own layer, so the fade is a property of the ground and not of the text standing on
+ * it. Painting the gradient on .split-panel would take the type down with it.
+ *
+ * Solid for the first two thirds, then the last third spends itself. The stops are not
+ * evenly spaced: a linear ramp reads as a band with two visible ends, and the eye finds
+ * the start of it. Easing the alpha hides where it begins.
+ */
+.split-panel-ground {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    var(--ground) 0%,
+    var(--ground) 62%,
+    rgb(8 8 10 / 97%) 72%,
+    rgb(8 8 10 / 90%) 80%,
+    rgb(8 8 10 / 76%) 87%,
+    rgb(8 8 10 / 52%) 93%,
+    rgb(8 8 10 / 24%) 97%,
+    rgb(8 8 10 / 0%) 100%
+  );
+  pointer-events: none;
+}
+
+/*
+ * The text stops well before the ground does. Running it into the fade would leave the last
+ * word of a line sitting on the map.
+ */
+.split-panel-body {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  flex-direction: column;
+  gap: 0;
+  padding: clamp(24px, 3.4vh, 44px) 0 clamp(48px, 7vh, 80px) clamp(28px, 4vw, 64px);
+  overflow-y: auto;
+  /*
+   * Everything stops before the ground starts thinning. A card whose right edge lands in
+   * the fade has one corner on the panel and the other on the map, and reads as torn
+   * rather than as fading.
+   */
+  padding-right: 26%;
+}
+
+/* The drawing and the address, on one line, sharing a baseline band. */
+.split-head {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 20px);
+  min-height: clamp(190px, 27vh, 320px);
+}
+
+/*
+ * Nothing clips it. The scene draws its own margins and the canvas is square, so the roof
+ * and the aerial have room above the house rather than being cut off by a band height.
+ */
+.split-scene {
+  aspect-ratio: 1;
+  width: 100%;
+  max-height: clamp(190px, 27vh, 320px);
+  /*
+   * Out past the text column on the left. The drawing is a picture rather than a block of
+   * content, and lining its bounding box up with the paragraph below puts a margin down
+   * the middle of a house that has no straight edge to align.
+   */
+  margin-left: clamp(-34px, -2vw, -12px);
+}
+
+.split-title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.split-name {
+  margin: 0;
+  /* --fit comes from the length of the address. See Split.tsx. */
+  font-size: calc(clamp(26px, 2.8vw, 42px) * var(--fit, 1));
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.split-where {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/*
+ * Faint, and short of the fade, so it does not point at the join.
+ *
+ * flex: none because the panel is a flex column and a one pixel child is the first thing
+ * flex shrinks: it measured zero high and drew nothing at all.
+ */
+.split-rule {
+  flex: none;
+  width: 100%;
+  height: 1px;
+  margin: clamp(18px, 2.4vh, 30px) 0 clamp(16px, 2.2vh, 26px);
+  border: 0;
+  background: var(--rule);
+}
+
+/*
+ * The one paragraph on the page. Set larger than the list under it, because it is the
+ * answer and the list is the evidence.
+ */
+.split-verdict {
+  max-width: 46ch;
+  margin: 0 0 clamp(20px, 2.6vh, 32px);
+  color: var(--ink-dim);
+  font-size: clamp(15px, 1.15vw, 18px);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+/* No rule above these. They continue the sentence. */
+.split-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-empty {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+
+@keyframes split-in {
+  from {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+}
+
+/*
+ * Narrow: the split stops being a split. The map goes to the top third and the panel takes
+ * the rest, and the fade turns through ninety degrees with it.
+ */
+@media (width <= 900px) {
+  .split-panel {
+    inset: auto 0 0 0;
+    width: 100%;
+    height: 68vh;
+  }
+
+  .split-panel-ground {
+    background: linear-gradient(
+      to top,
+      var(--ground) 0%,
+      var(--ground) 62%,
+      rgb(8 8 10 / 88%) 76%,
+      rgb(8 8 10 / 46%) 90%,
+      rgb(8 8 10 / 0%) 100%
+    );
+  }
+
+  .split-panel-body {
+    padding: 26px 22px 24px;
+  }
+
+  .split-head {
+    min-height: 0;
+    grid-template-columns: 128px minmax(0, 1fr);
+  }
+
+  .split-scene {
+    max-height: 128px;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-panel {
+    animation: none;
+  }
+}
+
+/*
+ * The bench controls. Deliberately plain and deliberately ugly: this is not part of the
+ * design, and anything considered here would start being read as a decision.
+ */
+.lab-bar {
+  display: flex;
+  position: fixed;
+  z-index: 40;
+  bottom: 14px;
+  left: 50%;
+  gap: 6px;
+  padding: 6px;
+  transform: translateX(-50%);
+  border: 1px solid var(--rule-lit);
+  border-radius: 999px;
+  background: rgb(0 0 0 / 72%);
+  backdrop-filter: blur(14px);
+}
+
+.lab-pick {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.lab-pick-on {
+  background: rgb(255 255 255 / 10%);
+  color: var(--ink);
+}
+
+.lab-gap {
+  width: 1px;
+  margin: 4px 4px;
+  background: var(--rule-lit);
+}

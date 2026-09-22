@@ -22,6 +22,15 @@ export type SceneOptions = {
   readonly mbps?: number;
   readonly mode?: Mode;
   readonly still?: boolean;
+  /**
+   * Whether the house stands on a lit plate of its own.
+   *
+   * Inside a 232 pixel band the plate is the ground the house sits on. Given a quarter of
+   * the screen it becomes a lit rectangle with four corners, and the drawing reads as a
+   * picture in a frame rather than as a thing on the page. Off, the soft shadow lands on
+   * whatever is behind the canvas.
+   */
+  readonly grounded?: boolean;
 };
 
 const WALL = 0x1a1e26;
@@ -219,11 +228,13 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   shadow.position.y = 0.002;
   scene.add(shadow);
 
-  const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(300, 64).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 1 }),
-  );
-  scene.add(ground);
+  if (options.grounded ?? true) {
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(300, 64).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0x07080a, roughness: 1 }),
+    );
+    scene.add(ground);
+  }
 
   // ---- the three routes, each a tube of flowing light.
   const ROUTES: Record<string, Flow> = {
@@ -243,8 +254,37 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     return r;
   });
 
-  const SUBJECT = { height: 5.4, width: 6.4, centre: 1.9 };
+  /**
+   * The box the camera frames, and it has to hold the widest thing any mode draws.
+   *
+   * It was fitted to the house, 5.4 by 6.4, which is right up to the moment cellular turns
+   * on: the broadcast rings grow to a radius of nearly three and the outermost ones were
+   * being cut off by all four edges. Sized to the rings instead, so the house sits a
+   * little smaller and nothing that leaves it runs out of frame.
+   *
+   * Centred below the middle of the house rather than on it. The chimney, the aerial and
+   * the dish all stand above the roof, so the drawing's weight is higher than its box.
+   */
+  /**
+   * Two boxes, because the drawing is two sizes.
+   *
+   * The house and its wires fit in HOUSE. Turn cellular on and the broadcast rings grow to
+   * a radius of three around the aerial, and framing those inside HOUSE cut every ring off
+   * against all four edges. Framing everything inside BROADCAST instead fixes the rings and
+   * leaves the house small on the four modes out of five that draw no rings at all.
+   *
+   * So the camera holds HOUSE and eases back to BROADCAST as the rings come in, on the same
+   * 0 to 1 the walls open on. Nothing is cut off and nothing is far away.
+   */
+  const HOUSE = { height: 5.4, width: 6.4 };
+  const BROADCAST = { height: 7.4, width: 8.2 };
+  const CENTRE = 1.5;
+  const AIM = new THREE.Vector3(0.58, 0.4, 0.92).normalize();
+
   let sized = { w: 0, h: 0 };
+  /** How far back each box has to be watched from, at the size the canvas is now. */
+  let range = { near: 0, far: 0 };
+
   function resize(): void {
     const box = canvas.getBoundingClientRect();
     if (box.width === sized.w && box.height === sized.h) return;
@@ -252,11 +292,20 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     renderer.setSize(box.width, box.height, false);
     camera.aspect = box.width / Math.max(1, box.height);
     const vertical = Math.tan((camera.fov * Math.PI) / 360);
-    const back = Math.max(SUBJECT.height / 2 / vertical, SUBJECT.width / 2 / (vertical * camera.aspect)) * 1.2;
-    const dir = new THREE.Vector3(0.58, 0.40, 0.92).normalize();
-    camera.position.copy(dir.multiplyScalar(back)).add(new THREE.Vector3(0, SUBJECT.centre, 0));
-    camera.lookAt(0, SUBJECT.centre, 0);
+    const backFor = (subject: { height: number; width: number }): number =>
+      Math.max(
+        subject.height / 2 / vertical,
+        subject.width / 2 / (vertical * camera.aspect),
+      ) * 1.2;
+    range = { near: backFor(HOUSE), far: backFor(BROADCAST) };
     camera.updateProjectionMatrix();
+  }
+
+  /** Where the camera stands, given how much of the broadcast is showing. */
+  function watchFrom(air: number): void {
+    const back = range.near + (range.far - range.near) * air;
+    camera.position.copy(AIM).multiplyScalar(back).add(new THREE.Vector3(0, CENTRE, 0));
+    camera.lookAt(0, CENTRE, 0);
   }
 
   function frame(): void {
@@ -306,13 +355,18 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     }
 
     const air = (a.route === 'air' ? 1 - eased : 0) + (b.route === 'air' ? eased : 0);
+    // Before the rings, because they are turned to face the camera and a camera moved after
+    // them leaves a frame of rings facing where it used to be.
+    watchFrom(air);
+
     rings.forEach((r, i) => {
       const paint = r.material as THREE.MeshBasicMaterial;
       r.visible = air > 0.01;
       const phase = ((now / 2600) + i / rings.length) % 1;
       // Starting at the aerial rather than at arm's length from it, so the wave is seen
       // leaving the router rather than already on its way.
-      const size = 0.12 + phase * 4.8;
+      // Stops inside SUBJECT. A ring that leaves the frame is a wave that hit a wall.
+      const size = 0.12 + phase * 2.9;
       r.quaternion.copy(camera.quaternion);
       r.scale.set(size, size, size);
       // Fading in as well as out, so a ring is never seen springing into existence at the
