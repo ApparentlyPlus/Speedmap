@@ -410,9 +410,9 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
  * The coverage colours taken down to a murmur, before anything is drawn.
  *
  * The result map is about one street, and the rest of the city is context. Anchored used to
- * quiet them once the style had loaded, which is one frame too late: the map painted the
+ * quiet them once the style had loaded. That is one frame too late: the map painted the
  * country in full coverage colour, then dropped the lot to grey, and the descent began on
- * the flinch. Handed a style that is already quiet, the first frame is the right one.
+ * the flinch. Handed a style already quiet, it opens on the frame it should.
  */
 export function hushed(spec: StyleSpecification): StyleSpecification {
   for (const layer of spec.layers) {

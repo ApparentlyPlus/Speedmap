@@ -5,7 +5,7 @@
 -- at all, so FIBERGRID, UNITEDFIBER, FIBER2ALL and NETFIBER fell out of the build. Between
 -- them they pass 1.4 million doors. No error was raised and no count looked wrong. The
 -- other invariants all went on passing, because each of them asks whether what is there is
--- right, which is a different question from whether anything is missing.
+-- right. Whether anything is missing is a different question.
 --
 -- An operator who has built past a door the register can place reaches that door. Speed
 -- and terms are checked elsewhere.

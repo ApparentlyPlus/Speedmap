@@ -18,7 +18,7 @@ from (
     select s.id as street_id, ac.provider_id, least(t.sold_mbps, coalesce(nb.max_mbps, sb.max_mbps)) as mbps
     from street s
     -- The pin 065 worked out, rather than the name. Matching on the name here would hand
-    -- every component of a name the filings of all the others, which is the bleeding the
+    -- every component of a name the filings of all the others. That bleeding is what the
     -- split into components exists to stop.
     join address a on a.street_id = s.id
     join address_coverage ac on ac.address_id = a.id

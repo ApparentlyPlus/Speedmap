@@ -23,7 +23,7 @@
 --     decides which run of a name a door belongs to, and asking by name again would let a
 --     door two kilometres away vouch for a figure it had nothing to do with.
 --   * the cabinets it runs through, cut at cabinet_m2().
---   * the built fiber standing within built_fiber_m() of it, which is how a village reaches
+--   * the built fiber standing within built_fiber_m() of it. That is how a village reaches
 --     a gigabit when the address index holds fifty doors for the whole municipality.
 --
 -- A street with a speed and none of the three is wearing a number nothing fixed ever gave it.
