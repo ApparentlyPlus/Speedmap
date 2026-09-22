@@ -15,7 +15,7 @@ from ranking.tile import quadkey
 
 # Which of Ookla's two worlds a technology of ours lives in.
 WORLD = {
-    "fibre": "fixed",
+    "fiber": "fixed",
     "coax": "fixed",
     "copper": "fixed",
     "wireless": "mobile",

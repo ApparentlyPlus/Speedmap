@@ -47,11 +47,11 @@ limit 1
 INSERT = """
 insert into address (
     street, street_fold, street_no, locality, postcode,
-    municipality_id, search_key, latin_key, geom, source
+    municipality_id, search_key, latin_key, geom, source, street_id
 )
 values (
     %(street)s, %(fold)s, %(number)s, %(locality)s, %(postcode)s,
-    %(municipality)s, %(key)s, %(latin)s, %(geom)s, 'asked'
+    %(municipality)s, %(key)s, %(latin)s, %(geom)s, 'asked', %(street_id)s
 )
 on conflict (postcode, street_fold, street_no, municipality_id) do nothing
 returning id
@@ -136,6 +136,9 @@ def propose(
         "street": name, "fold": folded, "number": street_no,
         "locality": locality, "postcode": postcode, "municipality": municipality,
         "key": key, "latin": from_greek(key), "geom": geom,
+        # Known outright here rather than worked out by 065: this address exists because
+        # somebody asked for it on this street, so there is nothing to infer.
+        "street_id": street_id,
     }
 
     row = conn.execute(INSERT, fields).fetchone()

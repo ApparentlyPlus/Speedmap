@@ -45,11 +45,18 @@ def database() -> int:
         found = conn.execute(
             "select 1 from pg_database where datname = %s", (name,)
         ).fetchone()
-        if found is not None:
-            return 0
-        # Not parameterisable: an identifier, not a value.
-        conn.execute(psycopg.sql.SQL("create database {}").format(psycopg.sql.Identifier(name)))
-    return 1
+        if found is None:
+            # Not parameterisable: an identifier, not a value.
+            conn.execute(
+                psycopg.sql.SQL("create database {}").format(psycopg.sql.Identifier(name))
+            )
+            print(f"  created {name}")
+    # Nought, and nought when it made one too. Every stage here reports an exit code and
+    # main stops on anything else, so returning a count of what was created read as a
+    # failure on the one run where there was something to create: bootstrap made the
+    # database on a clean machine and stopped, and worked on the second go because by then
+    # there was nothing left to do. That is the run this command exists for.
+    return 0
 
 
 def migrate() -> int:

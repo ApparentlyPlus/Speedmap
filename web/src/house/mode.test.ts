@@ -6,10 +6,10 @@ import { MODES } from "./house3d";
 import { modeOf } from "./mode";
 
 describe("the picture an offer gets", () => {
-  it("draws copper and fibre the same way", () => {
+  it("draws copper and fiber the same way", () => {
     // Different things to sell, the same thing to look at: both arrive along a line in the
     // ground, and that is what the drawing is about.
-    expect(modeOf("fibre")).toBe("landline");
+    expect(modeOf("fiber")).toBe("landline");
     expect(modeOf("copper")).toBe("landline");
   });
 
@@ -19,7 +19,7 @@ describe("the picture an offer gets", () => {
   });
 
   it("never invents a mode the scene does not have", () => {
-    for (const family of ["fibre", "copper", "coax", "wireless", "satellite", "who knows"]) {
+    for (const family of ["fiber", "copper", "coax", "wireless", "satellite", "who knows"]) {
       expect(MODES).toContain(modeOf(family));
     }
   });

@@ -61,7 +61,43 @@ MOBILE_COVERAGE = (
     "where a.street_fold = 'ΚΙΝΗΤΟ'"
 )
 
+# A builder who has passed a door the register locates, and no coverage anywhere.
+UNBUILT_BUILDER = (
+    "update provider set builds_own_network = true, register_id = 901 where code = 'TEST'",
+    "insert into raw_coverpoint (coverid, infrprov, prempass) values ('c1', 901, 12)",
+    "insert into address (street, street_fold, geom, search_key, latin_key) "
+    "values ('ΤΕΣΤ', 'ΤΕΣΤ', 'SRID=4326;POINT(23.7 37.9)', 'ΤΕΣΤ', 'TEST')",
+    "insert into address_point (address_id, coverid) "
+    "select id, 'c1' from address where street_fold = 'ΤΕΣΤ'",
+)
+
+# An alias that reached a derived table under its own id instead of the company's.
+UNRESOLVED_ALIAS = (
+    "insert into provider (code, display_name, kind, credited_to) "
+    "values ('TEST_ALIAS', 'Test Alias', 'altnet', "
+    "(select id from provider where code = 'TEST'))",
+    "insert into coverage (source, source_ref, provider_id, technology, family, assertion) "
+    "values ('test', 'a', (select id from provider where code = 'TEST_ALIAS'), "
+    "'FTTH', 'fiber', 'declared')",
+)
+
+# 1,001 filings stacked on one address, which is the shape the register's street-less
+# filings collapse into.
+PILED_COVERPOINTS = (
+    "update provider set builds_own_network = true, register_id = 902 where code = 'TEST'",
+    "insert into address (street, street_fold, geom, search_key, latin_key) "
+    "values ('ΣΩΡΟΣ', 'ΣΩΡΟΣ', 'SRID=4326;POINT(23.7 37.9)', 'ΣΩΡΟΣ', 'SOROS')",
+    "insert into raw_coverpoint (coverid, infrprov, prempass) "
+    "select 'pile-' || g, 902, 4 from generate_series(1, 1001) g",
+    "insert into address_point (address_id, coverid) "
+    "select (select id from address where street_fold = 'ΣΩΡΟΣ'), 'pile-' || g "
+    "from generate_series(1, 1001) g",
+)
+
 CONTROLS: dict[str, tuple[str, ...]] = {
+    "coverpoints_do_not_pile_onto_one_address": PILED_COVERPOINTS,
+    "every_builder_reaches_somewhere": UNBUILT_BUILDER,
+    "aliases_never_reach_derived_tables": UNRESOLVED_ALIAS,
     "coverage_family_matches_technology": (MISLABELLED_COVERAGE.format(table="coverage"),),
     "coverage_area_family_matches_technology": (
         MISLABELLED_COVERAGE.format(table="coverage_area"),

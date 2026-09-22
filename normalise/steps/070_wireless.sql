@@ -11,16 +11,16 @@ insert into address_coverage (
     address_id, provider_id, technology, infra_provider_id,
     speed_band_id, family, matched_by, built_by
 )
-select distinct on (c.id, sp.id)
-    c.id, sp.id,
+select distinct on (c.id, coalesce(sp.credited_to, sp.id))
+    c.id, coalesce(sp.credited_to, sp.id),
     case when g.tech5gf = 1 then 'FWA_5G' else 'FWA_4G' end,
-    ip.id, nullif(g.maxdown, 0), 'wireless', 'cell', '070'
+    coalesce(ip.credited_to, ip.id), nullif(g.maxdown, 0), 'wireless', 'cell', '070'
 from cell c
 join raw_wireless_grid g on g.gridid = c.gridid
 join provider sp on sp.register_id = g.servprov
 left join provider ip on ip.register_id = g.infrprov
 where g.tech4gf = 1 or g.tech5gf = 1
-order by c.id, sp.id, g.tech5gf desc, g.maxdown desc nulls last
+order by c.id, coalesce(sp.credited_to, sp.id), g.tech5gf desc, g.maxdown desc nulls last
 on conflict (address_id, provider_id, technology) do update set
     built_by = excluded.built_by,
     infra_provider_id = excluded.infra_provider_id,

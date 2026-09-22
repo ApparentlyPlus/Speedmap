@@ -351,7 +351,7 @@ export interface components {
             infra_provider: string | null;
             /**
              * Matched By
-             * @description point for a filing here, area for a cabinet
+             * @description point for a filing here, area for a cabinet, built for fiber in the ground that the register never gave an address
              */
             matched_by: string;
             /** Provider */
@@ -489,7 +489,7 @@ export interface components {
             kind: string;
             /**
              * Locality
-             * @description as the register filed it
+             * @description for a door, as the register filed it. For a street, where most of its doors say they are, the one thing separating two runs of a name in one municipality. Null when it has no filed doors to ask
              */
             locality: string | null;
             /**

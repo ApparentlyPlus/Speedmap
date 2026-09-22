@@ -15,7 +15,7 @@ from probe.decide import Answer, verdict
 
 # The one provider whose checker was walked street by street. Only its silence below a
 # ceiling means a refusal. For everyone else nothing was ever asked.
-SCANNED_BY = "OTE"
+SCANNED_BY = "TELEKOM"
 
 INPUTS = """
 with here as (
@@ -35,7 +35,7 @@ neighbours as (
     where a.municipality_id = h.municipality_id and a.street_fold = h.street_fold
 ),
 filed as (
-    select ac.provider_id as infra_id, bool_or(ac.family = 'fibre') as fibre
+    select ac.provider_id as infra_id, bool_or(ac.family = 'fiber') as fiber
     from address_coverage ac join neighbours n on n.id = ac.address_id
     group by 1
 ),
@@ -49,7 +49,7 @@ select p.code,
        last.serviceable is false,
        h.street_no,
        case when p.code = %(scanned_by)s then h.checked_to end,
-       coalesce(bool_or(filed.fibre), false),
+       coalesce(bool_or(filed.fiber), false),
        max(asked.best)
 from provider p
 cross join here h
@@ -89,7 +89,7 @@ def verdicts(
     ).fetchall()
 
     verdicts: dict[str, str] = {}
-    for code, serviceable, expires_at, refused, street_no, checked_to, fibre, best in rows:
+    for code, serviceable, expires_at, refused, street_no, checked_to, fiber, best in rows:
         answer = (
             Answer(serviceable=serviceable, expires_at=expires_at)
             if expires_at is not None
@@ -101,7 +101,7 @@ def verdicts(
             street_no=street_no,
             checked_to=checked_to,
             street_best_mbps=Decimal(best) if best is not None else None,
-            street_fibre=bool(fibre),
+            street_fiber=bool(fiber),
             refused=bool(refused),
         )
     return verdicts

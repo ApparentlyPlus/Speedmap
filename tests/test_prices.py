@@ -65,7 +65,7 @@ def test_a_qualification_code_names_the_line() -> None:
     """The same code comes back from the availability check, which is what joins the two."""
     found = {t.technology: t for t in vodafone.read(VODAFONE_ANSWER)}
     assert found["FTTH"].down_mbps == Decimal(1000)
-    assert found["FTTH"].family == "fibre"
+    assert found["FTTH"].family == "fiber"
     assert found["FWA_5G"].family == "wireless"
 
 
@@ -101,17 +101,17 @@ def test_a_nova_package_carries_its_contract() -> None:
     assert len(tariffs) == 1
     assert tariffs[0].down_mbps == Decimal(300)
     assert tariffs[0].contract_months == 24
-    assert tariffs[0].family == "fibre"
+    assert tariffs[0].family == "fiber"
 
 
 def test_a_price_is_recorded_against_the_day_it_was_seen(
     catalogue: psycopg.Connection[TupleRow],
 ) -> None:
     """A comparison made last month has to stay answerable after the tariff moves."""
-    tariff = Tariff(external_key="X1", name="Test 100", family="fibre",
+    tariff = Tariff(external_key="X1", name="Test 100", family="fiber",
                     technology="FTTH", down_mbps=Decimal(100), monthly_eur=Decimal("29.90"))
-    assert write(catalogue, "OTE", [tariff], TODAY) == 1
-    assert write(catalogue, "OTE", [tariff], date(2026, 10, 1)) == 1
+    assert write(catalogue, "TELEKOM", [tariff], TODAY) == 1
+    assert write(catalogue, "TELEKOM", [tariff], date(2026, 10, 1)) == 1
     rows = catalogue.execute(
         "select observed_on, monthly_eur from plan_price order by observed_on"
     ).fetchall()
@@ -122,17 +122,17 @@ def test_a_price_is_recorded_against_the_day_it_was_seen(
 def test_looking_twice_in_a_day_corrects_rather_than_doubles(
     catalogue: psycopg.Connection[TupleRow],
 ) -> None:
-    tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(20))
-    write(catalogue, "OTE", [tariff], TODAY)
-    write(catalogue, "OTE", [Tariff(external_key="X1", name="Test", family="fibre",
+    tariff = Tariff(external_key="X1", name="Test", family="fiber", monthly_eur=Decimal(20))
+    write(catalogue, "TELEKOM", [tariff], TODAY)
+    write(catalogue, "TELEKOM", [Tariff(external_key="X1", name="Test", family="fiber",
                                     monthly_eur=Decimal(25))], TODAY)
     assert catalogue.execute("select monthly_eur from plan_price").fetchall() == [(Decimal(25),)]
 
 
 def test_an_unknown_setup_fee_stays_unknown(catalogue: psycopg.Connection[TupleRow]) -> None:
     """A catalogue that does not mention one has not said there isn't one."""
-    tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(20))
-    write(catalogue, "OTE", [tariff], TODAY)
+    tariff = Tariff(external_key="X1", name="Test", family="fiber", monthly_eur=Decimal(20))
+    write(catalogue, "TELEKOM", [tariff], TODAY)
     row = catalogue.execute("select setup_eur, hardware_eur from plan_price").fetchone()
     assert row == (None, None)
 
@@ -145,7 +145,7 @@ def test_every_published_tariff_names_a_known_technology() -> None:
         assert tariffs, provider
         for tariff in tariffs:
             assert tariff.technology is not None
-            assert tariff.family in {"fibre", "coax", "copper", "wireless", "satellite"}
+            assert tariff.family in {"fiber", "coax", "copper", "wireless", "satellite"}
 
 
 def test_a_published_tariff_is_dated_by_when_it_was_read() -> None:
@@ -201,14 +201,14 @@ def test_the_current_price_view_carries_every_column(
 
 def test_a_published_price_says_so(catalogue: psycopg.Connection[TupleRow]) -> None:
     """A rate card and a quote from an ordering system are not the same claim."""
-    tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(60))
-    write(catalogue, "OTE", [tariff], TODAY, source="published")
+    tariff = Tariff(external_key="X1", name="Test", family="fiber", monthly_eur=Decimal(60))
+    write(catalogue, "TELEKOM", [tariff], TODAY, source="published")
     assert catalogue.execute("select source from plan_price").fetchall() == [("published",)]
 
 
 def test_a_catalogue_price_is_the_default(catalogue: psycopg.Connection[TupleRow]) -> None:
-    tariff = Tariff(external_key="X1", name="Test", family="fibre", monthly_eur=Decimal(20))
-    write(catalogue, "OTE", [tariff], TODAY)
+    tariff = Tariff(external_key="X1", name="Test", family="fiber", monthly_eur=Decimal(20))
+    write(catalogue, "TELEKOM", [tariff], TODAY)
     assert catalogue.execute("select source from plan_price").fetchall() == [("catalogue",)]
 
 
@@ -216,7 +216,7 @@ def test_a_provider_publishing_on_two_pages_is_one_provider() -> None:
     """Lines and airtime live on different pages. Both are the same company's catalogue."""
     from prices.published import load
 
-    ote = {t.external_key for t in load()["OTE"][0]}
+    ote = {t.external_key for t in load()["TELEKOM"][0]}
     assert "TELEKOM_FIBER_1G" in ote
     assert "TELEKOM_GIGAMAX_UNLIMITED" in ote
 
@@ -265,7 +265,7 @@ def test_a_wireless_home_router_costs_more_to_start_than_a_line() -> None:
     """Forty euros against six is most of a year's difference, and the feed states neither."""
     from prices.vodafone import ACTIVATION
 
-    assert ACTIVATION["wireless"] > ACTIVATION["fibre"]
+    assert ACTIVATION["wireless"] > ACTIVATION["fiber"]
 
 
 def test_a_dish_is_bought_and_a_router_is_lent() -> None:
@@ -276,7 +276,7 @@ def test_a_dish_is_bought_and_a_router_is_lent() -> None:
     assert dish.needs_hardware == "dish"
     assert dish.hardware_eur == Decimal(349)
 
-    router = {t.external_key: t for t in load()["OTE"][0]}["TELEKOM_5G_WIFI_DP_300"]
+    router = {t.external_key: t for t in load()["TELEKOM"][0]}["TELEKOM_5G_WIFI_DP_300"]
     assert router.needs_hardware == "5g_router"
     assert router.hardware_eur == Decimal(0)
 
@@ -297,7 +297,7 @@ def test_the_hardware_changes_which_plan_is_cheapest() -> None:
 
     published = load()
     dish = {t.external_key: t for t in published["STARLINK"][0]}["STARLINK_RESIDENTIAL_100"]
-    lent = {t.external_key: t for t in published["OTE"][0]}["TELEKOM_5G_WIFI_DP_300"]
+    lent = {t.external_key: t for t in published["TELEKOM"][0]}["TELEKOM_5G_WIFI_DP_300"]
     assert dish.monthly_eur < lent.monthly_eur
     assert monthly(dish) > monthly(lent)
 
