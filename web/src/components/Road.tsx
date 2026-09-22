@@ -53,7 +53,7 @@ export function Road({
       />
       <Credit language={language} />
 
-      <section className="place place-road">
+      <section className="place place-road" data-covers-map>
         <div className="place-body">
           <header className="place-head">
             <button className="back" type="button" onClick={onBack}>
