@@ -38,16 +38,16 @@ best_mbps = least(technology.sold_mbps, the filed band's ceiling)
 
 The cap uses `a4a_nordown`, the register's normally available speed, rather than `a4a_maxdown`. It is filed in exactly the rows `maxdown` is and is never higher, so it can only lower a figure. Using it roughly doubles the number of streets identifiable as being on 10 Mbps or less.
 
-A filing can pull a figure down but never lift it. Resulting distribution across the 84,355 streets that have a figure:
+A filing can pull a figure down but never lift it. Resulting distribution across the 84,795 streets that have a figure:
 
 | Mbps | Streets | Share |
 |---|---|---|
-| 1000 | 38,886 | 46.1% |
-| 100 | 30,290 | 35.9% |
-| 50 | 6,252 | 7.4% |
-| 30 | 3,907 | 4.6% |
-| 24 | 692 | 0.8% |
-| 10 or less | 4,328 | 5.1% |
+| 1000 | 47,867 | 56.5% |
+| 100 | 23,227 | 27.4% |
+| 50 | 5,562 | 6.6% |
+| 30 | 3,581 | 4.2% |
+| 24 | 603 | 0.7% |
+| 10 or less | 3,955 | 4.7% |
 
 ## Pipeline
 
@@ -59,6 +59,7 @@ Raw register tables land in `raw_*` and are never modified. Everything else is d
 | `030_coverage` | Point-located services (fiber, coax) |
 | `040_coverage_area` | Copper cabinet polygons, reprojected from Greek Grid |
 | `050_address_coverage` | What reaches each address, by point match or cabinet containment |
+| `025_address_point_nearby` | Places filings that name a postcode and no street |
 | `065_address_street` | Pins each address to the nearest road of its name |
 | `070_wireless` | Fixed wireless, matched to the 100 m register grid by arithmetic |
 | `090_wholesale` | Refreshes the seller-to-infrastructure view |
@@ -75,11 +76,13 @@ Operators carry a `role`. A `retail` operator is one a household can buy from. T
 
 The register also files one company under four names. OTE, OTE UltraFast and two rural concessions are all Telekom to anyone buying a line. The alias rows stay in `provider`, because `register_id` is how `raw_*` is joined, and every step resolves through `credited_to` before storing an id.
 
-A street's reach comes from two routes unioned: filings against addresses pinned to the street, and cabinet polygons the street intersects. Builders file addresses and no polygons, and roughly half of all streets have no filed address, so either route alone loses a different half. Cabinet polygons are capped at 5,000,000 m² by `cabinet_m2()`; larger filings are exchange regions and say nothing about an individual street.
+A street's reach comes from three routes unioned: filings against addresses pinned to the street, cabinet polygons the street intersects, and built fiber standing beside it. Builders file addresses and no polygons, and roughly half of all streets have no filed address, so either of the first two alone loses a different half. Cabinet polygons are capped at 5,000,000 m² by `cabinet_m2()`, because larger filings are exchange regions and say nothing about an individual street.
+
+The third route exists because 307,300 builder filings name a postcode and no street at all, Telekom's 343,930 and every one of OTE UltraFast's 50,064 among them. Joining those by address text collapses them: each filing in a postcode matches the same row, and OTE UltraFast's whole network landed on 327 addresses. `025_address_point_nearby` rescues the ones standing within 30 m of a door the address index holds, capped at twenty doors. The rest are placed against street geometry directly, within `built_fiber_m()`, because OSM is dense exactly where the address index is thin: Πύλου-Νέστορος holds 4,789 fiber points and 50 addresses for the whole municipality. Only the nearest street, since a filing passing fifty premises fronts onto more than one road and never says which. 440 streets rest on this route alone, with their evidence a median 10 m away.
 
 Mobile and fixed wireless are excluded from street and municipality figures. 5G reaches nearly every address and files a 300-1000 band where it does, which flattens the map to a single value.
 
-Schema changes are ordered, checksummed migrations in `normalise/migrations/` (61 of them), applied by `make migrate`.
+Schema changes are ordered, checksummed migrations in `normalise/migrations/` (63 of them), applied by `make migrate`. A migration is immutable once applied: editing one, even to reword a comment, drifts its checksum and blocks the next `make migrate` until the row is re-stamped by hand.
 
 ## API
 
@@ -159,9 +162,9 @@ The dev server proxies the API so both run same-origin, matching production behi
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 721 Python tests and 46 frontend tests. Eight of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`.
+`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 726 Python tests and 46 frontend tests. Eight of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`.
 
-`make audit` is separate and runs the eight SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
+`make audit` is separate and runs the nine SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
 
 ## Known Limitations
 
