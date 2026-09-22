@@ -128,7 +128,7 @@ export function Place({
       />
       <Credit language={language} />
 
-      <section className="place">
+      <section className="place" data-covers-map>
         <div className="place-scene">
           <House
             mode={modeOf(selected?.family ?? "fiber")}

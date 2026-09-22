@@ -85,7 +85,13 @@ function clear(map: Maplibre): { top: number; right: number; bottom: number; lef
   const edge = 36;
   const pad = { top: edge, right: edge, bottom: edge, left: edge };
   const box = map.getContainer().getBoundingClientRect();
-  const card = document.querySelector(".place")?.getBoundingClientRect();
+  /*
+   * Whatever is covering the map, by the mark it carries rather than by its class. The
+   * selector named one layout, so the split panel went unseen: the camera fitted the
+   * street to the whole canvas and centred it at the middle of the window, which is
+   * behind the panel, and then turned around a point nobody can see.
+   */
+  const card = document.querySelector("[data-covers-map]")?.getBoundingClientRect();
 
   // The card covers the map rather than sitting beside it, in both layouts. On a narrow
   // screen it lies across the bottom, and on a wide one it is a column down the left. Only
@@ -145,7 +151,12 @@ export function Anchored({
     // MapLibre measures its container once, when it is built, and this one is built while
     // the grid around it is reduced resolving.
     const settle = requestAnimationFrame(() => map.resize());
-    const watching = new ResizeObserver(() => map.resize());
+    const watching = new ResizeObserver(() => {
+      map.resize();
+      // The panel is a share of the window, so what it covers changes with the window and
+      // the point the map turns about has to move with it.
+      if (map.getSource(TRACE) !== undefined) map.setPadding(clear(map));
+    });
     watching.observe(box.current);
 
     return () => {
@@ -279,10 +290,24 @@ export function Anchored({
          * side of it. Fitting the street's own box puts the street across the frame. The
          * turn is three degrees a second, so the ends drift out slowly and come back.
          */
-        const camera = map.cameraForBounds(extent, {
-          padding: clear(map),
-          maxZoom: CLOSEST,
-        });
+        /*
+         * Padding on the map, not only on the fit.
+         *
+         * A bearing turns the map around the centre of its transform, and without padding
+         * that centre is the middle of the window. The street is framed off to one side of
+         * the window, because the other side is covered by the panel, so the turn swung it
+         * through an arc: it drifted behind the panel and back out again, and part of it
+         * was hidden for most of a revolution.
+         *
+         * Told where it is being covered, the transform puts its centre in the middle of
+         * what is left. That is the point the street is framed on and the point the map
+         * turns about, and they have to be the same point.
+         */
+        map.setPadding(clear(map));
+        // No padding passed here: the transform is already holding it, and counting it
+        // twice leaves a negative box to fit into, which comes back undefined and the
+        // camera never moves at all.
+        const camera = map.cameraForBounds(extent, { maxZoom: CLOSEST });
         if (camera !== undefined && camera.center !== undefined) {
           /**
            * One descent, from the whole country to the street.
