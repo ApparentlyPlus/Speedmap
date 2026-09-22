@@ -11,10 +11,13 @@ export function House({
   mode,
   colour,
   mbps,
+  grounded = true,
 }: {
   readonly mode: Mode;
   readonly colour: string;
   readonly mbps: number;
+  /** False lets the drawing stand on the page rather than on a plate of its own. */
+  readonly grounded?: boolean;
 }): React.ReactElement {
   const canvas = useRef<HTMLCanvasElement>(null);
   const scene = useRef<Scene | null>(null);
@@ -24,7 +27,9 @@ export function House({
     // Someone who asked for less motion gets the same scene, held still, which is why it
     // is composed to be worth looking at as one frame.
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const built = house3d(canvas.current, { mode, colour, mbps, still: calm.matches });
+    const built = house3d(canvas.current, {
+      mode, colour, mbps, grounded, still: calm.matches,
+    });
     scene.current = built;
 
     const follow = (): void => built.setStill(calm.matches);
