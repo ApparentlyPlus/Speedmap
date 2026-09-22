@@ -435,7 +435,17 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                       ? result.name
                       : `${result.name} ${result.street_no}`}
                   </span>
-                  <span className="atlas-hit-where">{result.municipality}</span>
+                  {/*
+* Where it is, as precisely as the doors on it allow.
+ *
+  * A name can be several roads in one municipality since streets were split
+   * into connected runs, and 7,320 of them are. The locality its own
+    * addresses agree on is the only thing that tells two of them apart, and
+     * where there are no addresses there is nothing to say.
+*/}
+                  <span className="atlas-hit-where">
+                    {[result.locality, result.municipality].filter(Boolean).join(" · ")}
+                  </span>
                 </button>
               </li>
             ))}

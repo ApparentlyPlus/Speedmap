@@ -489,7 +489,7 @@ export interface components {
             kind: string;
             /**
              * Locality
-             * @description as the register filed it
+             * @description for a door, as the register filed it. For a street, where most of its doors say they are, which is what separates two runs of one name in one municipality. Null when it has no filed doors to ask
              */
             locality: string | null;
             /**

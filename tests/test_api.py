@@ -67,7 +67,9 @@ def seeded_address(db: psycopg.Connection[TupleRow]) -> Iterator[None]:
     db.commit()
 
 
-async def found(client: httpx.AsyncClient, q: str, **params: int) -> list[dict[str, object]]:
+async def found(
+    client: httpx.AsyncClient, q: str, **params: str | int
+) -> list[dict[str, object]]:
     response = await client.get("/search", params={"q": q, **params})
     assert response.status_code == 200, response.text
     body = response.json()
@@ -595,4 +597,58 @@ async def test_a_street_lit_by_built_fiber_says_who_lights_it(
 
     db.execute("truncate street, raw_coverpoint cascade")
     db.execute("delete from provider where code = 'BUILDER'")
+    db.commit()
+
+
+async def test_two_runs_of_one_name_are_told_apart_by_their_doors(
+    client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
+) -> None:
+    """A name is several roads in a municipality now, and the list showed them identical.
+
+    Splitting streets into connected runs left 7,320 names appearing more than once inside
+    one municipality, reaching the suggestions as the same name in the same place twice,
+    with nothing to pick between. The locality the doors on each run agree on is the only
+    thing that separates them.
+    """
+    for component, locality in ((0, "ΚΑΤΩ ΤΟΥΜΠΑ"), (1, "ΑΝΩ ΤΟΥΜΠΑ")):
+        row = db.execute(
+            "insert into street (name, name_fold, latin_key, sort_key, component, "
+            "highway, ways, geom) values ('Παπάφη', 'ΠΑΠΑΦΗ', 'PAPAFI', 'ΠΑΠΑΦΗ', %s, "
+            "'residential', 1, 'SRID=4326;MULTILINESTRING((23.0 40.7, 23.01 40.71))') "
+            "returning id",
+            (component,),
+        ).fetchone()
+        assert row is not None
+        db.execute(
+            "insert into address (street, street_fold, street_no, locality, search_key, "
+            "latin_key, geom, street_id) values ('Παπάφη', 'ΠΑΠΑΦΗ', %s, %s, 'ΠΑΠΑΦΗ', "
+            "'PAPAFI', 'SRID=4326;POINT(23.0 40.7)', %s)",
+            (str(component + 1), locality, int(row[0])),
+        )
+    db.commit()
+
+    streets = await found(client, "Παπάφη", kind="street")
+    assert sorted(str(h["locality"]) for h in streets) == ["ΑΝΩ ΤΟΥΜΠΑ", "ΚΑΤΩ ΤΟΥΜΠΑ"]
+
+    db.execute("truncate street, address cascade")
+    db.commit()
+
+
+async def test_a_run_with_no_doors_is_left_unlabelled(
+    client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
+) -> None:
+    """10,645 of them have no filed door, mostly rural. They get no label rather than a
+    guessed one: a locality borrowed from the road of the same name across the valley
+    would be worse than the blank it replaces."""
+    db.execute(
+        "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom) "
+        "values ('Ανώνυμος', 'ΑΝΩΝΥΜΟΣ', 'ANONYMOS', 'ΑΝΩΝΥΜΟΣ', 'track', 1, "
+        "'SRID=4326;MULTILINESTRING((21.0 37.0, 21.01 37.01))')"
+    )
+    db.commit()
+
+    streets = await found(client, "Ανώνυμος", kind="street")
+    assert [h["locality"] for h in streets] == [None]
+
+    db.execute("truncate street cascade")
     db.commit()
