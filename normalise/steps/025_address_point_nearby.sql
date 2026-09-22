@@ -8,8 +8,8 @@
 -- 343,930 of Telekom's points and all 50,064 of OTE UltraFast's, 991,000 premises between
 -- them and the builders, landing on a few hundred addresses. OTE UltraFast reached 327.
 --
--- The map showed the result as copper through central Athens, Salamina, Rhodes and Chania,
--- which is where the fiber is densest and where people look first.
+-- The map showed the result as copper through central Athens, Salamina, Rhodes and
+-- Chania, where the fiber is densest and where people look first.
 --
 -- These points carry coordinates, and coordinates are the one thing the filing gets right.
 -- The stacked links are dropped and replaced by the addresses nearest the point.
@@ -24,7 +24,7 @@ where ap.coverid = c.coverid
 -- these sit within 30 m of two addresses or fewer and 95% within 30 m of fifteen, so the
 -- cap bites only where the address index has piled a block into one spot: one point had
 -- 956 doors inside the radius and crediting a network to all of them is a guess wearing a
--- number. Points with nothing inside 30 m stay unplaced, which is most of the rural ones.
+-- number. Points with nothing inside 30 m stay unplaced, most of them rural.
 insert into address_point (address_id, coverid)
 select near.id, c.coverid
 from raw_coverpoint c

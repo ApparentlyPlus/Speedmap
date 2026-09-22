@@ -284,7 +284,7 @@ class Result(BaseModel):
     locality: str | None = Field(
         description=(
             "for a door, as the register filed it. For a street, where most of its doors "
-            "say they are, which is what separates two runs of one name in one "
+            "say they are, the one thing separating two runs of a name in one "
             "municipality. Null when it has no filed doors to ask"
         )
     )
@@ -511,7 +511,7 @@ select distinct on (code, technology) * from (
 
     union all
 
-    -- Built fiber standing beside the street, which is 110's third route.
+    -- Built fiber standing beside the street: 110's third route, read here too.
     --
     -- The map is painted from street_provider and this list is derived here, so the two
     -- have to read the same sources or the street is drawn a colour the panel cannot

@@ -50,18 +50,18 @@ const SPIN = 3;
  * How long the descent from the country to the street takes.
  *
  * Long. The map opens on the whole of Greece and the street is one road somewhere in it,
- * which is ten zoom levels of travel. The reader is meant to watch that happen and come
- * out of it knowing where in the country the street sits. Run it quickly and they arrive
- * somewhere without having been anywhere.
+ * ten zoom levels away. The reader is meant to watch that happen and come out of it
+ * knowing where in the country the street sits. Run it quickly and they arrive somewhere
+ * without having been anywhere.
  */
 const DESCENT_MS = 3600;
 
 /**
  * How far the camera pulls back on the way. One is a straight line in.
  *
- * flyTo arcs out before it comes in, which is right when crossing the country at street
- * zoom and wrong here: the camera already has the whole country in frame, so any arc at
- * all is a lurch backwards out of it before the descent starts.
+ * flyTo arcs out before it comes in. That earns its keep when crossing the country at
+ * street zoom. Here the camera already holds the whole country, so any arc at all is a
+ * lurch backwards out of it before the descent starts.
  */
 const DESCENT_CURVE = 1;
 
@@ -88,9 +88,9 @@ function clear(map: Maplibre): { top: number; right: number; bottom: number; lef
   const card = document.querySelector(".place")?.getBoundingClientRect();
 
   // The card covers the map rather than sitting beside it, in both layouts. On a narrow
-  // screen it lies across the bottom; on a wide one it is a column down the left. Only the
-  // first was allowed for, so on a desktop the street was fitted to the whole canvas and
-  // then centred, which put half of it behind the panel.
+  // screen it lies across the bottom, and on a wide one it is a column down the left. Only
+  // the first was allowed for, so on a desktop the street was fitted to the whole canvas
+  // and then centred, which put half of it behind the panel.
   if (card === undefined) return pad;
   if (card.width >= box.width * 0.75) {
     pad.bottom = Math.min(box.bottom - card.top + 16, box.height * 0.6);
@@ -167,7 +167,7 @@ export function Anchored({
      *
      * Both arrive in the same render, out of one response, and the effect below frames the
      * whole road. Leaning into the door first meant the reader watched the camera climb to
-     * one pitch over 1.2 seconds and then cut to another, which is the jolt: two moves to
+     * one pitch over 1.2 seconds and then cut to another. That was the jolt: two moves to
      * reach a place neither of them was aiming at. An address has no road to frame and
      * still gets its move.
      */
@@ -273,9 +273,9 @@ export function Anchored({
          * Fitted to the street, not to the circle it sweeps.
          *
          * turnable() squares the box so that a street lying east to west is still whole
-         * when the camera has turned ninety degrees onto it. That is correct and it is
-         * also why the road arrived as a thread across the middle of the screen: a 1.9 km
-         * street was being framed inside a 1.9 km square, most of which is the city either
+         * when the camera has turned ninety degrees onto it. Correct, and also why the
+         * road arrived as a thread across the middle of the screen: a 1.9 km street was
+         * being framed inside a 1.9 km square, and most of that square is the city either
          * side of it. Fitting the street's own box puts the street across the frame. The
          * turn is three degrees a second, so the ends drift out slowly and come back.
          */
