@@ -49,10 +49,10 @@ const SPIN = 3;
 /**
  * How long the descent from the country to the street takes.
  *
- * Long. The map opens on the whole of Greece and the street is one road in it, so this is
- * ten zoom levels of travel and the reader is meant to watch it happen: the country
- * becomes a prefecture, then a town, then the road they asked about, and they can see
- * where it sits. Rushing that is what made it read as a jolt rather than a journey.
+ * Long. The map opens on the whole of Greece and the street is one road somewhere in it,
+ * which is ten zoom levels of travel. The reader is meant to watch that happen and come
+ * out of it knowing where in the country the street sits. Run it quickly and they arrive
+ * somewhere without having been anywhere.
  */
 const DESCENT_MS = 3600;
 
@@ -277,8 +277,7 @@ export function Anchored({
          * also why the road arrived as a thread across the middle of the screen: a 1.9 km
          * street was being framed inside a 1.9 km square, most of which is the city either
          * side of it. Fitting the street's own box puts the street across the frame. The
-         * turn is three degrees a second, so the ends drift out slowly and come back, and
-         * a street worth looking at is worth filling the screen with first.
+         * turn is three degrees a second, so the ends drift out slowly and come back.
          */
         const camera = map.cameraForBounds(extent, {
           padding: clear(map),
@@ -292,12 +291,12 @@ export function Anchored({
            * midpoint of the street at a fixed zoom, then eased 1.6 more to the frame that
            * actually holds the road, at a different pitch. Neither was aiming where the
            * pair of them ended up, so the camera lurched once on the way and again on
-           * arrival. Skipping straight to the frame fixed the lurch and lost the journey:
-           * the street appeared with no sense of where in the country it was.
+           * arrival. Cutting straight to the frame took the lurch out, and took the
+           * journey with it: the street appeared with no sense of where in Greece it was.
            *
-           * So the door is not visited at all, and what is left is a single slow fall out
-           * of the country view the map opened on. Ten zoom levels, eased at both ends,
-           * and the turn starts when it lands.
+           * So the door is not visited at all. What is left is one slow fall out of the
+           * country view the map opened on, eased at both ends, and the turn starts on
+           * the frame it lands in.
            */
           map.flyTo({
             center: camera.center,
