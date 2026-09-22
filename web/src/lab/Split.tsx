@@ -75,7 +75,7 @@ export function Split({
         streetId={streetId}
       />
 
-      <section className="split-panel">
+      <section className="split-panel" data-covers-map>
         <div className="split-panel-ground" aria-hidden="true" />
         <div className="split-panel-body">
           {/*
