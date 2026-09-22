@@ -39,16 +39,52 @@
 .split-panel-ground {
   position: absolute;
   inset: 0;
+  /*
+   * Wider than the panel, so the fade has somewhere to happen.
+   *
+   * The panel's own width is what the map is told it cannot use, so stretching the panel
+   * to give the gradient room would push the street into a strip too narrow to hold it.
+   * The ground is its own layer and can hang past the edge on its own.
+   */
+  inset: 0 -22% 0 0;
+
+  /*
+   * Eased, not ramped.
+   *
+   * Solid to a stop and then a straight ramp is continuous in value and not in slope, and
+   * the eye reads a break in slope as an edge: there was a visible seam down the panel at
+   * exactly the percentage the ramp began. These stops trace a smootherstep, which leaves
+   * the fade flat where it starts and flat where it ends, so there is no point along it
+   * where the rate of change jumps.
+   */
   background: linear-gradient(
     to right,
     var(--ground) 0%,
-    var(--ground) 68%,
-    rgb(8 8 10 / 96%) 76%,
-    rgb(8 8 10 / 88%) 83%,
-    rgb(8 8 10 / 70%) 89%,
-    rgb(8 8 10 / 44%) 94%,
-    rgb(8 8 10 / 18%) 98%,
-    rgb(8 8 10 / 0%) 100%
+    var(--ground) 54.0%,
+    rgb(8 8 10 / 99.93%) 55.92%,
+    rgb(8 8 10 / 99.49%) 57.83%,
+    rgb(8 8 10 / 98.39%) 59.75%,
+    rgb(8 8 10 / 96.45%) 61.67%,
+    rgb(8 8 10 / 93.55%) 63.58%,
+    rgb(8 8 10 / 89.65%) 65.5%,
+    rgb(8 8 10 / 84.78%) 67.42%,
+    rgb(8 8 10 / 79.01%) 69.33%,
+    rgb(8 8 10 / 72.48%) 71.25%,
+    rgb(8 8 10 / 65.34%) 73.17%,
+    rgb(8 8 10 / 57.78%) 75.08%,
+    rgb(8 8 10 / 50.0%) 77.0%,
+    rgb(8 8 10 / 42.22%) 78.92%,
+    rgb(8 8 10 / 34.66%) 80.83%,
+    rgb(8 8 10 / 27.52%) 82.75%,
+    rgb(8 8 10 / 20.99%) 84.67%,
+    rgb(8 8 10 / 15.22%) 86.58%,
+    rgb(8 8 10 / 10.35%) 88.5%,
+    rgb(8 8 10 / 6.45%) 90.42%,
+    rgb(8 8 10 / 3.55%) 92.33%,
+    rgb(8 8 10 / 1.61%) 94.25%,
+    rgb(8 8 10 / 0.51%) 96.17%,
+    rgb(8 8 10 / 0.07%) 98.08%,
+    rgb(8 8 10 / 0.0%) 100.0%
   );
   pointer-events: none;
 }
@@ -232,10 +268,31 @@
     background: linear-gradient(
       to top,
       var(--ground) 0%,
-      var(--ground) 62%,
-      rgb(8 8 10 / 88%) 76%,
-      rgb(8 8 10 / 46%) 90%,
-      rgb(8 8 10 / 0%) 100%
+      var(--ground) 52.0%,
+      rgb(8 8 10 / 99.93%) 54.0%,
+      rgb(8 8 10 / 99.49%) 56.0%,
+      rgb(8 8 10 / 98.39%) 58.0%,
+      rgb(8 8 10 / 96.45%) 60.0%,
+      rgb(8 8 10 / 93.55%) 62.0%,
+      rgb(8 8 10 / 89.65%) 64.0%,
+      rgb(8 8 10 / 84.78%) 66.0%,
+      rgb(8 8 10 / 79.01%) 68.0%,
+      rgb(8 8 10 / 72.48%) 70.0%,
+      rgb(8 8 10 / 65.34%) 72.0%,
+      rgb(8 8 10 / 57.78%) 74.0%,
+      rgb(8 8 10 / 50.0%) 76.0%,
+      rgb(8 8 10 / 42.22%) 78.0%,
+      rgb(8 8 10 / 34.66%) 80.0%,
+      rgb(8 8 10 / 27.52%) 82.0%,
+      rgb(8 8 10 / 20.99%) 84.0%,
+      rgb(8 8 10 / 15.22%) 86.0%,
+      rgb(8 8 10 / 10.35%) 88.0%,
+      rgb(8 8 10 / 6.45%) 90.0%,
+      rgb(8 8 10 / 3.55%) 92.0%,
+      rgb(8 8 10 / 1.61%) 94.0%,
+      rgb(8 8 10 / 0.51%) 96.0%,
+      rgb(8 8 10 / 0.07%) 98.0%,
+      rgb(8 8 10 / 0.0%) 100.0%
     );
   }
 
