@@ -1,8 +1,8 @@
--- One filed service per row, for the technologies the register locates as points. Copper
--- goes to coverage_area in 040. distinct on because (coverid, servprov, technolo) repeats.
+-- One filed service per row, for technologies the register places as points. Copper goes to
+-- coverage_area in 040. distinct on because (coverid, servprov, technolo) repeats.
 --
--- The provider is resolved through credited_to before it is stored: the register files the
--- incumbent as four entities and a derived table holds the one company they are.
+-- Providers are resolved through credited_to first: the register files the incumbent as four
+-- entities, and derived tables hold the one company.
 delete from coverage where source = 'register';
 
 insert into coverage (
@@ -20,7 +20,9 @@ left join provider ip on ip.register_id = w.infrprov
 left join raw_coverpoint p on p.coverid = w.coverid
 where t.family <> 'copper'
 order by w.coverid, coalesce(sp.credited_to, sp.id), t.code,
-         w.servstar desc nulls last, w.maxdown desc nulls last
+         w.servstar desc nulls last, w.maxdown desc nulls last,
+         -- the filing's id last, so ties break the same way every build
+         w.id
 on conflict (source, source_ref, provider_id, technology) do update set
     infra_provider_id = excluded.infra_provider_id,
     family = excluded.family,

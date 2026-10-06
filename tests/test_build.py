@@ -1,4 +1,4 @@
-"""The derived-table build steps, which are re-runnable rather than once-only."""
+"""The derived-table build steps, which run again after every register pull."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ TOUCHED = (
     "raw_wiredservice, raw_geo_coverage_copper, address_coverage, raw_wireless_grid"
 )
 
-# ΔΗΜΟΣ ΠΑΓΓΑΙΟΥ, simplified to a triangle. Only the projection and the copy are under test.
+# ΔΗΜΟΣ ΠΑΓΓΑΙΟΥ simplified to a triangle, since only the projection and the copy are under test
 POLYGON = (
     '{"type": "MultiPolygon", "coordinates": '
     "[[[[24.0, 40.8], [24.1, 40.8], [24.1, 40.9], [24.0, 40.8]]]]}"
@@ -62,7 +62,7 @@ def test_municipality_is_copied_from_raw(buildable: psycopg.Connection[TupleRow]
 
 
 def test_the_step_is_re_runnable(buildable: psycopg.Connection[TupleRow]) -> None:
-    """A step runs again after every register pull, so it must not accumulate rows."""
+    """A step runs again after every register pull, so it mustn't accumulate rows."""
     seed_dimos(buildable)
     run(buildable, municipality_step())
     run(buildable, municipality_step())
@@ -81,7 +81,7 @@ def test_a_renamed_municipality_is_refreshed(buildable: psycopg.Connection[Tuple
 
 
 def test_geometry_becomes_geography(buildable: psycopg.Connection[TupleRow]) -> None:
-    """Later joins are distance and containment on a sphere, not on a plane."""
+    """Later joins measure distance and containment on a sphere, so the column is geography."""
     seed_dimos(buildable)
     run(buildable, municipality_step())
     row = buildable.execute(
@@ -151,7 +151,7 @@ def test_a_point_becomes_an_address(buildable: psycopg.Connection[TupleRow]) -> 
 
 
 def test_a_corner_point_becomes_two_addresses(buildable: psycopg.Connection[TupleRow]) -> None:
-    """6.43% of points carry two. Both must be findable, and they share one geometry."""
+    """6.43% of points carry two. Both must be findable, sharing one geometry."""
     seed_point(buildable, "a", "26332,ΠΑΡΟΔΟΣ ΑΝΑΓΝΩΣΤΟΥ,10,Δ. ΠΑΤΡΕΩΝ|26332,ΑΝΑΓΝΩΣΤΟΥ,10,Δ. ΠΑΤΡΕΩΝ")
     assert build_addresses(buildable) == 2
     rows = buildable.execute("select street from address order by street").fetchall()
@@ -159,7 +159,7 @@ def test_a_corner_point_becomes_two_addresses(buildable: psycopg.Connection[Tupl
 
 
 def test_the_same_address_on_two_points_collapses(buildable: psycopg.Connection[TupleRow]) -> None:
-    """on conflict cannot touch one row twice in a statement, so the merge must deduplicate."""
+    """on conflict can't touch one row twice in a statement, so the merge deduplicates."""
     seed_point(buildable, "a", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", prempass=4)
     seed_point(buildable, "b", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", prempass=9)
     assert build_addresses(buildable) == 1
@@ -170,7 +170,7 @@ def test_the_same_address_on_two_points_collapses(buildable: psycopg.Connection[
 def test_the_municipality_is_resolved_from_the_point(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """The filed locality is ΕΥΚΑΡΠΙΑ; the municipality comes from the geometry."""
+    """The filed locality is ΕΥΚΑΡΠΙΑ, and the municipality comes from the geometry."""
     seed_point(buildable, "a", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     row = buildable.execute(
@@ -182,7 +182,7 @@ def test_the_municipality_is_resolved_from_the_point(
 def test_a_point_outside_every_municipality_still_gets_an_address(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Unplaced is not unusable: the address is still searchable, just not attributed."""
+    """Unplaced addresses stay searchable, just unattributed."""
     seed_point(buildable, "a", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=25.0, lat=37.0)
     assert build_addresses(buildable) == 1
     row = buildable.execute("select municipality_id from address").fetchone()
@@ -190,7 +190,7 @@ def test_a_point_outside_every_municipality_still_gets_an_address(
 
 
 def test_absent_flags_stay_absent(buildable: psycopg.Connection[TupleRow]) -> None:
-    """A missing connstat is unknown, not 'not connected'."""
+    """A missing connstat is unknown, which isn't 'not connected'."""
     seed_point(buildable, "a", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", prempass=None, connstat=None, vhcn=None)
     build_addresses(buildable)
     row = buildable.execute("select premises, connected, vhcn from address").fetchone()
@@ -291,7 +291,7 @@ def test_geometry_comes_from_the_infrastructure_point(
 def test_a_service_with_no_point_still_becomes_coverage(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Real: 8 in 3000 file a service against a coverid with no point. Unmappable, not unreal."""
+    """8 in 3000 really do file a service against a coverid with no point. Unmappable, still real."""
     seed_service(buildable, 1, "missing")
     assert run(buildable, coverage_step())[COVERAGE_STEP] == 1
     row = buildable.execute("select geom from coverage").fetchone()
@@ -325,7 +325,7 @@ def test_seller_and_builder_are_recorded_separately(
 
 
 def test_family_always_agrees_with_technology(buildable: psycopg.Connection[TupleRow]) -> None:
-    """Every register technology, routed to whichever table its geometry belongs in."""
+    """Every register technology, routed to the table its geometry belongs in."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     seed_cabinet(buildable, "c1")
     for n, technolo in enumerate([1, 2, 3, 4, 5, 13], start=1):
@@ -374,7 +374,7 @@ def area_step() -> list[Step]:
     return [s for s in discover() if s.name == AREA_STEP]
 
 
-# A cabinet service area in Greek Grid, around Kavala. Only the reprojection is under test.
+# a cabinet service area in Greek Grid near Kavala, only the reprojection is under test
 CABINET = (
     '{"type": "MultiPolygon", "coordinates": '
     "[[[[500000.0, 4520000.0], [500500.0, 4520000.0], [500500.0, 4520500.0], [500000.0, 4520000.0]]]]}"
@@ -402,7 +402,7 @@ def test_copper_becomes_an_area_not_a_point(buildable: psycopg.Connection[TupleR
 
 
 def test_copper_is_kept_out_of_the_point_table(buildable: psycopg.Connection[TupleRow]) -> None:
-    """Otherwise a cabinet arrives in coverage with no geometry and is silently unmappable."""
+    """Otherwise a cabinet lands in coverage with no geometry, silently unmappable."""
     seed_cabinet(buildable)
     seed_service(buildable, 1, "397-112", technolo=3)
     run(buildable, coverage_step())
@@ -417,7 +417,7 @@ def test_fiber_is_kept_out_of_the_area_table(buildable: psycopg.Connection[Tuple
 
 
 def test_the_cabinet_polygon_is_reprojected(buildable: psycopg.Connection[TupleRow]) -> None:
-    """Greek Grid metres into WGS84 degrees: unreprojected, this lands in the Atlantic."""
+    """Greek Grid metres into WGS84 degrees. Unreprojected, this lands in the Atlantic."""
     seed_cabinet(buildable)
     seed_service(buildable, 1, "397-112", technolo=3)
     run(buildable, area_step())
@@ -445,7 +445,7 @@ def test_the_area_stays_a_polygon(buildable: psycopg.Connection[TupleRow]) -> No
 def test_a_cabinet_with_no_polygon_yields_nothing(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Unlike a point service, an area with no geometry is not a usable row."""
+    """An area with no geometry is useless, unlike a point service without one."""
     seed_service(buildable, 1, "no-such-cabinet", technolo=3)
     assert run(buildable, area_step())[AREA_STEP] == 0
 
@@ -460,7 +460,7 @@ def test_municipality_has_a_planar_twin(db: psycopg.Connection[TupleRow]) -> Non
 
 
 def test_the_planar_twin_is_indexed(db: psycopg.Connection[TupleRow]) -> None:
-    """Without the index the planar join is slower than the spheroid one it replaced."""
+    """Without the index, the planar join is slower than the spheroid one it replaced."""
     rows = db.execute("select indexdef from pg_indexes where tablename = 'municipality'").fetchall()
     assert any("geom_2d" in definition and "gist" in definition for (definition,) in rows)
 
@@ -468,7 +468,7 @@ def test_the_planar_twin_is_indexed(db: psycopg.Connection[TupleRow]) -> None:
 def test_planar_and_spheroid_agree_on_containment(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """The reason the swap is safe: identical answers on 200,000 real points, and here too."""
+    """Why the swap is safe: identical answers on 200,000 real points, and here too."""
     seed_dimos(buildable)
     run(buildable, municipality_step())
     row = buildable.execute(
@@ -525,8 +525,8 @@ def test_two_builders_at_one_address_both_link(
 def test_a_point_with_no_street_is_linked_to_nothing(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """5.19% of the register's points have no street name, holding 3.50% of all premises.
-    They keep their geometry and their coverage. They are simply not searchable."""
+    """5.19% of points have no street name, holding 3.50% of premises. They keep geometry and
+    coverage, they just aren't searchable."""
     seed_point(buildable, "c1", "24400, , ,Δ. ΓΑΡΓΑΛΙΑΝΩΝ")
     assert build_addresses(buildable) == 0
     assert links(buildable) == []
@@ -560,7 +560,7 @@ def offers(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, str, str]]:
     return [(str(a), str(b), str(c)) for a, b, c in rows]
 
 
-# seed_cabinet is Greek Grid. This is its centroid once reprojected to 4326.
+# seed_cabinet's centroid, reprojected to 4326
 INSIDE = (24.0057, 40.8351)
 OUTSIDE = (25.0, 37.0)
 
@@ -581,7 +581,7 @@ def test_a_point_service_becomes_an_offer(buildable: psycopg.Connection[TupleRow
 def test_an_address_inside_a_cabinet_gets_its_copper(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Copper is filed per cabinet, so every address in the area is served by it."""
+    """Copper is filed per cabinet, so every address in the area gets it."""
     lon, lat = INSIDE
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=lon, lat=lat)
     build_addresses(buildable)
@@ -603,7 +603,7 @@ def test_an_address_outside_the_cabinet_gets_nothing(
 
 
 def test_a_point_match_beats_an_area_match(buildable: psycopg.Connection[TupleRow]) -> None:
-    """A filing against this building is stronger evidence than falling inside a cabinet."""
+    """A filing against this building is stronger evidence than sitting inside a cabinet."""
     lon, lat = INSIDE
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=lon, lat=lat)
     build_addresses(buildable)
@@ -618,7 +618,7 @@ def test_a_point_match_beats_an_area_match(buildable: psycopg.Connection[TupleRo
 
 
 def test_several_operators_at_one_address(buildable: psycopg.Connection[TupleRow]) -> None:
-    """59.57% of addresses have three operators. Collapsing them would hide competition."""
+    """59.57% of addresses have three operators. Collapsing them would hide the competition."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_service(buildable, 1, "c1", servprov=19, technolo=4)
@@ -633,7 +633,7 @@ def test_several_operators_at_one_address(buildable: psycopg.Connection[TupleRow
 
 
 def test_an_offer_may_have_no_speed(buildable: psycopg.Connection[TupleRow]) -> None:
-    """72.8% of fiber offers carry no band. Absent must survive the whole pipeline."""
+    """72.8% of fiber offers carry no band, and that absence has to survive the pipeline."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_service(buildable, 1, "c1", technolo=4, maxdown=None)
@@ -655,7 +655,7 @@ def test_rebuilding_offers_is_idempotent(buildable: psycopg.Connection[TupleRow]
 def test_case_and_accent_variants_are_one_address(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """59,899 duplicates existed because street was keyed verbatim: ΑΧΑΡΝΩΝ vs Αχαρνών."""
+    """59,899 duplicates existed while street was keyed verbatim: ΑΧΑΡΝΩΝ vs Αχαρνών."""
     seed_point(buildable, "c1", "10446,ΑΧΑΡΝΩΝ,128,ΑΘΗΝΑ")
     seed_point(buildable, "c2", "10446,Αχαρνών,128,Δ. ΑΘΗΝΑΙΩΝ")
     assert build_addresses(buildable) == 1
@@ -666,7 +666,7 @@ def test_case_and_accent_variants_are_one_address(
 def test_both_variants_still_link_to_their_points(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Collapsing the address must not drop either builder's footprint."""
+    """Collapsing the address can't drop either builder's footprint."""
     seed_point(buildable, "c1", "10446,ΑΧΑΡΝΩΝ,128,ΑΘΗΝΑ")
     seed_point(buildable, "c2", "10446,Αχαρνών,128,Δ. ΑΘΗΝΑΙΩΝ")
     build_addresses(buildable)
@@ -676,7 +676,7 @@ def test_both_variants_still_link_to_their_points(
 def test_a_type_word_does_not_make_a_second_address(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """ΛΕΩΦ. ΑΛΕΞΑΝΔΡΑΣ 5 and ΑΛΕΞΑΝΔΡΑΣ 5 are one place. The type word is not identity."""
+    """ΛΕΩΦ. ΑΛΕΞΑΝΔΡΑΣ 5 and ΑΛΕΞΑΝΔΡΑΣ 5 are one place. The type word doesn't identify it."""
     seed_point(buildable, "c1", "11473,ΛΕΩΦΟΡΟΣ ΑΛΕΞΑΝΔΡΑΣ,5,ΑΘΗΝΑ")
     seed_point(buildable, "c2", "11473,ΑΛΕΞΑΝΔΡΑΣ,5,ΑΘΗΝΑ")
     assert build_addresses(buildable) == 1
@@ -687,7 +687,7 @@ def test_a_type_word_does_not_make_a_second_address(
 def test_the_displayed_spelling_is_deterministic(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Which spelling survives must not depend on row order, or rebuilds churn the data."""
+    """Which spelling survives can't depend on row order, or rebuilds churn the data."""
     seed_point(buildable, "c1", "10446,ΑΧΑΡΝΩΝ,128,ΑΘΗΝΑ")
     seed_point(buildable, "c2", "10446,Αχαρνών,128,ΑΘΗΝΑ")
     build_addresses(buildable)
@@ -699,7 +699,7 @@ def test_the_displayed_spelling_is_deterministic(
 def test_a_latin_key_is_written_for_addresses(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Greeklish searches the Latin form of the same key, so both must come from one source."""
+    """Greeklish searches the Latin form of the same key, so both come from one source."""
     seed_point(buildable, "c1", "56429,Αχαρνών,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     row = buildable.execute("select search_key, latin_key from address").fetchone()
@@ -709,7 +709,7 @@ def test_a_latin_key_is_written_for_addresses(
 def test_the_latin_key_covers_the_locality_too(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """Typing the town in Greeklish must narrow the same way typing it in Greek does."""
+    """Typing the town in Greeklish narrows exactly like typing it in Greek."""
     seed_point(buildable, "c1", "15123,ΛΕΩΦΟΡΟΣ ΙΩΑΝΝΗ ΚΑΠΟΔΙΣΤΡΙΟΥ,18,Δ. ΑΜΑΡΟΥΣΙΟΥ")
     build_addresses(buildable)
     row = buildable.execute("select latin_key from address").fetchone()
@@ -718,8 +718,8 @@ def test_the_latin_key_covers_the_locality_too(
 
 WIRELESS_STEP = "070_wireless"
 
-# The cell the default seed_point lands in. Pinned as a literal, so changing the projection
-# the grid is read in fails here rather than silently moving every address.
+# The cell the default seed_point lands in, as a literal, so a change to the grid's
+# projection fails here instead of silently moving every address.
 CELL = "5040|45196"
 
 
@@ -761,7 +761,7 @@ def build_cells(conn: psycopg.Connection[TupleRow]) -> int:
 
 
 def test_a_fixed_wireless_cell_becomes_an_offer(buildable: psycopg.Connection[TupleRow]) -> None:
-    """An address finds its cell by arithmetic, so the grid needs no geometry of its own."""
+    """An address finds its cell by arithmetic, so the grid needs no geometry."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_cell(buildable, tech5gf=1)
@@ -777,7 +777,7 @@ def test_an_address_in_another_cell_gets_nothing(buildable: psycopg.Connection[T
 
 
 def test_a_mobile_cell_is_not_a_landline(buildable: psycopg.Connection[TupleRow]) -> None:
-    """Mobile coverage cannot replace a fixed line, and 40.5M of the 53.3M rows are only that."""
+    """Mobile coverage can't replace a fixed line, and 40.5M of the 53.3M rows are only that."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_cell(buildable, tech4gm=1, tech5gm=1)
@@ -792,15 +792,16 @@ def test_a_planned_cell_is_not_yet_an_offer(buildable: psycopg.Connection[TupleR
     assert build_cells(buildable) == 0
 
 
-def test_the_offer_is_named_for_the_best_generation(
+def test_both_generations_are_offered_and_only_5g_takes_the_band(
     buildable: psycopg.Connection[TupleRow],
 ) -> None:
-    """One band is filed per cell, so splitting the row would credit 4G with the 5G figure."""
+    """One band per cell, and it's 5G's. A 4G home plan still qualifies: keyed on the operator
+    alone, 4G was dropped wherever 5G reached and its plans never showed."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_cell(buildable, tech4gf=1, tech5gf=1)
-    assert build_cells(buildable) == 1
-    assert cells(buildable) == [("FWA_5G", "cell", 7)]
+    assert build_cells(buildable) == 2
+    assert sorted(cells(buildable)) == [("FWA_4G", "cell", None), ("FWA_5G", "cell", 7)]
 
 
 def test_a_cell_without_5g_stays_4g(buildable: psycopg.Connection[TupleRow]) -> None:
@@ -812,7 +813,7 @@ def test_a_cell_without_5g_stays_4g(buildable: psycopg.Connection[TupleRow]) -> 
 
 
 def test_an_uncovered_band_is_not_a_speed(buildable: psycopg.Connection[TupleRow]) -> None:
-    """The wireless band list adds a zero for not covered, which speed_band has no row for."""
+    """The wireless band list uses 0 for not covered, and speed_band has no row 0."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     build_addresses(buildable)
     seed_cell(buildable, tech5gf=1, maxdown=0)
