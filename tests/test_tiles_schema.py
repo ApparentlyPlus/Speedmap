@@ -39,7 +39,7 @@ def test_every_layer_reaches_both_sides() -> None:
 
 
 def test_a_renamed_field_fails_the_check(tmp_path: Path) -> None:
-    """The whole point. Rename one and the build stops rather than the map going quiet."""
+    """The whole point: rename one and the build stops, before the map goes quiet."""
     schema = load()
     schema["layers"]["streets"]["fields"]["best_mbps_renamed"] = schema["layers"][
         "streets"

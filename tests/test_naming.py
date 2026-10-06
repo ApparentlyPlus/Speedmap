@@ -1,4 +1,4 @@
-"""Their spelling of an address, and how far it is safe to guess at one.
+"""Their spelling of an address, and how far it's safe to guess one.
 
 The scrape walked 43% of streets.
 """
@@ -15,8 +15,8 @@ from probe.naming import NEARBY_M, STREET_TYPE, TRIES, Naming, naming, namings
 
 TOUCHED = "raw_cosmote, municipality"
 
-# Enough of a scrape row to be found. The real table is thirty gigabytes of cadastral
-# polygons around these six columns.
+# Enough of a scrape row to be found. The real table is thirty GB of cadastral polygons
+# around these six columns.
 ROW = """
 insert into raw_cosmote
     (id, nomos, dimos, area, street, street_fold, street_type, street_no,
@@ -24,7 +24,7 @@ insert into raw_cosmote
 values (%s, %s, %s, %s, %s, %s, %s, 1, 1, 'VDSL', now(), %s)
 """
 
-# A point inside the test municipality, and the address we are asking about.
+# a point inside the test municipality, and the address we're asking about
 HERE = (24.05, 40.85)
 
 
@@ -68,12 +68,12 @@ def test_a_walked_street_is_exact(scraped: psycopg.Connection[TupleRow]) -> None
 def test_an_unwalked_street_falls_back_to_the_municipality(
     scraped: psycopg.Connection[TupleRow],
 ) -> None:
-    """Πατησίων is not in the scrape, and Αθηναίων very much is."""
+    """Πατησίων isn't in the scrape, and Αθηναίων very much is."""
     walk(scraped, 100, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ")
     found = guesses(scraped)
     assert [n.dimos for n in found] == ["ΑΘΗΝΑΙΩΝ"]
     assert found[0].exact is False
-    # Our fold is their spelling, 96% of the time, so it is what gets sent.
+    # our fold matches their spelling 96% of the time, so that's what gets sent
     assert found[0].street == "ΠΑΤΗΣΙΩΝ"
     assert found[0].street_type == STREET_TYPE
 
@@ -81,7 +81,7 @@ def test_an_unwalked_street_falls_back_to_the_municipality(
 def test_candidates_come_back_nearest_first(
     scraped: psycopg.Connection[TupleRow],
 ) -> None:
-    """Which is what makes the first one worth trying and the tail worth capping."""
+    """Nearest first, which is why the first is worth trying and the tail worth capping."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", lon=24.0501, lat=40.8501)
     walk(scraped, 1, "ΚΑΙΣΑΡΙΑΝΗΣ", "ΑΧΑΡΝΩΝ", area="ΚΑΙΣΑΡΙΑΝΗ", lon=24.0520, lat=40.8520)
     found = guesses(scraped)
@@ -94,8 +94,8 @@ def test_candidates_come_back_nearest_first(
 def test_a_guess_carries_a_real_exchange_area(
     scraped: psycopg.Connection[TupleRow],
 ) -> None:
-    """Their area is a telephone district and is filed on 100% of scrape rows. Standing the
-    municipality's own name in for it is what a guess used to do, and it resolved nothing."""
+    """Their area is a telephone district, filed on every scrape row. Putting the
+    municipality's own name in its place is what the old guess did, and it resolved nothing."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", area="ΑΘΗΝΑ-ΠΕΔΙΟΝ ΑΡΕΩΣ")
     assert guesses(scraped)[0].area == "ΑΘΗΝΑ-ΠΕΔΙΟΝ ΑΡΕΩΣ"
 
@@ -103,8 +103,8 @@ def test_a_guess_carries_a_real_exchange_area(
 def test_geocoding_noise_is_never_even_proposed(
     scraped: psycopg.Connection[TupleRow],
 ) -> None:
-    """The scrape puts a few hundred Athens addresses in Ηγουμενίτσα. Counting them has to
-    argue them away with a threshold. Proximity does not offer them in the first place."""
+    """The scrape puts a few hundred Athens addresses in Ηγουμενίτσα. Counting would need a
+    threshold to argue them away. Proximity never offers them."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ")
     walk(scraped, 1, "ΗΓΟΥΜΕΝΙΤΣΗΣ", "ΑΧΑΡΝΩΝ", area="ΗΓΟΥΜΕΝΙΤΣΑ", lon=20.26, lat=39.50)
     assert [n.dimos for n in guesses(scraped)] == ["ΑΘΗΝΑΙΩΝ"]
@@ -113,15 +113,15 @@ def test_geocoding_noise_is_never_even_proposed(
 def test_nothing_within_reach_is_not_a_guess(
     scraped: psycopg.Connection[TupleRow],
 ) -> None:
-    """Every unwalked address sampled had a walked one within 500 m. One that does not is
-    not being spelled from a town half an hour away."""
+    """Every unwalked address sampled had a walked one within 500 m. One that doesn't won't
+    be spelled from a town half an hour away."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", lon=24.30, lat=40.85)
     assert guesses(scraped) == []
     assert NEARBY_M == 500.0
 
 
 def test_the_tail_is_capped(scraped: psycopg.Connection[TupleRow]) -> None:
-    """One unaskable address must not cost an unbounded number of requests."""
+    """One unaskable address can't cost an unbounded number of requests."""
     for n in range(TRIES + 3):
         walk(scraped, 1, f"ΔΗΜΟΣ{n}", "ΑΧΑΡΝΩΝ", area=f"ΠΕΡΙΟΧΗ{n}",
              lon=24.05 + n / 10000, lat=40.85)

@@ -1,6 +1,6 @@
-"""Run the data invariants against a database that has actually been built.
+"""Run the data invariants against a database that has really been built.
 
-`make check` runs them too, and proves something different by it.
+`make check` runs them against the empty test fixture, which proves something different.
 """
 
 from __future__ import annotations
@@ -16,8 +16,7 @@ from db.connect import connect
 
 INVARIANTS = Path(__file__).parent.parent / "tests" / "invariants"
 
-# Enough of a violation to recognise it, not enough to fill a terminal with the same shape
-# of row four thousand times.
+# enough rows to recognise a violation, not four thousand of the same shape
 SHOWN = 5
 
 

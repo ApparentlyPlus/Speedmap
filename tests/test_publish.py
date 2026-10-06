@@ -49,8 +49,8 @@ def drawn(seeded: psycopg.Connection[TupleRow]) -> psycopg.Connection[TupleRow]:
     return seeded
 
 
-# A GeoJSON feature is nested and heterogeneous. Typing it precisely here would describe
-# the format rather than test the layer.
+# A GeoJSON feature is nested and heterogeneous. Typing it precisely would test the format
+# instead of the layer.
 Feature = dict[str, Any]
 
 
