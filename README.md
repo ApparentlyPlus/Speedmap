@@ -1,6 +1,6 @@
 # Speedmap
 
-Speedmap shows what broadband is available at an address in Greece. It joins EETT's national coverage register to an address index built from the same register and street geometry from OpenStreetMap, then draws every street in the country coloured by the best line that reaches it. Where an operator publishes a tariff, the result also carries a price; where someone has run a speed test nearby, it carries a measurement.
+Speedmap shows what broadband is available at an address in Greece. It joins EETT's national coverage register to an address index built from the same register and street geometry from OpenStreetMap, then draws every street in the country coloured by the best line that reaches it. Where an operator publishes a tariff the result carries a price, and where someone has run a speed test nearby, a measurement.
 
 The database holds 1,796,105 addresses, 91,672 streets across 333 municipalities, and 14.6M coverage rows, at roughly 18 GB.
 
@@ -18,9 +18,9 @@ The register is an unauthenticated PostgREST API. Its page cap is 500 and it tru
 
 ## How The Speed Figure Is Derived
 
-The register files speed *classes*, not speeds: the finest value available is a band such as "100-300 Mbps". It also leaves the band empty on most filings, including 70.8% of the 1,071,133 fiber rows.
+The register files speed *classes*. The finest value it has is a band such as "100-300 Mbps". It also leaves the band empty on most filings, including 70.8% of the 1,071,133 fiber rows.
 
-The figure shown is therefore anchored on the technology rather than read from the band:
+So the figure is anchored on the technology, and the band only caps it:
 
 ```
 best_mbps = least(technology.sold_mbps, the filed band's ceiling)
@@ -33,7 +33,7 @@ best_mbps = least(technology.sold_mbps, the filed band's ceiling)
 | ADSL | 24 | The single ADSL plan on file |
 | VDSL | 50 | Every VDSL plan on file is 50 |
 | Vectored VDSL | 100 | Telekom, Vodafone and Nova all retail 100 |
-| DOCSIS | 300 | No coax is filed in Greece; set so a future filing reports something |
+| DOCSIS | 300 | No coax is filed in Greece. Set so a future filing reports something |
 | FTTH | 1000 | Plans run 100 to 3000 |
 
 The cap uses `a4a_nordown`, the register's normally available speed, rather than `a4a_maxdown`. It is filed in exactly the rows `maxdown` is and is never higher, so it can only lower a figure. Using it roughly doubles the number of streets identifiable as being on 10 Mbps or less.
@@ -56,21 +56,25 @@ Raw register tables land in `raw_*` and are never modified. Everything else is d
 | Step | Produces |
 |---|---|
 | `010_municipality` | The 333 Kallikratis municipalities, reprojected to 4326 |
+| `020_address` | The address index, parsed from the register's points |
+| `025_address_point_nearby` | Places filings with an empty field (mostly postcode only) by position |
 | `030_coverage` | Point-located services (fiber, coax) |
 | `040_coverage_area` | Copper cabinet polygons, reprojected from Greek Grid |
+| `045_cosmote` | Telekom's scraped answers, and the addresses only the scrape knows |
 | `050_address_coverage` | What reaches each address, by point match or cabinet containment |
-| `025_address_point_nearby` | Places filings that name a postcode and no street |
+| `060_street` | OSM ways grouped into connected runs of a named road |
 | `065_address_street` | Pins each address to the nearest road of its name |
+| `066_street_locality` | Each street's most common locality, for telling runs of one name apart |
 | `070_wireless` | Fixed wireless, matched to the 100 m register grid by arithmetic |
 | `090_wholesale` | Refreshes the seller-to-infrastructure view |
 | `100_builder_coverage` | Anyone who passes premises but files no retail service there |
-| `110_street_reach` | Which operators reach each street, and at what speed |
+| `110_street_reach` | Which operators reach each street, how, and at what speed |
 | `120_street_speed` | The street's own figure, taken from `110` |
 | `130_municipality_coverage` | Per-municipality fiber share and measured averages |
 
-Each step deletes its own previous output before rebuilding, so a withdrawn filing disappears rather than persisting. `address_coverage` is written by three steps, so rows carry a `built_by` column identifying which one owns them.
+Each step ends with exactly its current output, so a withdrawn filing disappears instead of lingering. The big ones (`025`, `050`, `070`, `100`) get there by comparing: rows that left the new set are deleted and only new or changed rows are written, which on an unchanged register is almost nothing. `address_coverage` is written by three steps, so rows carry a `built_by` column saying which one owns them. Ties are broken explicitly everywhere, so the same register builds the same map, tile for tile.
 
-The register keeps two books and both are read. A service filing says an operator sells a line at a point; an infrastructure filing says one has built past a door. Reading only the first understates anyone who builds and files little: Telekom passes 1.09 million doors and files 36,012 services, so the map credited it with 23,041 fiber addresses against Vodafone's 601,473, which described who fills in which form rather than what is in the ground. `100_builder_coverage` credits premises passed to whoever passed them, incumbent and altnet alike.
+The register keeps two books and both are read. A service filing says an operator sells a line at a point. An infrastructure filing says one has built past a door. Reading only the first understates anyone who builds a lot and files little: Telekom passes 1.09 million doors and files 36,012 services, so the map credited it with 23,041 fiber addresses to Vodafone's 601,473. That measured paperwork. `100_builder_coverage` credits premises passed to whoever passed them, incumbent and altnet alike.
 
 Operators carry a `role`. A `retail` operator is one a household can buy from. The `infrastructure` ones cannot be bought from directly: wholesale builders who pass premises for others to sell over, plus Metadosis, which files services and publishes no tariff. Both colour the map, since fiber in the ground decides whether anyone will ever sell a gigabit down the street, but they are listed apart so the panel stops offering suppliers nobody can choose.
 
@@ -78,11 +82,11 @@ The register also files one company under four names. OTE, OTE UltraFast and two
 
 A street's reach comes from three routes unioned: filings against addresses pinned to the street, cabinet polygons the street intersects, and built fiber standing beside it. Builders file addresses and no polygons, and roughly half of all streets have no filed address, so either of the first two alone loses a different half. Cabinet polygons are capped at 5,000,000 m² by `cabinet_m2()`, because larger filings are exchange regions and say nothing about an individual street.
 
-The third route exists because 307,300 builder filings name a postcode and no street at all, Telekom's 343,930 and every one of OTE UltraFast's 50,064 among them. Joining those by address text collapses them: each filing in a postcode matches the same row, and OTE UltraFast's whole network landed on 327 addresses. `025_address_point_nearby` rescues the ones standing within 30 m of a door the address index holds, capped at twenty doors. The rest are placed against street geometry directly, within `built_fiber_m()`, because OSM is dense exactly where the address index is thin: Πύλου-Νέστορος holds 4,789 fiber points and 50 addresses for the whole municipality. Only the nearest street, since a filing passing fifty premises fronts onto more than one road and never says which. 440 streets rest on this route alone, with their evidence a median 10 m away.
+The third route exists because 307,300 builder filings name a postcode and no street at all, and 624,750 more sit on doors that `065` couldn't pin to any street, Telekom's 343,930 and every one of OTE UltraFast's 50,064 among them. Joining those by address text collapses them: each filing in a postcode matches the same row, and OTE UltraFast's whole network landed on 327 addresses. `025_address_point_nearby` rescues the ones standing within 30 m of a door the address index holds, capped at twenty doors. The rest are placed against street geometry directly, within `built_fiber_m()`, because OSM is dense exactly where the address index is thin: Πύλου-Νέστορος holds 4,789 fiber points and 50 addresses for the whole municipality. Only the nearest street, since a filing passing fifty premises fronts onto more than one road and never says which. 440 streets rest on this route alone, with their evidence a median 10 m away.
 
 Mobile and fixed wireless are excluded from street and municipality figures. 5G reaches nearly every address and files a 300-1000 band where it does, which flattens the map to a single value.
 
-Schema changes are ordered, checksummed migrations in `normalise/migrations/` (63 of them), applied by `make migrate`. A migration is immutable once applied: editing one, even to reword a comment, drifts its checksum and blocks the next `make migrate` until the row is re-stamped by hand.
+Schema changes are ordered, checksummed migrations in `normalise/migrations/` (65 of them), applied by `make migrate`. A migration is immutable once applied: editing one, even to reword a comment, drifts its checksum and blocks the next `make migrate` until the row is re-stamped by hand.
 
 ## API
 
@@ -100,9 +104,9 @@ FastAPI, read-only except for three endpoints. Runs on `:8000`.
 | `POST` | `/reports` | Records that something looks wrong |
 | `GET` | `/health/adapters` | Per-operator checker state |
 
-A street's offers are derived in `api/main.py` from the same three routes `110_street_reach` builds the figure from, and `matched_by` says which one answered: `point` for a filing against a door, `area` for a cabinet, `built` for fiber in the ground the register never gave an address. The map's colour and this list come from different queries over the same sources, so they have to be changed together. They were not once: `110` learned the third route and the panel did not, and Χανιά - Θέρισο drew at a gigabit above "no road here with declared coverage".
+A street's offers are the rows `110_street_reach` stores in `street_offer`, the same rows the map's colour is derived from, so the two can't disagree. `matched_by` says which route found each one: `point` for a filing against a door, `area` for a cabinet, `built` for fiber in the ground the register never gave an address. They used to be two separate queries. `110` learned the third route and the panel didn't, and Χανιά - Θέρισο drew at a gigabit above "no road here with declared coverage". Reading the stored rows also took the panel from about 180 ms to one index lookup.
 
-Search runs three widening tiers: literal prefix, word-start, then trigram similarity. The fuzzy tier matches against a materialised view of the 126,151 distinct address spellings rather than all 1.8M rows, which keeps it near 45 ms instead of 750 ms.
+Search runs three widening tiers: literal prefix, word-start, then trigram similarity. The fuzzy tier matches against a materialised view of the 126,151 distinct address spellings, not all 1.8M rows, which keeps it near 45 ms instead of 750 ms. The other tiers pick the page of ids from a covering index first, then read only those rows.
 
 `schema/openapi.json` is generated from the application and checked by `make lint`. The frontend's types are generated from it in turn.
 
@@ -112,7 +116,7 @@ MapLibre GL reading PMTiles archives by range request. Three vector layers, cut 
 
 `speedmap.pmtiles`
 
-- `streets`: one feature per street, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator cannot sell. A field carries `role: infrastructure` in `schema/tiles.yaml` when its operator retails nothing, and the panel reads that rather than listing them again.
+- `streets`: one feature per street, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator can't sell. A field carries `role: infrastructure` in `schema/tiles.yaml` when its operator retails nothing, and the panel reads that instead of keeping its own list.
 - `regions`: one feature per municipality, for zooms below 11 where a street is a fraction of a pixel.
 
 `cells.pmtiles`
@@ -123,7 +127,7 @@ The squares sit apart because the map draws them or the streets, never both. Sha
 
 Features are written in a fixed order. Tippecanoe writes them in the order it reads them and the renderer draws them in that order, so without an `order by` a rebuild can swap which of two crossing streets is on top, which is a visible change from no change at all.
 
-Field names are defined once in `schema/tiles.yaml` and generated into both the Python builder and the TypeScript renderer, so a renamed field breaks the build rather than silently rendering as `undefined`.
+Field names are defined once in `schema/tiles.yaml` and generated into both the Python builder and the TypeScript renderer, so a renamed field breaks the build before it can silently render as `undefined`.
 
 MapLibre parses tiles on one worker unless it is told otherwise. `web/src/map/engine.ts` sets the pool to eight and registers one PMTiles protocol for the page.
 
@@ -136,12 +140,13 @@ Requires Postgres 18 with PostGIS, Python 3.13, and Node. `tippecanoe` is needed
 ```bash
 make setup        # .venv and dependencies
 make bootstrap    # migrate, load the register, build derived tables
+make fonts        # label glyphs, served beside the tiles
 make api          # http://localhost:8000
 ```
 
 `bootstrap` creates the database, so it is the one command that runs against a machine with
 nothing on it. Every stage is idempotent and declares what it comes after, and the order is
-asserted in `tests/test_bootstrap.py` rather than kept in anyone's head.
+asserted in `tests/test_bootstrap.py` so nobody has to remember it.
 
 What a clone reproduces, and what it does not:
 
@@ -176,6 +181,7 @@ The dev server proxies the API so both run same-origin, matching production behi
 | `build` | Rebuild derived tables from `raw_*` |
 | `audit` | Run data invariants against the built database |
 | `tiles` | Cut the map tiles |
+| `fonts` | Fetch the label glyphs |
 | `codegen` | Regenerate the tile contract and OpenAPI document |
 | `api` | Run the API |
 | `check` | Lint, typecheck, and both test suites |
@@ -183,22 +189,22 @@ The dev server proxies the API so both run same-origin, matching production behi
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 727 Python tests and 49 frontend tests. Eleven of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those eleven cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
+`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, 731 Python tests and 53 frontend tests. Thirteen of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those thirteen cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
 
 `make audit` is separate and runs the nine SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
 
 ## Known Limitations
 
-- Addresses match streets about 63% of the time. `065_address_street` pins each one to the nearest road of its name in its municipality; where no road of that name exists, there is no geometry to show and the pin stays null.
+- Addresses match streets about 63% of the time. `065_address_street` pins each one to the nearest road of its name in its municipality. Where no road of that name exists there's no geometry to show, the pin stays null, and built fiber on such a door is placed on its street by position instead.
 - A street is one connected run of road. Ways within about 55 m of each other are one street, which steps over a square or a dual carriageway without merging two roads a block apart. Where a name covers several runs, each is its own row: before this, one row held all of them, a cabinet reaching one coloured the lot, and 516 of those rows spanned more than 20 km.
 - The register files ADSL above its physical ceiling on 512 rows, including five at a gigabit. Those are held to 24 Mbps, so the map disagrees with the filing in those places.
-- The Cosmote address scrape covers 43% of streets, which limits which addresses the Telekom and Nova checkers can be asked about. Nova's adapter works around this by searching the operator's live street list; Telekom's cannot. The scrape and its adapter keep the name of the site they read, which is `cosmote.gr`; the operator they write to the database is `TELEKOM`.
-- A street figure describes the best line reaching the street, not line quality at a specific door. Distance from the cabinet is not modelled. The measured view is the counterweight.
-- Prices are absent for operators that publish none, and three HCN plans have no setup fee published, so their totals are floors rather than exact.
+- The Cosmote address scrape covers 43% of streets, which limits which addresses the Telekom and Nova checkers can be asked about. Nova's adapter works around this by searching the operator's live street list. Telekom's can't. The scrape and its adapter keep the name of the site they read, `cosmote.gr`, and the operator they write to the database is `TELEKOM`.
+- A street figure describes the best line reaching the street. Line quality at a specific door isn't modelled, nor is distance from the cabinet. The measured view is the counterweight.
+- Prices are absent for operators that publish none, and three HCN plans have no setup fee published, so their totals are floors.
 
 ## Attribution and Licensing
 
-The code in this repository is MIT licensed. See `LICENSE`. That covers the code only. Every dataset it loads carries its own terms, and those terms travel with the data rather than with the code, so a clone of this repository is not a licence to republish what a build of it produces.
+The code in this repository is MIT licensed. See `LICENSE`. That covers the code only. Every dataset it loads carries its own terms, and those terms travel with the data, so a clone of this repository is not a licence to republish what a build of it produces.
 
 **OpenStreetMap.** Street geometry and the basemap archive come from an OSM extract, licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/). Credited in the map as:
 
@@ -218,6 +224,6 @@ The NC term is the binding one here. Anything built from these tiles is non-comm
 
 **Tariffs and checkers.** Plan prices and live serviceability answers are each operator's own material, read from their public pages. They are cached to run the site and attributed to the operator wherever they appear.
 
-**Libraries.** The map runs on [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) (BSD 3-Clause). Label glyphs are served from `fonts.openmaptiles.org`, where each family keeps its own upstream licence, mostly SIL Open Font License. Tiles are cut with [tippecanoe](https://github.com/felt/tippecanoe) (BSD 2-Clause) and the basemap with [planetiler](https://github.com/onthegomap/planetiler) (Apache 2.0).
+**Libraries.** The map runs on [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) (BSD 3-Clause). Label glyphs come from the [OpenMapTiles fonts](https://github.com/openmaptiles/fonts) release, fetched once by `make fonts` and served beside the tiles. Each family keeps its upstream licence, mostly the SIL Open Font License. Tiles are cut with [tippecanoe](https://github.com/felt/tippecanoe) (BSD 2-Clause) and the basemap with [planetiler](https://github.com/onthegomap/planetiler) (Apache 2.0).
 
 All of the above is shown in the site at `/attribution`, one click from a corner of every map. The page is generated from `web/src/credits.ts`, which is the only list of sources the frontend keeps, so a source added there is credited and a source added anywhere else is not credited at all.

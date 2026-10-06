@@ -1,7 +1,7 @@
 """What a provider sells, and what it charged on the day we looked.
 
-A plan is what it is. A price is what it was. The two are separated because a tariff changes
-under a plan that does not, and a comparison made last month has to stay answerable.
+Plans and prices are kept apart because a tariff changes under a plan that doesn't, and last
+month's comparison has to stay answerable.
 """
 
 from __future__ import annotations
@@ -56,8 +56,8 @@ on conflict (plan_id, observed_on) do update set
 class Tariff:
     """One plan as a provider advertises it today.
 
-    None is not zero anywhere here. A catalogue that does not mention a setup fee has not
-    said there isn't one, and the ranker refuses to blend a cost it was never told.
+    None is never zero here. A catalogue that doesn't mention a setup fee hasn't said there
+    isn't one, and the ranker won't blend a cost it was never told.
     """
 
     external_key: str
@@ -83,10 +83,10 @@ def write(
     observed_on: date,
     source: str = "catalogue",
 ) -> int:
-    """Record today's catalogue. Rerunning on the same day corrects it rather than doubling.
+    """Record today's catalogue. Rerunning on the same day corrects it instead of doubling.
 
-    A catalogue price is what the provider's own ordering system quotes. A published one is
-    read off a rate card or a plan page, and the two can differ by three times over.
+    A catalogue price is what the provider's ordering system quotes. A published one is read off
+    a rate card or plan page, and the two can differ threefold.
     """
     written = 0
     for tariff in tariffs:

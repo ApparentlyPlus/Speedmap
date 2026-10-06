@@ -8,8 +8,8 @@ Type=oneshot
 User=speedmap
 WorkingDirectory=/opt/speedmap
 EnvironmentFile=/opt/speedmap/.env
-# It finds the newest quarter they have published rather than being told, because they
-# publish some weeks after a quarter ends and the delay is not fixed.
+# It looks for the newest published quarter itself, since Ookla publishes some weeks after
+# a quarter ends and the delay varies.
 ExecStart=/opt/speedmap/.venv/bin/python -m ingest.ookla --latest
 TimeoutStartSec=2h
 Slice=speedmap.slice

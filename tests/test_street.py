@@ -52,7 +52,7 @@ def rows(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, int]]:
 def test_ways_with_one_name_become_one_street(
     streets: psycopg.Connection[TupleRow],
 ) -> None:
-    """OSM splits a road at every junction; 10 ways is still one street."""
+    """OSM splits a road at every junction, and 10 ways are still one street."""
     ways = [Way(n, "Αχιλλέα Τζελίλη", "secondary", INSIDE) for n in (1, 2, 3)]
     assert build(streets, ways) == 1
     assert rows(streets) == [("Αχιλλέα Τζελίλη", 3)]
@@ -119,7 +119,7 @@ def test_a_latin_key_is_written(streets: psycopg.Connection[TupleRow]) -> None:
 def test_a_road_removed_from_the_extract_is_pruned(
     streets: psycopg.Connection[TupleRow],
 ) -> None:
-    """not exists, not NOT IN: a null municipality would stop NOT IN pruning anything."""
+    """not exists, never NOT IN: one null municipality stops NOT IN from pruning anything."""
     build(streets, [Way(1, "Αχιλλέα Τζελίλη", "secondary", INSIDE)])
     write(streets, iter([Way(2, "Άλλη", "residential", INSIDE)]))
     streets.commit()

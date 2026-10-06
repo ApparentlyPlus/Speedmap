@@ -1,5 +1,4 @@
-# Addresses whose answer is known and does not change, asked on a schedule so that rot is loud
-# rather than silent.
+# Addresses with a known, stable answer, asked on a schedule so rot is loud.
 
 - name: athens-fiber
   why: central Athens, fiber for years, every operator sells there
@@ -12,8 +11,8 @@
   why: rural Thessaloniki, copper only, the street the register never named
   municipality: ΔΗΜΟΣ ΛΑΓΚΑΔΑ
   street: ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ
-  # Number 1, not 40: the scan stopped at 1 and the register never filed the street, so 40 is
-  # real and is not in the index.
+  # Number 1: the scan stopped at 1 and the register never filed the street, so 40 is real
+  # but isn't in the index.
   street_no: "1"
   expect: offers
   providers: [TELEKOM]

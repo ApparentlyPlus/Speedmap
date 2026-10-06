@@ -1,9 +1,8 @@
--- A street painted one speed while claiming another for every operator on it.
+-- A street painted one speed while every operator on it claims another.
 --
--- The map colours a street by its best and filters it by the per-operator fields, and the
--- two are built by different steps over different joins. If they disagree the street is
--- painted a colour no operator on it can sell, which is the single most expensive class of
--- bug the prototype had: wrong, plausible, and silent.
+-- The map colours a street by its best and filters it by per-operator fields. If the two
+-- disagree the street wears a colour nobody on it sells. That was the prototype's costliest
+-- class of bug: wrong, plausible and silent.
 select s.id, s.name, s.best_mbps, max(sp.mbps) as theirs
 from street s
 left join street_provider sp on sp.street_id = s.id

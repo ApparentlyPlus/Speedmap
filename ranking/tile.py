@@ -1,18 +1,16 @@
-"""Which measurement tile an address falls in.
+"""Which Ookla tile an address falls in.
 
-Ookla publishes at zoom 16 of the usual web map grid, tiles roughly 600 m across, keyed by
-quadkey.
+Ookla publishes at zoom 16 of the usual web map grid, tiles about 600 m across, keyed by quadkey.
 """
 
 from __future__ import annotations
 
 import math
 
-# Ookla's own zoom. Their tiles are published at this and nothing else.
+# Ookla's zoom, the only one they publish
 ZOOM = 16
 
-# Web Mercator cannot represent the poles, and clamps at the latitude where the projection would
-# run to infinity.
+# Web Mercator can't reach the poles, so it clamps where the projection would run to infinity.
 LIMIT = 85.05112878
 
 
@@ -29,8 +27,8 @@ def tile_of(lat: float, lon: float, zoom: int = ZOOM) -> tuple[int, int]:
 def quadkey(lat: float, lon: float, zoom: int = ZOOM) -> str:
     """The quadkey Ookla files that tile under.
 
-    A quadkey is the tile's position written as one base-four digit per zoom level, each
-    digit taking one bit from the column and one from the row, most significant first.
+    One base-four digit per zoom level, each taking one bit from the column and one from the row,
+    most significant first.
     """
     x, y = tile_of(lat, lon, zoom)
     digits = []

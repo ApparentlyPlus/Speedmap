@@ -1,6 +1,6 @@
 /**
- * A short bright window travelling the length of a street, to point at it without burying the
- * coverage colour underneath.
+ * A short bright window that runs along a street, pointing at it without hiding the coverage
+ * colour underneath.
  */
 
 import type { Geometry, Position } from "geojson";
@@ -11,16 +11,16 @@ import { ACCENT } from "../tokens";
 export const TRACE = "trace";
 export const GLOW = `${TRACE}-glow`;
 
-/** How much of the street is lit at once. */
+/** Share of the street lit at once. */
 const WINDOW = 0.09;
 
-/** How long one pass takes, in milliseconds. Slow: it is a pointer, not a loading bar. */
+/** One pass, in ms. Slow, since it's a pointer and not a progress bar. */
 export const PASS_MS = 4200;
 
-/** A street, flattened into the pieces it is drawn in and measured end to end. */
+/** A street split into the pieces it's drawn in, measured end to end. */
 export type Path = {
   readonly parts: readonly (readonly Position[])[];
-  /** Where each part begins, as a fraction of the whole street's length. */
+  /** Start of each part as a fraction of the street's length. */
   readonly starts: readonly number[];
   readonly total: number;
 };
@@ -30,8 +30,8 @@ function clamp(n: number): number {
 }
 
 /**
- * Length in a flat plane, which is what a highlight needs. Degrees of longitude are shorter than
- * degrees of latitude everywhere but the equator, so the x side is scaled by the latitude.
+ * Flat length, which is all a highlight needs. A degree of longitude is shorter than one of
+ * latitude away from the equator, so x gets scaled by the latitude.
  */
 function span(from: Position, to: Position): number {
   const lift = Math.cos((((from[1] ?? 0) + (to[1] ?? 0)) / 2) * (Math.PI / 180));
@@ -40,7 +40,7 @@ function span(from: Position, to: Position): number {
   return Math.hypot(x, y);
 }
 
-/** Every line in a geometry, whatever shape it arrived in. */
+/** Every line in a geometry, whatever shape it came in. */
 function lines(shape: Geometry): Position[][] {
   if (shape.type === "LineString") return [shape.coordinates];
   if (shape.type === "MultiLineString") return shape.coordinates;
@@ -64,7 +64,7 @@ export function pathOf(shape: Geometry): Path | null {
   return { parts, starts: starts.map((begins) => begins / total), total };
 }
 
-/** The piece of the street between two points of its length. */
+/** The stretch of street between two points along its length. */
 export function sliceOf(path: Path, from: number, to: number): Position[][] {
   const cut: Position[][] = [];
 
@@ -102,17 +102,16 @@ function between(one: Position, two: Position, at: number): Position {
   ];
 }
 
-/** Where the light is at one moment of the pass. It wraps rather than fades. */
+/** The light's position at one moment of the pass. Wraps around, never fades. */
 export function momentOf(path: Path, progress: number): { lines: Position[][] } {
   const head = clamp(progress);
   const tail = head - WINDOW;
   if (tail >= 0) return { lines: sliceOf(path, tail, head) };
-  // Straddling the join: the front of the light is at the start of the street and the
-  // back of it has not left the end yet.
+  // across the join: the front has wrapped to the start while the back is still at the end
   return { lines: [...sliceOf(path, 0, head), ...sliceOf(path, 1 + tail, 1)] };
 }
 
-/** The two layers the light is made of. */
+/** The light's two layers. */
 export function traceLayers(): LayerSpecification[] {
   return [
     {
@@ -124,8 +123,7 @@ export function traceLayers(): LayerSpecification[] {
         "line-color": ACCENT,
         "line-blur": 3,
         "line-opacity": 0,
-        // Close around the line rather than a halo over the neighbourhood. Its job is to
-        // stop the mark looking cut out, not to be the mark.
+        // tight around the line, so the mark doesn't look cut out. it isn't the mark itself
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"], 10, 3, 13, 5, 16, 11, 20, 34,
         ],
@@ -138,11 +136,10 @@ export function traceLayers(): LayerSpecification[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": ACCENT,
-        // Hard edged. The blur was making a narrow mark read as a wide soft one, which is
-        // the difference between a highlighter and a smear.
+        // hard edged: blurred, a narrow mark smeared into a wide soft one
         "line-blur": 0,
         "line-opacity": 0,
-        // Narrower than the street it is marking, at every zoom, about three fifths of it.
+        // about three fifths of the street's width, at every zoom
         "line-width": [
           "interpolate", ["exponential", 1.6], ["zoom"],
           6, 0.3, 12, 0.8, 14, 1.6, 15, 2.7, 16, 4.2, 20, 15,
@@ -152,7 +149,7 @@ export function traceLayers(): LayerSpecification[] {
   ];
 }
 
-/** How bright each layer is. Constant: the light never dims, it only moves. Low. */
+/** Brightness per layer. Low and constant, since the light moves but never dims. */
 export function traceOpacity(): [string, number][] {
   return [
     [GLOW, 0.14],
@@ -160,7 +157,7 @@ export function traceOpacity(): [string, number][] {
   ];
 }
 
-/** The box worth pointing a camera at. */
+/** The box worth pointing the camera at. */
 export function focusOf(shape: Geometry): [[number, number], [number, number]] | null {
   const path = pathOf(shape);
   if (path === null) return null;
@@ -178,7 +175,7 @@ export function focusOf(shape: Geometry): [[number, number], [number, number]] |
   return extentOf({ type: "LineString", coordinates: best as Position[] });
 }
 
-/** A box that holds the street whichever way the camera is pointing. */
+/** A box that holds the street whichever way the camera faces. */
 export function turnable(
   extent: [[number, number], [number, number]],
 ): [[number, number], [number, number]] {
@@ -193,7 +190,7 @@ export function turnable(
   ];
 }
 
-/** The box a street occupies. */
+/** The street's bounding box. */
 export function extentOf(shape: Geometry): [[number, number], [number, number]] | null {
   let west = Infinity;
   let south = Infinity;

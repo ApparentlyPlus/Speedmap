@@ -1,4 +1,4 @@
-# The field names inside a vector tile, written once so both sides cannot drift.
+# The field names inside a vector tile, written once so neither side can drift.
 
 version: 1
 
@@ -21,8 +21,8 @@ layers:
       nprov:
         type: integer
         description: how many operators reach this street at all, filed speed or not
-      # Three states, not two: null is an operator that does not reach this street, -1 is one
-      # that reaches it and filed no speed, and a number is the speed.
+      # Three states: null is an operator that doesn't reach this street, -1 one that reaches
+      # it with no speed filed, and a number is the speed.
       p_telekom: {type: number, nullable: true, unit: mbps, provider: TELEKOM}
       p_vodafone: {type: number, nullable: true, unit: mbps, provider: VODAFONE}
       p_nova: {type: number, nullable: true, unit: mbps, provider: NOVA}
@@ -31,8 +31,8 @@ layers:
       p_hcn: {type: number, nullable: true, unit: mbps, provider: HCN}
       # Operators nobody can buy from directly: wholesale builders, and Metadosis, which
       # files services and publishes no tariff. Drawn, because fiber in the ground decides
-      # whether anyone can ever sell a gigabit here. Listed apart, because putting them up
-      # as a choice of supplier offers the reader something they cannot take.
+      # whether anyone can ever sell a gigabit here. Listed apart, because offering them as
+      # a choice of supplier offers something the reader can't take.
       p_metadosis: {type: number, nullable: true, unit: mbps, provider: METADOSIS, role: infrastructure}
       p_fibergrid: {type: number, nullable: true, unit: mbps, provider: FIBERGRID, role: infrastructure}
       p_unitedfiber: {type: number, nullable: true, unit: mbps, provider: UNITEDFIBER, role: infrastructure}
@@ -67,8 +67,8 @@ layers:
         nullable: true
         unit: mbps
         description: the band's assured speed, held to what the technology can carry
-      # One figure per view, because the choropleth is drawn under whichever view is on and a
-      # filed claim beneath a measured map is the one mixture this site does not make.
+      # One figure per view, since the choropleth sits under whichever view is on, and a
+      # filed claim under a measured map is the one mix this site won't make.
       measured_mbps:
         type: number
         nullable: true

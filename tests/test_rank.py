@@ -41,7 +41,7 @@ def test_a_line_comes_first_and_then_the_cheapest_of_them() -> None:
 
 
 def test_fiber_beats_a_cheaper_cell() -> None:
-    """A cell is shared with the street at seven in the evening and a line is not."""
+    """A cell is shared with the street at seven in the evening. A line isn't."""
     found = rank([
         option("TELEKOM", "gigamax", "wireless", 240, "30.00", technology="MOBILE"),
         option("INALAN", "inalan 1G", "fiber", 1000, "34.00"),
@@ -50,7 +50,7 @@ def test_fiber_beats_a_cheaper_cell() -> None:
 
 
 def test_a_dearer_gigabit_loses_to_a_cheaper_one() -> None:
-    """Above the bar the extra speed is a number on a bill, not a difference anyone sees."""
+    """Above the bar, extra speed is a number on a bill that nobody notices."""
     found = rank([
         option("DEI", "fiber 2.5G", "fiber", 2500, "52.90"),
         option("NOVA", "fiber 300", "fiber", 300, "23"),
@@ -59,7 +59,7 @@ def test_a_dearer_gigabit_loses_to_a_cheaper_one() -> None:
 
 
 def test_below_the_bar_speed_decides_not_price() -> None:
-    """The choice is no longer which good option but which least bad one."""
+    """Now the choice is the least bad option."""
     found = rank([
         option("TELEKOM", "adsl 24", "copper", 24, "19.90", technology="ADSL"),
         option("VODAFONE", "vdsl 50", "copper", 50, "26", technology="VDSL"),
@@ -98,7 +98,7 @@ def test_the_dish_loses_on_its_hardware_not_its_headline() -> None:
 
 
 def test_an_unknown_speed_is_never_fast_enough() -> None:
-    """Not knowing how fast a wireless link is here is not evidence that it is fast."""
+    """Not knowing how fast a wireless link is here is no evidence that it's fast."""
     found = rank([
         option("VODAFONE", "wireless home", "wireless", None, "26.90", technology="FWA"),
         option("TELEKOM", "adsl", "copper", 24, "24", technology="ADSL"),
@@ -108,16 +108,16 @@ def test_an_unknown_speed_is_never_fast_enough() -> None:
 
 
 def test_a_missing_setup_fee_does_not_cost_an_offer_its_place() -> None:
-    """The monthly rate is known, so the offer is ranked on it and marked as a floor.
+    """The monthly rate is known, so the offer ranks on it, marked as a floor.
 
-    It used to be dropped below everything priced and labelled "the cost is not known", which
-    is three HCN plans, 16, 23 and 29 euro a month, all published.
+    It used to drop below everything priced, labelled "the cost is not known": three HCN plans
+    at 16, 23 and 29 euro a month, all published.
     """
     found = rank([
         option("HCN", "sonic", "fiber", 1000, "23", setup=None),
         option("NOVA", "fiber 100", "copper", 100, "21", technology="VECT_VDSL"),
     ])
-    # Fiber beats vectoring on steadiness, and both clear the bar, so it leads on merit.
+    # fiber beats vectoring on steadiness and both clear the bar, so it leads on merit
     assert order(found) == ["sonic", "fiber 100"]
     assert found[0].why == FROM
     assert found[0].enough is True
@@ -136,7 +136,7 @@ def test_nothing_at_all_ranks_nothing() -> None:
 
 
 def test_the_bar_is_a_judgement_that_can_be_moved() -> None:
-    """Someone who works from home may want the gigabit the household does not."""
+    """Someone working from home may want the gigabit a household doesn't."""
     options = [
         option("DEI", "fiber 1G", "fiber", 1000, "19.90"),
         option("NOVA", "fiber 100", "copper", 100, "21", technology="VECT_VDSL"),
@@ -165,7 +165,7 @@ def test_a_metered_plan_does_not_cover_a_household() -> None:
 
 
 def test_a_generous_cap_still_is_not_a_month() -> None:
-    """Seventy gigabytes is a fortnight of one television, not a house."""
+    """Seventy gigabytes is a fortnight of one television, nowhere near a house."""
     assert rank([metered(70, 300, "36.00")])[0].enough is False
     assert rank([metered(500, 300, "36.00")])[0].enough is True
 
@@ -195,7 +195,7 @@ def test_an_operator_quote_beats_the_advertised_rung() -> None:
 
 
 def test_no_equipment_means_no_equipment_to_pay_for() -> None:
-    """Zero here is what the catalogue says, not what we assumed it meant."""
+    """This zero comes from the catalogue, and we didn't assume it."""
     from ranking.offer import owned
 
     assert owned(None, None) == Decimal(0)
@@ -216,7 +216,7 @@ def test_a_dish_wins_where_nothing_else_reaches() -> None:
 
 
 def test_a_dish_does_not_win_where_a_cell_is_good() -> None:
-    """It is the last resort, not a default: 349€ of dish against a router given away."""
+    """The last resort, never the default: 349€ of dish against a router given away."""
     found = rank([
         metered(None, 240, "41.00"),
         option("STARLINK", "starlink 200", "satellite", 140, "45", hardware=349),

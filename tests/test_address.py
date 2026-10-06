@@ -59,7 +59,7 @@ def test_locality_without_a_prefix_is_untouched() -> None:
     ],
 )
 def test_street_numbers_are_kept_verbatim(raw: str, expected: str) -> None:
-    """Ranges and letter suffixes are real numbers, not values to be normalised away."""
+    """Ranges and letter suffixes are real numbers, kept as filed."""
     assert one(raw).street_no == expected
 
 
@@ -112,7 +112,7 @@ def test_search_key_keeps_parodos() -> None:
     ],
 )
 def test_unparsable_parts_are_dropped(raw: str) -> None:
-    """A shape we do not recognise yields nothing rather than a half-built address."""
+    """A shape we don't recognise yields nothing, never a half-built address."""
     assert parse(raw) == []
 
 

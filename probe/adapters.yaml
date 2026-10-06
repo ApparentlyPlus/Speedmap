@@ -2,14 +2,14 @@
 
 TELEKOM:
   base: https://www.telekom.gr
-  # Their availability call will not answer without the cookie this page sets.
+  # their availability call won't answer without the cookie this page sets
   warm: /eshop/jsp/eligibility.jsp
   availability: /eshop/jsp/ajax/avdslavailabilityAjaxV2.jsp
   headers:
     Accept-Language: el
     X-Requested-With: XMLHttpRequest
   # Their form field names. The prefixes are theirs: Ν. for a prefecture, Δ. for a
-  # municipality, and the street carries its type in brackets or they refuse to decide.
+  # municipality, and the street carries its type in brackets or they won't decide.
   form:
     telephone: mTelno
     prefecture: mState
@@ -22,9 +22,9 @@ TELEKOM:
     ct: res
   prefecture_prefix: "Ν. "
   municipality_prefix: "Δ. "
-  # What their answer says when it will not decide online. Neither yes nor no.
+  # what their answer says when it won't decide online: neither yes nor no
   inconclusive: διερεύνηση
-  # Speed names the medium. The floor for VDSL is 25 because ADSL cannot pass 24.
+  # speed names the medium. VDSL's floor is 25 because ADSL tops out at 24
   rungs:
     - [200, FTTH]
     - [100, VECT_VDSL]
@@ -34,8 +34,8 @@ TELEKOM:
 VODAFONE:
   base: https://www.vodafone.gr
   warm: /fixed-onboarding?persistState=true
-  # A TM Forum service qualification behind a same-origin proxy, so the real request
-  # travels as a payload and the path is repeated in the proxy URL.
+  # A TM Forum service qualification behind a same-origin proxy, so the real request goes
+  # as a payload and the path repeats in the proxy URL.
   qualify: /tmf-api/serviceQualificationManagement/v4/queryServiceQualification
   proxy: /api/proxy-request
   process: CELL
@@ -52,8 +52,8 @@ VODAFONE:
     FTTH_300: FTTH
     FTTH_500: FTTH
     FTTH_1000: FTTH
-  # Categories that qualify without naming a service. Fixed wireless answers that it
-  # reaches here and quotes nothing, and never says which generation.
+  # Categories that qualify without naming a service. Fixed wireless says it reaches here,
+  # quotes nothing, and never says which generation.
   bare:
     FWA: FWA
 
@@ -64,8 +64,8 @@ NOVA:
   eligibility: /api/GetEligibilityInfo
   headers:
     Accept-Language: el
-  # Their flow arrives here having already chosen a package, and an empty one returns no
-  # offers at all. The choice also scopes the answer to that rung and its neighbours.
+  # Their flow arrives with a package already chosen, and an empty one gets no offers. The
+  # choice also limits the answer to that rung and its neighbours.
   preselect:
     code: 2P_FIBER_100
     title: Fiber 100

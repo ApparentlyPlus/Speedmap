@@ -81,7 +81,7 @@ def test_retry_after_seconds_is_honoured() -> None:
 
 
 def test_retry_after_date_falls_back_to_backoff() -> None:
-    """An HTTP-date Retry-After is not a number, so back off rather than guess."""
+    """An HTTP-date Retry-After isn't a number, so back off instead of guessing."""
     response = httpx.Response(429, headers={"retry-after": "Wed, 21 Oct 2026 07:28:00 GMT"})
     assert retry_delay(response, 3) == 8.0
 
@@ -129,7 +129,7 @@ def test_no_cap_below_the_probe_reports_the_probe() -> None:
 
 
 def test_table_shorter_than_the_probe_is_not_a_cap() -> None:
-    """7 rows returned for a request of 2000 is the whole table, not a limit."""
+    """7 rows back for a request of 2000 is the whole table, and no cap."""
     client = client_for(fake_register(ROWS, cap=1000))
     assert client.page_cap(TOY) == 2000
 
