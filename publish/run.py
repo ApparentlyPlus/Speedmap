@@ -1,10 +1,9 @@
-"""Build the map tiles, and put them in place only once they are whole.
+"""Build the map tiles, and move them into place only once complete.
 
 Two archives, each a single file a web server can range-request: no tile server, no directory
-of a million small files. Streets and municipalities go in one, the measured squares in the
-other. The map draws the squares or the streets and never both, so when they shared an
-archive every zoom out fetched squares nobody was looking at. At zoom 5 that was half the
-tile, 679 kB of the 1.7 MB.
+of a million small files. Streets and municipalities go in one, measured squares in the other.
+The map draws squares or streets, never both, so a shared archive had every zoom out fetching
+squares nobody was looking at: at zoom 5, 679 kB of a 1.7 MB tile.
 """
 
 from __future__ import annotations
@@ -15,36 +14,39 @@ import pathlib
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import psycopg
+from psycopg.rows import TupleRow
 
 from db.settings import settings
 from publish import features, fields
 
-# Nothing reachable may be empty.
+# no reachable zoom may be empty
 MIN_ZOOM = 4
 MAX_ZOOM = 14
 
-# Streets are what the map is for, so they are never dropped to save room. The coarse zooms
+# Streets are what the map is for, so they're never dropped to save room. Coarse zooms
 # coalesce them instead.
 STREET_RULES = ("--drop-densest-as-needed", "--coalesce-densest-as-needed")
 CELL_RULES = ("--drop-densest-as-needed",)
 
-# 333 polygons, and the only thing drawn at the zooms where the country fits on the screen.
+# 333 polygons, the only thing drawn at zooms where the whole country fits
 REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
 
-# Where the regions stop, because the streets have taken over and nothing draws them above it —
-# web/src/map/style.ts fades them out at the same number.
+# Where regions stop, because streets have taken over. web/src/map/style.ts fades them out
+# at the same zoom.
 REGIONS_STOP = 10
 FILTER = json.dumps({fields.REGIONS_LAYER: ["<=", "$zoom", REGIONS_STOP]})
 
-# The measured squares, kept out of the coverage archive. MapLibre does not fetch a source
-# that no visible layer reads, so the coverage map now downloads none of them.
+# Measured squares, in an archive of their own. MapLibre doesn't fetch a source no visible
+# layer reads, so the coverage map downloads none of them.
 CELLS_ARCHIVE = "cells.pmtiles"
 
 
 def tool(name: str) -> str:
-    """The path to a build tool, or a refusal that says which one is missing."""
+    """Path to a build tool, or an exit saying which one is missing."""
     vendored = pathlib.Path(__file__).resolve().parent.parent / "bin" / name
     if vendored.is_file():
         return str(vendored)
@@ -64,23 +66,29 @@ def layer(name: str, path: pathlib.Path, rules: tuple[str, ...]) -> list[str]:
     ]
 
 
-def cut(staged: pathlib.Path, layers: list[str], rules: list[str]) -> None:
-    """One tippecanoe run, one archive."""
-    subprocess.run(
+def cut(staged: pathlib.Path, layers: list[str], rules: list[str]) -> subprocess.Popen[bytes]:
+    """One tippecanoe run, one archive. Returns the running process."""
+    return subprocess.Popen(
         [
             tool("tippecanoe"),
             "--output", str(staged),
             "--minimum-zoom", str(MIN_ZOOM),
             "--maximum-zoom", str(MAX_ZOOM),
-            # Attributes are the contract. Tippecanoe must not decide any of them are dull
-            # enough to drop, which it will do to save room if it is allowed to.
+            # Attributes are the contract, so tippecanoe may not drop any it thinks are dull,
+            # which it otherwise does to save room.
             "--no-tile-size-limit",
             "--preserve-input-order",
             *layers,
             *rules,
         ],
-        check=True,
     )
+
+
+def finish(*runs: subprocess.Popen[bytes]) -> None:
+    """Wait for every cut, failing if any did."""
+    failed = [run for run in runs if run.wait() != 0]
+    if failed:
+        raise subprocess.CalledProcessError(failed[0].returncode, failed[0].args)
 
 
 def build(out: pathlib.Path, work: pathlib.Path) -> None:
@@ -89,17 +97,36 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
     cells = work / "cells.geojsonl"
     regions = work / "regions.geojsonl"
 
-    with psycopg.connect(settings.dsn) as conn:
-        print(f"streets: {features.streets(conn, streets)} features")
-        print(f"cells:   {features.cells(conn, cells)} features")
-        print(f"regions: {features.regions(conn, regions)} features")
-        # Beside the archive rather than inside it: it is one shape, it is wanted before the
-        # first tile arrives.
-        edge = out.parent / "greece.json"
-        print(f"outline: {features.outline(conn, edge) / 1_000_000:.1f} MB -> {edge}")
+    # Each layer on its own connection, all four at once. They share nothing, and run one
+    # after another the streets sat waiting on the cells.
+    def export(
+        layer: Callable[[psycopg.Connection[TupleRow], pathlib.Path], int],
+        path: pathlib.Path,
+    ) -> int:
+        with psycopg.connect(settings.dsn) as conn:
+            return layer(conn, path)
 
+    # beside the archive: it's one shape, wanted before the first tile arrives
+    edge = out.parent / "greece.json"
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        made = {
+            name: pool.submit(export, layer, path)
+            for name, layer, path in (
+                ("streets", features.streets, streets),
+                ("cells", features.cells, cells),
+                ("regions", features.regions, regions),
+                ("outline", features.outline, edge),
+            )
+        }
+        print(f"streets: {made['streets'].result()} features")
+        print(f"cells:   {made['cells'].result()} features")
+        print(f"regions: {made['regions'].result()} features")
+        print(f"outline: {made['outline'].result() / 1_000_000:.1f} MB -> {edge}")
+
+    # The two archives share nothing, so they're cut at once. Same inputs and flags each, so
+    # the same two archives.
     coverage = work / "coverage.pmtiles"
-    cut(
+    streets_cut = cut(
         coverage,
         [
             *layer(fields.STREETS_LAYER, streets, STREET_RULES),
@@ -109,10 +136,11 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
     )
 
     measured = work / "measured.pmtiles"
-    cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), [])
+    cells_cut = cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), [])
+    finish(streets_cut, cells_cut)
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    # Atomic within a filesystem, which is why the work directory sits beside the output.
+    # atomic within one filesystem, which is why the work directory sits beside the output
     for staged, name in ((coverage, out), (measured, out.parent / CELLS_ARCHIVE)):
         staged.replace(name)
         print(f"wrote {name} ({name.stat().st_size / 1_000_000:.1f} MB)")

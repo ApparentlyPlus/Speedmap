@@ -98,7 +98,7 @@ def test_a_category_that_is_not_broadband_is_dropped() -> None:
 
 
 def test_a_technology_we_do_not_know_is_dropped_not_guessed() -> None:
-    """One they add later should be noticed, not absorbed under a code it does not fit."""
+    """One they add later should get noticed, and never absorbed under a code it doesn't fit."""
     payload = {"serviceQualificationItem": [{
         "category": {"name": "FTTH"},
         "service": {"supportingService": [{"name": "FTTH_2000", "serviceCharacteristic": []}]},

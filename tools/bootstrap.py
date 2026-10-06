@@ -1,7 +1,7 @@
 """Bring an empty machine to a running speedmap.
 
-Every stage is idempotent, so this is the same command whether it is the first run or the
-fifth: the register load resumes from its own key.
+Every stage is idempotent, so it's the same command on the first run or the fifth. The
+register load resumes from its own key.
 """
 
 from __future__ import annotations
@@ -17,11 +17,11 @@ from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from db.settings import settings
 
-# The operator's scrape. Months of someone's asking, several gigabytes, and not something
-# a clone can reproduce. Everything works without it and rather less well: see skipped().
+# Telekom's scrape: months of asking, several GB, not something a clone can reproduce.
+# Everything works without it, less well. See skipped().
 SCRAPE = Path("data/cosmote.db")
 
-# Connected to in order to create the real one, because a database cannot create itself.
+# connected to in order to create the real one, since a database can't create itself
 MAINTENANCE = "postgres"
 
 
@@ -37,7 +37,7 @@ class Stage:
 
 
 def database() -> int:
-    """Create the database if it is not there. Nothing else in the repository does."""
+    """Create the database if missing. Nothing else in the repo does."""
     info = conninfo_to_dict(settings.dsn)
     name = str(info.get("dbname", "speedmap"))
     admin = make_conninfo(settings.dsn, dbname=MAINTENANCE)
@@ -46,16 +46,15 @@ def database() -> int:
             "select 1 from pg_database where datname = %s", (name,)
         ).fetchone()
         if found is None:
-            # Not parameterisable: an identifier, not a value.
+            # an identifier, so it can't be a parameter
             conn.execute(
                 psycopg.sql.SQL("create database {}").format(psycopg.sql.Identifier(name))
             )
             print(f"  created {name}")
-    # Nought, and nought when it made one too. Every stage here reports an exit code and
-    # main stops on anything else, so returning a count of what was created read as a
-    # failure on the one run where there was something to create: bootstrap made the
-    # database on a clean machine and stopped, and worked on the second go because by then
-    # there was nothing left to do. That is the run this command exists for.
+    # Zero, including when it created the database. main stops on any non-zero exit, and
+    # returning a count of what was created read as failure on exactly the run with something
+    # to create: on a clean machine bootstrap made the database and stopped, then worked on
+    # the second go. That first run is what this command is for.
     return 0
 
 
@@ -116,7 +115,7 @@ STAGES: tuple[Stage, ...] = (
             "answers start empty. Everything still runs."
         ),
     ),
-    # Before the build, and this is the dependency that is easy to miss.
+    # before the build, and easy to miss
     Stage("prices", prices, "load the tariff catalogues", after=("migrate",)),
     Stage(
         "build", build, "derive everything from the raw tables",
@@ -136,7 +135,7 @@ def misordered(stages: Sequence[Stage]) -> list[str]:
 
 
 def skipped(stage: Stage) -> str | None:
-    """Why this stage will not run, if it will not."""
+    """Why this stage won't run, if it won't."""
     absent = [path for path in stage.needs if not path.exists()]
     if not absent:
         return None

@@ -1,6 +1,6 @@
-"""Load a scrape of the operator's availability checker.
+"""Load a scrape of Telekom's availability checker.
 
-The scrape carries cadastral parcel polygons that nothing here reads and that account for
+The scrape also carries cadastral parcel polygons, which nothing here reads and which make up
 almost all of its thirty gigabytes.
 """
 
@@ -45,7 +45,7 @@ class Checked:
 
 
 def point_wkt(lat: float | None, lon: float | None) -> str | None:
-    """WKT for a checked address, or None when the scrape never placed it."""
+    """WKT for a checked address, or None if the scrape never placed it."""
     if lat is None or lon is None:
         return None
     return f"POINT({lon} {lat})"
@@ -66,7 +66,7 @@ def checked(path: Path) -> Iterator[Checked]:
 
 
 def write(conn: psycopg.Connection[TupleRow], found: Iterator[Checked]) -> int:
-    """Replace the table wholesale: a scrape is a snapshot, not an increment."""
+    """Replace the table wholesale, since a scrape is a snapshot."""
     conn.execute("truncate raw_cosmote")
     written = 0
     with conn.cursor().copy(

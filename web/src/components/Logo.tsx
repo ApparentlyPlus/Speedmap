@@ -1,6 +1,6 @@
 /**
- * An operator's own mark, or their initial when they have none. This is a page people scan
- * rather than read, and a logo is recognised before a name is.
+ * An operator's mark, or their initial if they have none. People scan this page more than
+ * read it, and a logo registers before a name.
  */
 
 import { brandOf } from "../brands";

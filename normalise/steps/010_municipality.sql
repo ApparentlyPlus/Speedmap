@@ -1,4 +1,4 @@
--- The 333 Kallikratis municipalities, reprojected once so every later join is 4326.
+-- The 333 Kallikratis municipalities, reprojected once so every later join is in 4326.
 insert into municipality (id, kallikratis_code, name, geom)
 select gid, kalcode4, d1, geom4326::geography
 from raw_dimos

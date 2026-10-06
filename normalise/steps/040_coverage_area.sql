@@ -1,5 +1,5 @@
--- Copper is filed per cabinet polygon, not per point. Reprojected from Greek Grid. The
--- per-service detail comes from the service table because the polygon view is parallel lists.
+-- Copper is filed per cabinet polygon, reprojected from Greek Grid. Per-service detail comes
+-- from the service table, since the polygon view holds parallel lists.
 delete from coverage_area where source = 'register';
 
 insert into coverage_area (
@@ -17,7 +17,9 @@ join provider sp on sp.register_id = w.servprov
 left join provider ip on ip.register_id = w.infrprov
 join raw_geo_coverage_copper g on g.coverid = w.coverid
 order by w.coverid, coalesce(sp.credited_to, sp.id), t.code,
-         w.servstar desc nulls last, w.maxdown desc nulls last
+         w.servstar desc nulls last, w.maxdown desc nulls last,
+         -- the filing's id last, so ties break the same way every build
+         w.id
 on conflict (source, source_ref, provider_id, technology) do update set
     infra_provider_id = excluded.infra_provider_id,
     family = excluded.family,

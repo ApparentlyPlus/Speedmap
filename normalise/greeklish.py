@@ -1,4 +1,4 @@
-"""Transliterate Greek to Latin, and normalise Greeklish input to the same alphabet."""
+"""Transliterate Greek to Latin, and bring Greeklish input into the same alphabet."""
 
 from __future__ import annotations
 
@@ -6,16 +6,16 @@ import re
 
 from normalise.text import strip_marks
 
-# Θ has no single Latin letter and is written th, 8 or 9. Held aside while H is resolved,
-# because otherwise the H of TH is eaten by the rule that maps a lone H to Χ.
+# Θ has no single Latin letter and gets written th, 8 or 9. It's parked while H is resolved,
+# or the H in TH gets eaten by the rule mapping a lone H to Χ.
 THETA = "\x01"
 
-# ΑΥ and ΕΥ voice before a vowel or a voiced consonant and devoice elsewhere: ΑΥΛΩΝΟΣ is
-# avlonos but ΕΥΤΥΧΙΑ is eftixia. Applied before the plain digraphs, which cannot look ahead.
+# ΑΥ and ΕΥ are voiced before a vowel or voiced consonant and devoiced elsewhere: ΑΥΛΩΝΟΣ is
+# avlonos, ΕΥΤΥΧΙΑ is eftixia. Done before the plain digraphs, which can't look ahead.
 VOICING = re.compile(r"([ΑΕ])Υ(?=[ΑΕΗΙΟΥΩΒΓΔΖΛΜΝΡ])")
 
-# Order matters: two-letter Greek sounds must go before the letters they contain.
-# ΓΓ is /ng/, not /g/: ΑΓΓΕΛΟΣ is angelos, which keeps it distinct from ΑΓΕΛΟΣ.
+# Order matters: digraphs go before their letters. ΓΓ is /ng/, so ΑΓΓΕΛΟΣ is angelos and
+# stays apart from ΑΓΕΛΟΣ.
 GREEK_DIGRAPHS = (
     ("ΟΥ", "U"), ("ΑΥ", "AF"), ("ΕΥ", "EF"),
     ("ΜΠ", "B"), ("ΝΤ", "D"), ("ΓΓ", "NG"), ("ΓΚ", "G"),
@@ -29,8 +29,8 @@ GREEK_LETTERS = {
     "Ο": "O", "Π": "P", "Ρ": "R", "Σ": "S", "Τ": "T", "Υ": "I", "Φ": "F",
     "Χ": "X", "Ψ": "PS", "Ω": "O",
 }
-# Ξ and Χ both become X. Measured across all 30,272 street names this merges nothing that
-# was not already merged, and it lets both alexandras and aleksandras land exactly.
+# Ξ and Χ both become X. Across all 30,272 street names this merges nothing new, and lets
+# alexandras and aleksandras both land exactly.
 
 LATIN_RULES = (
     ("TH", THETA), ("8", THETA), ("9", THETA),
@@ -39,8 +39,8 @@ LATIN_RULES = (
     ("MP", "B"), ("NT", "D"), ("GK", "G"), ("GG", "G"),
 )
 
-# A lone H is Χ far more often than Η in practice: aharnon, ahilleas. Where it is a vowel
-# the trigram fallback still finds the name, so recall is preserved either way.
+# A lone H is far more often Χ than Η (aharnon, ahilleas). Where it's a vowel, the trigram
+# fallback still finds the name.
 LATIN_LETTERS = {"C": "K", "Q": "K", "W": "O", "Y": "I", "J": "I", "H": "X"}
 
 
@@ -54,7 +54,7 @@ def from_greek(name: str) -> str:
 
 
 def from_latin(query: str) -> str:
-    """Greeklish reduced to the same alphabet from_greek writes."""
+    """Greeklish, reduced to the alphabet from_greek writes."""
     text = strip_marks(query).upper()
     for pattern, replacement in LATIN_RULES:
         text = text.replace(pattern, replacement)

@@ -1,7 +1,7 @@
 """Decide whether an address still needs asking.
 
-An expired answer is still evidence. An address nobody ever asked about is not. Reading the
-second as the first reports no service on silence.
+An expired answer is still evidence. An address nobody ever asked about isn't, and reading
+the second as the first reports "no service" on silence.
 """
 
 from __future__ import annotations
@@ -16,11 +16,11 @@ STALE = "stale"
 REFUSED = "refused"
 UNKNOWN = "unknown"
 
-# Fiber is dug street by street, so fiber somewhere along a street is near enough to fiber
-# at every door. Copper varies by cabinet distance and is asked rather than assumed.
+# Fiber gets dug street by street, so fiber somewhere on a street is close enough to fiber at
+# every door. Copper varies with distance to the cabinet, so it gets asked.
 CONFIDENT_MBPS = Decimal(1000)
 
-# Verdicts that need asking again. Stale is here: the old answer is shown while it runs.
+# verdicts worth asking again. stale included: the old answer shows while it runs
 ASK = frozenset({STALE, REFUSED, UNKNOWN})
 
 
@@ -42,10 +42,10 @@ def verdict(
     street_fiber: bool = False,
     refused: bool = False,
 ) -> str:
-    """How much is known about this address, and whether the operator need be asked.
+    """How much is known about this address, and whether to ask the operator.
 
-    checked_to belongs only to the provider whose checker was walked. Pass None for the rest
-    or their silence reads as a refusal they never made.
+    checked_to is only for the provider whose checker was walked. Pass None for the others, or
+    their silence reads as a refusal they never gave.
     """
     if answer is not None and answer.expires_at > now:
         return FRESH
@@ -53,8 +53,8 @@ def verdict(
         return INFERRED
     if answer is not None:
         return STALE
-    # Asked outright and declined. That leaves no availability row, so without this it
-    # looks like an address nobody ever sought.
+    # asked outright and refused: there's no availability row, so without this it looks
+    # like an address nobody asked about
     if refused:
         return REFUSED
     if street_no is not None and checked_to is not None and street_no <= checked_to:

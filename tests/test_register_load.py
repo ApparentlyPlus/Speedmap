@@ -104,7 +104,7 @@ def test_wrong_projection_is_rejected() -> None:
 
 
 def test_missing_crs_is_accepted_at_the_expected_srid() -> None:
-    """GeoJSON without a crs member is not wrong, it is merely unlabelled."""
+    """GeoJSON without a crs member is fine, just unlabelled."""
     assert geometry_param("geom", {"type": "Point", "coordinates": [1, 2]}, 4326) is not None
 
 
@@ -154,11 +154,22 @@ def test_reloading_refreshes_changed_values(loadable: psycopg.Connection[TupleRo
 
 
 def test_progress_is_recorded_for_resume(loadable: psycopg.Connection[TupleRow]) -> None:
-    load(loadable, loader(PROVIDERS), PROVIDER)
+    load(loadable, loader(PROVIDERS, cap=1), PROVIDER, max_pages=2)
     row = loadable.execute(
         "select last_key, fetched, total from register_fetch where dataset = 'provider'"
     ).fetchone()
-    assert row == ("3", 3, 3)
+    assert row == ("2", 2, 3)
+
+
+def test_a_finished_run_starts_the_next_one_from_the_top(
+    loadable: psycopg.Connection[TupleRow],
+) -> None:
+    """The quarterly refresh re-reads the whole register, including rows that changed."""
+    load(loadable, loader(PROVIDERS), PROVIDER)
+    renamed = [{**PROVIDERS[0], "name": "Cosmote"}, *PROVIDERS[1:]]
+    load(loadable, loader(renamed), PROVIDER)
+    row = loadable.execute("select name from raw_provider where id = 1").fetchone()
+    assert row == ("Cosmote",)
 
 
 def test_an_interrupted_run_resumes_where_it_stopped(

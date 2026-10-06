@@ -1,6 +1,6 @@
-"""How the operators spell an address, which is not how Καλλικράτης does.
+"""How the operators spell an address, which isn't how Καλλικράτης does.
 
-Both of the operators that want an address in words want the same words: prefectures and
+Both operators that want an address in words want the same ones: prefectures and
 pre-Καλλικράτης municipalities.
 """
 
@@ -18,8 +18,8 @@ where municipality_id = %s and street_fold = %s
 limit 1
 """
 
-# The spellings in use closest to this address. Ordered by distance off the gist index, which is
-# what `<->` reads: 24ms against 1.3M rows, on a path that already spends seconds on the network.
+# The spellings nearest this address, ordered by distance off the gist index (what `<->`
+# reads): 24 ms over 1.3M rows, on a path already spending seconds on the network.
 NEAREST = """
 select distinct on (nomos, dimos, area)
        nomos, dimos, area, st_distance(geom, %(here)s) as metres
@@ -33,40 +33,40 @@ from (
 order by nomos, dimos, area, metres
 """
 
-# What the scrape calls a street, in the one case out of 64,871 that is not ΟΔΟΣ.
+# the scrape's street type, which is ΟΔΟΣ in all but one of 64,871 cases
 STREET_TYPE = "ΟΔΟΣ"
 
-# How far away a walked address may be and still be trusted for the spelling of this one.
+# how far a walked address can be and still lend its spelling to this one
 NEARBY_M = 500.0
 
-# How many walked addresses to look at before deduplicating them into spellings. Enough to
-# cross a district boundary and offer both sides, small enough to stay an index scan.
+# Walked addresses to look at before deduplicating into spellings. Enough to cross a
+# district boundary and offer both sides, few enough to stay an index scan.
 LOOK = 40
 
-# How many spellings an adapter that can verify will try before giving up.
+# spellings a verifying adapter tries before giving up
 TRIES = 4
 
 
 @dataclass(frozen=True)
 class Naming:
-    """One address, spelled the way the operators spell it."""
+    """One address, spelled the operators' way."""
 
     nomos: str
     dimos: str
     area: str | None
     street: str
     street_type: str | None
-    # True when the scrape actually walked this street.
+    # True when the scrape walked this very street
     exact: bool = True
-    # How far away that neighbour was, in metres. None on an exact naming, which is about
-    # this street rather than about the one next to it.
+    # Metres to the neighbour it came from. None on an exact naming, which is about this
+    # street itself.
     metres: float | None = None
 
 
 def naming(
     conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str
 ) -> Naming | None:
-    """Their spelling of this street, if the scrape ever walked it."""
+    """Their spelling of this street, if the scrape walked it."""
     row = conn.execute(EXACT, (municipality_id, street_fold)).fetchone()
     if row is None:
         return None
@@ -86,10 +86,7 @@ def namings(
     lat: float | None = None,
     lon: float | None = None,
 ) -> list[Naming]:
-    """Every spelling worth trying for this address, nearest first.
-
-    One entry when the scrape walked the street.
-    """
+    """Every spelling worth trying here, nearest first. Just one if the scrape walked it."""
     exact = naming(conn, municipality_id, street_fold)
     if exact is not None:
         return [exact]

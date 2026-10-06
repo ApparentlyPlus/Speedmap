@@ -80,7 +80,7 @@ def test_coverage_area_has_its_own_sequence(db: psycopg.Connection[TupleRow]) ->
 
 
 def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) -> None:
-    """LIKE does not copy foreign keys at all."""
+    """LIKE doesn't copy foreign keys at all."""
     referenced = db.execute(
         "select a.attname, c.confrelid::regclass::text from pg_constraint c "
         "join unnest(c.conkey) k on true "
@@ -89,8 +89,8 @@ def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) 
     ).fetchall()
     assert referenced == [
         ("infra_provider_id", "provider"),
-        # a4a_nordown, the normally available speed, on the same eight-band scale as
-        # a4a_maxdown. It is what the street figure is capped at. Migration 0055.
+        # a4a_nordown, the normally available speed, on maxdown's eight-band scale. The street
+        # figure is capped at it (migration 0055).
         ("normal_band_id", "speed_band"),
         ("provider_id", "provider"),
         ("source", "source"),
@@ -100,7 +100,7 @@ def test_coverage_area_keeps_its_foreign_keys(db: psycopg.Connection[TupleRow]) 
 
 
 def test_coverage_geometries_differ_by_shape(db: psycopg.Connection[TupleRow]) -> None:
-    """Points for fiber, polygons for copper cabinets: flattening an area loses streets."""
+    """Points for fiber, polygons for copper cabinets. Flattening an area loses streets."""
     rows = db.execute(
         "select f_table_name, type from geography_columns "
         "where f_table_name in ('coverage', 'coverage_area') order by 1"
@@ -109,7 +109,7 @@ def test_coverage_geometries_differ_by_shape(db: psycopg.Connection[TupleRow]) -
 
 
 def test_coverage_speed_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
-    """Filed without a speed is a real state, and the majority one: 73.3% of services."""
+    """No speed filed is a real state, and the majority: 73.3% of services."""
     tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     tx.execute("insert into source (name) values ('test')")
     row = tx.execute(
@@ -136,7 +136,7 @@ def test_coverage_is_unique_per_source_place_provider_technology(
 
 
 def test_address_requires_a_position(tx: psycopg.Connection[TupleRow]) -> None:
-    """An address with no geometry cannot be mapped, so it is not an address."""
+    """An address with no geometry can't be mapped, so it isn't an address."""
     with pytest.raises(psycopg.errors.NotNullViolation):
         tx.execute("insert into address (street, street_fold, search_key, latin_key) "
             "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'AXARNON')")
@@ -145,7 +145,7 @@ def test_address_requires_a_position(tx: psycopg.Connection[TupleRow]) -> None:
 def test_duplicate_address_without_a_postcode_is_rejected(
     tx: psycopg.Connection[TupleRow],
 ) -> None:
-    """Uniqueness is nulls not distinct: under default semantics these would not collide."""
+    """Uniqueness is nulls not distinct. Under default semantics these wouldn't collide."""
     insert = (
         "insert into address (street, street_fold, street_no, locality, geom, search_key, latin_key) "
         "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', '12', 'ΑΘΗΝΑ', 'SRID=4326;POINT(23.7 37.9)', 'ΑΧΑΡΝΩΝ 12', 'AXARNON 12')"
@@ -165,7 +165,7 @@ def test_premises_and_connection_may_be_absent(tx: psycopg.Connection[TupleRow])
 
 
 def test_search_key_is_trigram_indexed(db: psycopg.Connection[TupleRow]) -> None:
-    """Type-ahead is a similarity search, which needs gin_trgm_ops rather than btree."""
+    """Type-ahead is a similarity search, which needs gin_trgm_ops, a btree won't do."""
     rows = db.execute("select indexdef from pg_indexes where tablename = 'address'").fetchall()
     assert any("gin_trgm_ops" in definition for (definition,) in rows)
 
@@ -206,7 +206,7 @@ def test_hardware_requirement_is_constrained(tx: psycopg.Connection[TupleRow]) -
 
 
 def test_plan_speeds_and_cap_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
-    """A null cap means unlimited, which is a value rather than a missing number."""
+    """A null cap means unlimited, which is a value and not a missing number."""
     plan_id = make_plan(tx)
     row = tx.execute(
         "select down_mbps, up_mbps, data_cap_gb from plan where id = %s", (plan_id,)
@@ -215,7 +215,7 @@ def test_plan_speeds_and_cap_may_be_absent(tx: psycopg.Connection[TupleRow]) -> 
 
 
 def test_one_price_per_plan_per_day(tx: psycopg.Connection[TupleRow]) -> None:
-    """Append-only: a second scrape on the same day is the same observation."""
+    """Append-only. A second scrape on the same day is the same observation."""
     plan_id = make_plan(tx)
     insert = "insert into plan_price (plan_id, observed_on, monthly_eur) values (%s, %s, %s)"
     tx.execute(insert, (plan_id, "2026-01-01", 30))
@@ -294,7 +294,7 @@ def test_one_provider_may_offer_several_technologies(tx: psycopg.Connection[Tupl
 
 
 def test_serviceability_cannot_be_unknown(tx: psycopg.Connection[TupleRow]) -> None:
-    """A probe that failed is not written here at all, so the column is never null."""
+    """A failed probe isn't written here at all, so the column is never null."""
     tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     address_id = make_address(tx)
     with pytest.raises(psycopg.errors.NotNullViolation):
@@ -307,7 +307,7 @@ def test_serviceability_cannot_be_unknown(tx: psycopg.Connection[TupleRow]) -> N
 
 
 def test_raw_response_is_kept_for_replay(tx: psycopg.Connection[TupleRow]) -> None:
-    """A broken parser is re-run against history rather than re-scraped."""
+    """A broken parser gets re-run against history instead of re-scraping."""
     tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     address_id = make_address(tx)
     tx.execute(cache_row(address_id))
@@ -323,7 +323,7 @@ def test_raw_response_is_kept_for_replay(tx: psycopg.Connection[TupleRow]) -> No
 
 
 def test_expiry_index_covers_only_serviceable_rows(db: psycopg.Connection[TupleRow]) -> None:
-    """The sweep re-probes live answers. Unserviceable ones are not worth the index."""
+    """The sweep re-probes live answers. Unserviceable ones aren't worth the index."""
     rows = db.execute("select indexdef from pg_indexes where tablename = 'availability'").fetchall()
     assert any(
         "expires_at" in definition and "WHERE serviceable" in definition for (definition,) in rows
@@ -356,7 +356,7 @@ def test_raw_table_exists(db: psycopg.Connection[TupleRow], table: str) -> None:
 def test_raw_geometries_keep_the_projection_they_arrived_in(
     db: psycopg.Connection[TupleRow],
 ) -> None:
-    """Copper is Greek Grid and fiber is WGS84. Reprojecting on the way in loses the original."""
+    """Copper is Greek Grid and fiber WGS84. Reprojecting on the way in loses the original."""
     rows = db.execute(
         "select f_table_name || '.' || f_geometry_column, srid from geometry_columns "
         "where f_table_name like 'raw_%' order by 1"
@@ -384,7 +384,7 @@ def test_register_fetch_starts_empty(tx: psycopg.Connection[TupleRow]) -> None:
 
 
 def test_raw_speeds_are_band_ids_not_megabits(tx: psycopg.Connection[TupleRow]) -> None:
-    """maxdown is a lookup id: 6 means the band '100-300 Mbps', not 6 Mbps."""
+    """maxdown is a lookup id: 6 means the band '100-300 Mbps', and never 6 Mbps."""
     tx.execute(
         "insert into raw_lookup (table_name, id, description) "
         "values ('a4a_maxdown', 6, '100-300 Mbps')"
@@ -448,8 +448,8 @@ def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[
 
 
 def test_every_register_provider_is_known(db: psycopg.Connection[TupleRow]) -> None:
-    """Every provider the register files is known to us. Starlink is the one that is not
-    filed: it reaches everywhere and so appears nowhere, and carries no register_id."""
+    """Every provider the register files is known. Starlink is the exception: it reaches
+    everywhere, so it's filed nowhere and has no register_id."""
     rows = db.execute(
         "select count(*), count(register_id) from provider where code <> 'STARLINK'"
     ).fetchone()
@@ -457,10 +457,10 @@ def test_every_register_provider_is_known(db: psycopg.Connection[TupleRow]) -> N
 
 
 def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -> None:
-    """Exactly the operators that appear as infrprov on the register's infrastructure points.
+    """Exactly the operators appearing as infrprov on the register's infrastructure points.
 
-    A satellite constellation builds its own and files nothing, so it is excluded here by
-    the same rule that keeps it out of the register: it has no register_id to match on.
+    A satellite constellation builds its own network and files nothing, so the same rule that
+    keeps it out of the register (no register_id) keeps it out here.
     """
     rows = db.execute(
         "select code from provider where builds_own_network and register_id is not null "
@@ -479,7 +479,7 @@ def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -
 
 
 def test_a_wholesale_builder_need_not_sell(db: psycopg.Connection[TupleRow]) -> None:
-    """FIBERGRID passes 811,123 premises and files no service; Vodafone sells over its fiber."""
+    """FIBERGRID passes 811,123 premises and files no service, and Vodafone sells over its fiber."""
     row = db.execute(
         "select builds_own_network from provider where code = 'FIBERGRID'"
     ).fetchone()
@@ -503,7 +503,7 @@ def test_coverage_records_builder_and_seller_separately(
 
 
 def test_provider_codes_are_latin(db: psycopg.Connection[TupleRow]) -> None:
-    """Codes are keys used in URLs and tile fields. Display_name carries the Greek."""
+    """Codes are keys used in URLs and tile fields. display_name carries the Greek."""
     rows = db.execute("select code from provider where code !~ '^[A-Z0-9_]+$'").fetchall()
     assert rows == []
 
@@ -511,7 +511,7 @@ def test_provider_codes_are_latin(db: psycopg.Connection[TupleRow]) -> None:
 def test_address_uniqueness_keys_on_the_resolved_municipality(
     db: psycopg.Connection[TupleRow],
 ) -> None:
-    """The filed locality text is inconsistent, so it must not be part of identity."""
+    """Filed locality text is inconsistent, so it can't be part of identity."""
     row = db.execute(
         "select pg_get_constraintdef(oid) from pg_constraint where conname = 'address_key'"
     ).fetchone()
@@ -522,16 +522,16 @@ def test_address_uniqueness_keys_on_the_resolved_municipality(
 
 
 def test_search_key_has_a_prefix_index(db: psycopg.Connection[TupleRow]) -> None:
-    """Type-ahead is a prefix search. Similarity ordering scans tens of thousands of rows."""
+    """Type-ahead is a prefix search. Ordering by similarity scans tens of thousands of rows."""
     rows = db.execute("select indexdef from pg_indexes where tablename = 'address'").fetchall()
     assert any("text_pattern_ops" in definition for (definition,) in rows)
 
 
 def test_prefix_search_uses_the_index(db: psycopg.Connection[TupleRow]) -> None:
-    """text_pattern_ops matters: under a non-C collation a plain btree would not be used.
+    """text_pattern_ops matters: under a non-C collation a plain btree wouldn't be used.
 
-    Sequential scans are disabled for the question rather than relying on the table being
-    large enough to make the planner prefer an index.
+    Sequential scans are switched off for the question, so the test doesn't depend on the table
+    being big enough for the planner to choose the index.
     """
     db.execute("set local enable_seqscan = off")
     plan = db.execute(
@@ -547,14 +547,14 @@ def test_wireless_tables_exist(db: psycopg.Connection[TupleRow]) -> None:
         assert row == (table,)
 
 
-# the document the frontend types come from.
+# the document the frontend types come from
 
 
 def test_the_openapi_document_matches_the_server() -> None:
-    """A stale contract is worse than none, because it is believed.
+    """A stale contract is worse than none, because people believe it.
 
-    The TypeScript types are generated from the file in schema/, so a field renamed on the
-    server is supposed to fail the frontend build.
+    The TypeScript types are generated from schema/, so renaming a field on the server should
+    break the frontend build.
     """
     done = subprocess.run(
         [sys.executable, "-m", "tools.openapi_schema", "--check"],

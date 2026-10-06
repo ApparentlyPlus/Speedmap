@@ -37,7 +37,7 @@ def test_an_unreachable_checker_fails_the_canary() -> None:
 
 
 def test_being_told_to_investigate_fails_it_too() -> None:
-    """Neither yes nor no is not an answer, and a canary is asking whether it can answer."""
+    """Neither yes nor no isn't an answer, and a canary asks whether it can answer at all."""
     assert not judge(WATCHED, answered(conclusive=False, serviceable=False)).passed
 
 
@@ -60,8 +60,8 @@ def test_the_shipped_canaries_are_usable() -> None:
 
 
 def test_a_canary_is_pinned_to_a_real_address() -> None:
-    """One pointed at an address we do not hold reports on our own gaps, not the adapter.
-    Τζελίλη 40 exists and is served and is not in the index: the scan stopped at 1."""
+    """A canary pointed at an address we don't hold reports our gap, which says nothing about
+    the adapter. Τζελίλη 40 exists, is served, and isn't in the index: the scan stopped at 1."""
     lagkadas = next(c for c in load(CANARIES) if c.name == "lagkadas-copper")
     assert lagkadas.street_no == "1"
 

@@ -1,13 +1,14 @@
 """Rebuild the derived tables from raw_*.
 
-Unlike a migration a step is re-runnable, so each is written to be idempotent and is never
-checksummed: rerunning after a fresh register pull is the normal case.
+Steps differ from migrations: each is idempotent and never checksummed, since rerunning after a
+fresh register pull is the normal case.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,12 +23,22 @@ from normalise.street_index import build_street_index
 
 STEPS = Path(__file__).parent / "steps"
 
+# Sort and hash memory for this connection only, so the API and probes keep the server
+# default. The steps sort and hash millions of rows, and 4 MB sends that to disk, an SD
+# card on the Pi. Generous because a build runs alone, four times a year.
+SESSION = (
+    "set work_mem = '128MB'",
+    "set maintenance_work_mem = '512MB'",
+)
 
-# Steps that need real parsing live in Python. Everything else is a .sql file.
+
+# steps needing real parsing are Python, the rest are .sql files
 PYTHON_STEPS: dict[str, Callable[[psycopg.Connection[TupleRow]], int]] = {
     "020_address": build_address_index,
+    # Before 050 and 065. It adds addresses, and ones added after those ran got no coverage
+    # and no street until the build after next.
+    "045_cosmote": build_cosmote,
     "060_street": build_street_index,
-    "080_cosmote": build_cosmote,
 }
 
 
@@ -39,15 +50,15 @@ class Step:
 
 def sql_step(path: Path) -> Step:
     def apply(conn: psycopg.Connection[TupleRow]) -> int:
-        """Rows written by the whole file, not by the first statement in it.
+        """Rows written by the whole file.
 
-        psycopg leaves the cursor on the first result of a multi-statement execute, so a
-        step that clears before it writes reported the size of the delete and stopped.
+        psycopg leaves the cursor on the first result of a multi-statement execute, so a step
+        that deletes before inserting reported the size of the delete.
         """
         cursor = conn.execute(path.read_text(encoding="utf-8"))
         counts = 0
         while True:
-            # -1 is "this statement had no row count", which a truncate reports.
+            # -1 means no row count, which is what a truncate reports
             counts += max(cursor.rowcount, 0)
             if not cursor.nextset():
                 return counts
@@ -64,9 +75,11 @@ def discover() -> list[Step]:
 def run(conn: psycopg.Connection[TupleRow], steps: list[Step]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for step in steps:
+        began = time.perf_counter()
         counts[step.name] = step.run(conn)
         conn.commit()
-        print(f"  {step.name}: {counts[step.name]} rows")
+        took = time.perf_counter() - began
+        print(f"  {step.name}: {counts[step.name]} rows in {took:.1f}s", flush=True)
     return counts
 
 
@@ -83,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
 
     todo = [s for s in steps if s.name in args.steps] if args.steps else steps
     with connect() as conn:
+        for setting in SESSION:
+            conn.execute(setting)
         run(conn, todo)
     return 0
 

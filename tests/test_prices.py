@@ -70,12 +70,12 @@ def test_a_qualification_code_names_the_line() -> None:
 
 
 def test_a_code_we_do_not_know_is_not_priced() -> None:
-    """It would be shown against a line it may not run on."""
+    """Filed under a guess, it would show against a line it may not run on."""
     assert "Something New" not in {t.name for t in vodafone.read(VODAFONE_ANSWER)}
 
 
 def test_equal_prices_are_not_a_discount() -> None:
-    """Their feed models one. That it is not running today is not a promotion of nothing."""
+    """Their feed models a discount. One that isn't running today is no promotion at all."""
     found = {t.technology: t for t in vodafone.read(VODAFONE_ANSWER)}
     assert found["FTTH"].promo_monthly_eur is None
     assert found["FWA_5G"].promo_monthly_eur == Decimal("26.90")
@@ -88,7 +88,7 @@ def test_a_home_router_is_part_of_the_offer() -> None:
 
 
 def test_the_tariff_key_is_theirs_not_a_name() -> None:
-    """Names change with the marketing. The code is what their own systems join on."""
+    """Names change with the marketing. Their own systems join on the code."""
     found = {t.technology: t for t in vodafone.read(VODAFONE_ANSWER)}
     assert found["FTTH"].external_key == "DP Pro UNL - 1Gbps FTTH"
 
@@ -130,7 +130,7 @@ def test_looking_twice_in_a_day_corrects_rather_than_doubles(
 
 
 def test_an_unknown_setup_fee_stays_unknown(catalogue: psycopg.Connection[TupleRow]) -> None:
-    """A catalogue that does not mention one has not said there isn't one."""
+    """A catalogue that doesn't mention a fee hasn't said there isn't one."""
     tariff = Tariff(external_key="X1", name="Test", family="fiber", monthly_eur=Decimal(20))
     write(catalogue, "TELEKOM", [tariff], TODAY)
     row = catalogue.execute("select setup_eur, hardware_eur from plan_price").fetchone()
@@ -149,7 +149,7 @@ def test_every_published_tariff_names_a_known_technology() -> None:
 
 
 def test_a_published_tariff_is_dated_by_when_it_was_read() -> None:
-    """A rate card read in June is not evidence about September."""
+    """A rate card read in June says nothing about September."""
     from prices.published import load
 
     for provider, (_, observed_on) in load().items():
@@ -157,7 +157,7 @@ def test_a_published_tariff_is_dated_by_when_it_was_read() -> None:
 
 
 def test_a_stated_free_fee_is_zero_and_a_silent_one_is_unknown() -> None:
-    """Inalan says installation is free; HCN says so only on Sonic, and silence is not free."""
+    """Inalan says installation is free. HCN only says so on Sonic, and silence means unknown."""
     from prices.published import load
 
     inalan = {t.external_key: t for t in load()["INALAN"][0]}
@@ -183,8 +183,8 @@ def test_the_published_technologies_exist_in_the_database(
 def test_the_current_price_view_carries_every_column(
     catalogue: psycopg.Connection[TupleRow],
 ) -> None:
-    """It was written with a star once, and a star is resolved at creation: two columns
-    added afterwards were invisible through it until someone happened to select one."""
+    """It was once written with a star, which is resolved at creation: two later columns
+    were invisible through it until someone happened to select one."""
     stored = {
         str(c) for (c,) in catalogue.execute(
             "select column_name from information_schema.columns where table_name = 'plan_price'"
@@ -200,7 +200,7 @@ def test_the_current_price_view_carries_every_column(
 
 
 def test_a_published_price_says_so(catalogue: psycopg.Connection[TupleRow]) -> None:
-    """A rate card and a quote from an ordering system are not the same claim."""
+    """A rate card and a quote from an ordering system are different claims."""
     tariff = Tariff(external_key="X1", name="Test", family="fiber", monthly_eur=Decimal(60))
     write(catalogue, "TELEKOM", [tariff], TODAY, source="published")
     assert catalogue.execute("select source from plan_price").fetchall() == [("published",)]
@@ -213,7 +213,7 @@ def test_a_catalogue_price_is_the_default(catalogue: psycopg.Connection[TupleRow
 
 
 def test_a_provider_publishing_on_two_pages_is_one_provider() -> None:
-    """Lines and airtime live on different pages. Both are the same company's catalogue."""
+    """Lines and airtime are on different pages, and both are one company's catalogue."""
     from prices.published import load
 
     ote = {t.external_key for t in load()["TELEKOM"][0]}
@@ -222,7 +222,7 @@ def test_a_provider_publishing_on_two_pages_is_one_provider() -> None:
 
 
 def test_a_data_plan_needs_a_router_the_operator_does_not_give() -> None:
-    """That is the difference from a wireless home product, and it is a real cost."""
+    """That's the difference from a wireless home product, and it's a real cost."""
     from prices.published import load
 
     plans = {t.external_key: t for t in load()["NOVA"][0]}
@@ -234,7 +234,7 @@ def test_a_data_plan_needs_a_router_the_operator_does_not_give() -> None:
 
 
 def test_an_introductory_price_records_both_halves() -> None:
-    """Twelve months at one price and twelve at another is not a plan costing either."""
+    """Twelve months at one price and twelve at another costs neither of them per month."""
     from prices.published import load
 
     red = {t.external_key: t for t in load()["VODAFONE"][0]}["VODAFONE_RED_10"]
@@ -244,7 +244,7 @@ def test_an_introductory_price_records_both_halves() -> None:
 
 
 def test_the_introductory_blend_beats_neither_half() -> None:
-    """The comparable number is the whole contract, which is the point of blending."""
+    """The whole contract is the comparable number, which is why we blend."""
     from prices.published import load
     from ranking.cost import Price, blended
 
@@ -303,7 +303,7 @@ def test_the_hardware_changes_which_plan_is_cheapest() -> None:
 
 
 def test_the_satellite_provider_files_no_register_id() -> None:
-    """It reaches everywhere and so appears nowhere, which is not the same as absent."""
+    """It reaches everywhere, so it's filed nowhere, which is different from absent."""
     from prices.published import load
 
     assert load()["STARLINK"][0]

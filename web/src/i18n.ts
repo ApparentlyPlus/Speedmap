@@ -1,6 +1,6 @@
 /**
- * Greek is the language; English is the translation. Both exist from the first string rather
- * than being retrofitted, because retrofitting is how half a UI ends up hardcoded.
+ * Greek first, English as the translation. Both from the first string, because retrofitting
+ * a second language is how half a UI ends up hard-coded.
  */
 
 export const LANGUAGES = ["el", "en"] as const;
@@ -17,7 +17,7 @@ type Strings = {
   readonly browseMap: string;
   readonly mapTitle: string;
   readonly operator: string;
-  /** The operators nobody retails from, listed under their own heading. */
+  /** Operators nobody retails from, under their own heading. */
   readonly infrastructure: string;
   readonly infrastructureHint: string;
   readonly shown: string;
@@ -35,7 +35,7 @@ type Strings = {
   readonly searching: string;
   readonly searchFailed: string;
   readonly unfiled: string;
-  /** The prefecture choropleth, which is off until the reader asks for it. */
+  /** The per-municipality overlay, off until asked for. */
   readonly untested: string;
   readonly unreached: string;
   readonly regions: string;
@@ -66,7 +66,7 @@ type Strings = {
   readonly technology: Readonly<Record<string, string>>;
   readonly groupEnough: string;
   readonly groupSlower: string;
-  /** The credits page, and the small way in to it from a corner of the map. */
+  /** The credits page and the small link to it in a map corner. */
   readonly creditsLink: string;
   readonly creditsHome: string;
   readonly creditsTitle: string;
@@ -257,7 +257,7 @@ const en: Strings = {
 
 const TABLE: Record<Language, Strings> = { el, en };
 
-/** The language from the path: /en/ is English, anything else is Greek. */
+/** /en/ means English, anything else Greek. */
 export function languageOf(pathname: string): Language {
   const first = pathname.split("/").filter(Boolean)[0];
   return LANGUAGES.includes(first as Language) ? (first as Language) : DEFAULT;

@@ -19,8 +19,8 @@ from db.connect import connect
 EXTRACT = Path("data/greece-latest.osm.pbf")
 SOURCE_URL = "https://download.geofabrik.de/europe/greece-latest.osm.pbf"
 
-# A way needs two placed nodes to be a line. Ways referencing nodes outside the extract
-# are clipped at the border and are dropped rather than drawn wrong.
+# A way needs two placed nodes to be a line. Ways running past the extract's edge lose their
+# outside nodes, and get dropped before they're drawn wrong.
 MIN_NODES = 2
 
 
@@ -49,7 +49,7 @@ def streets(path: Path) -> Iterator[Street]:
         .with_filter(osmium.filter.KeyFilter("highway"))
     )
     for way in processor:
-        # The entity filter narrows this at runtime. The check states it for the type checker.
+        # the entity filter already guarantees this, the check is for mypy
         if not isinstance(way, osmium.osm.Way):
             continue
         name = way.tags.get("name")
@@ -63,7 +63,7 @@ def streets(path: Path) -> Iterator[Street]:
 
 
 def write(conn: psycopg.Connection[TupleRow], found: Iterator[Street]) -> int:
-    """Replace the table wholesale: an extract is a snapshot, not an increment."""
+    """Replace the table wholesale, since an extract is a snapshot."""
     conn.execute("truncate raw_osm_street")
     written = 0
     with conn.cursor().copy(
@@ -76,10 +76,9 @@ def write(conn: psycopg.Connection[TupleRow], found: Iterator[Street]) -> int:
 
 
 def download(into: Path) -> Path:
-    """Fetch the extract if it is not already here.
+    """Fetch the extract unless it's already here.
 
-    Geofabrik rebuild it daily and it is the better part of a gigabyte, so it is fetched
-    once and kept: a rebuild reads the same file rather than the same download.
+    Geofabrik rebuild it daily and it's most of a gigabyte, so it's downloaded once and kept.
     """
     if into.exists():
         return into
@@ -90,7 +89,7 @@ def download(into: Path) -> Path:
         with partial.open("wb") as out:
             for chunk in answer.iter_bytes():
                 out.write(chunk)
-    # Renamed only once whole: a half-written extract parses as a small one, silently.
+    # renamed once complete: a half-written extract parses as a small one, silently
     shutil.move(partial, into)
     return into
 

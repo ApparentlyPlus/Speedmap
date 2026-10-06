@@ -1,4 +1,4 @@
-/** A street, when a street is what was asked for. */
+/** The answer screen for a street (Place is the one for a door). */
 
 import { useEffect, useState } from "react";
 import type { Geometry } from "geojson";
@@ -31,8 +31,8 @@ export function Road({
       .then((road) => {
         if (!stop.signal.aborted) setFound(road);
       })
-      // An abort is this component being asked something else, not the street failing to
-      // answer. Counted as a failure it puts "not indexed" beside the offers it did find.
+      // An abort means we were asked about another street. Treating it as a failure put
+      // "not indexed" next to offers it had in fact found.
       .catch(() => {
         if (!stop.signal.aborted) setFailed(true);
       });
@@ -40,7 +40,7 @@ export function Road({
   }, [result.id]);
 
   const middle = found === null ? null : centre(found.bbox);
-  // Nothing filed is not a failure to answer, it is the answer.
+  // an empty list is a real answer
   const bare = found !== null && found.offers.length === 0;
 
   return (
@@ -53,7 +53,7 @@ export function Road({
       />
       <Credit language={language} />
 
-      <section className="place place-road">
+      <section className="place place-road" data-covers-map>
         <div className="place-body">
           <header className="place-head">
             <button className="back" type="button" onClick={onBack}>
@@ -90,40 +90,41 @@ export function Road({
                     <span className="road-name">{offer.provider_name}</span>
                     <span className="road-tech">
                       {offer.technology}
-                      {/*
-                        Who built the line, when it was not the operator selling it. Three
-                        retailers over one cabinet is one line resold three times, and
-                        without this it reads as three networks reaching the street.
-*/}
-                     {offer.infra_provider !== null &&
-                       offer.infra_provider !== offer.provider && (
-                         <span className="road-infra">
-                           {" "}
-                           · {text.over} {offer.infra_provider}
-                         </span>
-                       )}
-                   </span>
-                   <span className="road-speed">
-                     {offer.speed === null ? text.unfiled : offer.speed.label}
-                   </span>
-                 </li>
-               ))}
-             </ul>
-           </>
-         )}
+                      {/* who built the line, when that isn't the seller: three retailers over one cabinet
+                          is one line resold, and read as three networks without this */}
+                      {offer.infra_provider !== null &&
+                        offer.infra_provider !== offer.provider && (
+                          <span className="road-infra">
+                            {" "}
+                            · {text.over} {offer.infra_provider}
+                          </span>
+                        )}
+                    </span>
+                    {/* Retail speed held to the filing, which is what the street is painted with. The
+                        register's band read "not filed" on seven fiber lines in ten. */}
+                    <span className="road-speed">
+                      {offer.sold_mbps === null || offer.sold_mbps === undefined
+                        ? text.unfiled
+                        : `${Number(offer.sold_mbps)} Mbps`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
-         {found !== null && found.offers.length > 0 && (
-           <footer className="disclaimer">
-             <p>{text.disclaimer}</p>
-           </footer>
-         )}
-       </div>
-     </section>
-   </>
- );
+          {found !== null && found.offers.length > 0 && (
+            <footer className="disclaimer">
+              <p>{text.disclaimer}</p>
+            </footer>
+          )}
+        </div>
+      </section>
+    </>
+  );
 }
 
-/** A street has no point of its own. The middle of its extent is where to stand. */
+/** A street has no point of its own, so stand in the middle of its box. */
 function centre(bbox: readonly number[]): [number, number] | null {
   const [west, south, east, north] = bbox;
   if (west === undefined || south === undefined || east === undefined || north === undefined) {

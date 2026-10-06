@@ -15,7 +15,7 @@ RETRYABLE = frozenset({429, 500, 502, 503, 504})
 
 
 class RegisterSchemaError(RuntimeError):
-    """A dataset came back with columns we do not know about."""
+    """A dataset came back with columns we don't know."""
 
 
 @dataclass(frozen=True)
@@ -51,8 +51,8 @@ DATASETS: tuple[Dataset, ...] = (
                 "vhcn", "id",
             }
         ),
-        # No server-side filter: tech4gf and tech5gf are unindexed upstream, so filtering costs
-        # 6.2s a page against 0.46s unfiltered and is slower overall despite fetching a quarter.
+        # No server-side filter: tech4gf and tech5gf aren't indexed upstream, so filtering costs
+        # 6.2 s a page against 0.46 s, and is slower overall despite fetching a quarter as much.
     ),
     Dataset(
         "dimos",
@@ -160,8 +160,8 @@ DATASETS: tuple[Dataset, ...] = (
 
 BY_NAME = {dataset.name: dataset for dataset in DATASETS}
 
-# The code tables. Small enough to take whole, and every one of them is a
-# vocabulary some numeric column indexes into.
+# The code tables, small enough to take whole. Each is a vocabulary some numeric column
+# indexes into.
 LOOKUPS: tuple[str, ...] = (
     "a3b_connstat",
     "a3b_intcabl",
@@ -217,7 +217,7 @@ class RegisterClient:
         return list(body)
 
     def count(self, dataset: Dataset) -> int | None:
-        """Exact row count. PostgREST only counts when asked, and not every view answers."""
+        """Exact row count. PostgREST only counts when asked, and some views won't."""
         response = self._get(
             dataset.path,
             {"select": dataset.key, "limit": 1, **dataset.where},
@@ -226,7 +226,7 @@ class RegisterClient:
         return parse_total(response.headers.get("content-range"))
 
     def page_cap(self, dataset: Dataset, *, probe: int = 2000) -> int:
-        """Measure the cap by asking for more than it will give."""
+        """Measure the page cap by asking for more than it gives."""
         rows = self.rows(dataset.path, {"select": dataset.key, "limit": probe, **dataset.where})
         if len(rows) == probe:
             return probe
@@ -264,7 +264,7 @@ class RegisterClient:
 
 
 def check_columns(dataset: Dataset, row: Row) -> None:
-    """A changed column set means the register was redesigned, not that a row is odd."""
+    """A changed column set means the register was redesigned. One odd row would not."""
     seen = frozenset(row)
     if seen != dataset.columns:
         added = sorted(seen - dataset.columns)
@@ -273,7 +273,7 @@ def check_columns(dataset: Dataset, row: Row) -> None:
 
 
 def parse_total(content_range: str | None) -> int | None:
-    """'0-0/2673805' carries the total; '*/*' and a missing header do not."""
+    """'0-0/2673805' carries the total. '*/*' and a missing header don't."""
     if content_range is None or "/" not in content_range:
         return None
     total = content_range.rsplit("/", 1)[1].strip()
@@ -281,7 +281,7 @@ def parse_total(content_range: str | None) -> int | None:
 
 
 def retry_delay(response: httpx.Response, attempt: int) -> float:
-    """Honour Retry-After when the server sends a number, else back off."""
+    """Honour a numeric Retry-After, otherwise back off exponentially."""
     header = response.headers.get("retry-after", "")
     if header.strip().isdigit():
         return float(header.strip())

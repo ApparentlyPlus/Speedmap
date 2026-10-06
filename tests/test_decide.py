@@ -19,7 +19,7 @@ def test_an_unexpired_answer_is_fresh() -> None:
 
 
 def test_an_expired_answer_is_stale_not_absent() -> None:
-    """A year-old answer is still evidence. It is shown while the check runs."""
+    """A year-old answer is still evidence, shown while the check runs."""
     assert verdict(answer(-1), now=NOW) == STALE
 
 
@@ -33,7 +33,7 @@ def test_a_refusal_is_cached_as_an_answer() -> None:
 
 
 def test_a_number_within_the_scan_was_asked_and_refused() -> None:
-    """The scan walked upward recording only what it found, so a gap below is a no."""
+    """The scan walked up recording only what it found, so a gap below is a no."""
     assert verdict(None, now=NOW, street_no=7, checked_to=14) == REFUSED
     assert verdict(None, now=NOW, street_no=14, checked_to=14) == REFUSED
 
@@ -49,7 +49,7 @@ def test_a_provider_that_never_scanned_refuses_nothing() -> None:
 
 
 def test_an_address_with_no_number_is_never_refused() -> None:
-    """A street without a number cannot be compared to a ceiling."""
+    """A door without a number can't be compared to a ceiling."""
     assert verdict(None, now=NOW, street_no=None, checked_to=14) == UNKNOWN
 
 
@@ -65,23 +65,23 @@ def test_a_gigabit_street_needs_no_asking() -> None:
 
 
 def test_a_slower_street_is_still_asked() -> None:
-    """Copper varies by cabinet distance, and a slow neighbour may be a pending upgrade."""
+    """Copper varies with cabinet distance, and a slow neighbour may be a pending upgrade."""
     assert verdict(None, now=NOW, street_best_mbps=Decimal(500)) == UNKNOWN
     assert verdict(None, now=NOW, street_best_mbps=Decimal(100)) == UNKNOWN
 
 
 def test_inference_does_not_override_this_address() -> None:
-    """An answer for this door was asked. The street is only reasoned from."""
+    """This door was asked about directly. The street is only inference."""
     assert verdict(answer(30), now=NOW, street_best_mbps=Decimal(1000)) == FRESH
 
 
 def test_inference_beats_a_stale_answer() -> None:
-    """Both are evidence, and the street being fiber does not go out of date the same way."""
+    """Both are evidence, and a fiber street ages slower than one answer does."""
     assert verdict(answer(-1), now=NOW, street_best_mbps=Decimal(1000)) == INFERRED
 
 
 def test_inference_beats_a_refusal_from_an_unfinished_scan() -> None:
-    """A door not yet connected on a fiber street is worth offering, not writing off."""
+    """A door not yet connected on a fiber street is worth offering."""
     assert verdict(None, now=NOW, street_no=7, checked_to=14,
                    street_best_mbps=Decimal(1000)) == INFERRED
 
@@ -101,12 +101,12 @@ def test_copper_on_the_street_is_still_asked() -> None:
 
 
 def test_a_refusal_is_not_the_same_as_silence() -> None:
-    """They were asked outright and said no. That leaves no row in availability to find, so
-    without this the answer looks like one nobody has ever sought, and gets sought again."""
+    """They were asked outright and said no. That leaves no availability row, so without this
+    it looks like nobody ever asked, and gets asked again."""
     assert verdict(None, now=NOW, refused=True) == REFUSED
     assert verdict(None, now=NOW, refused=False) == UNKNOWN
 
 
 def test_a_refusal_does_not_survive_a_fiber_street() -> None:
-    """A door not yet connected on a fiber street is worth offering, not writing off."""
+    """A door not yet connected on a fiber street is worth offering, even after a refusal."""
     assert verdict(None, now=NOW, refused=True, street_fiber=True) == INFERRED
