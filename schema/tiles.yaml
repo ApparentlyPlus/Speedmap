@@ -12,7 +12,10 @@ layers:
     fields:
       id:
         type: integer
-        description: the street row this was built from
+        nullable: true
+        description: >
+          the street row this was built from. Absent below zoom 10, where streets are under a
+          pixel wide and features with identical fields are merged into one
       best_mbps:
         type: number
         nullable: true
@@ -20,7 +23,9 @@ layers:
         description: the fastest anyone reaches here; null is not filed, never zero
       nprov:
         type: integer
-        description: how many operators reach this street at all, filed speed or not
+        nullable: true
+        description: >
+          how many operators reach this street at all, filed speed or not. Absent below zoom 10
       # Three states: null is an operator that doesn't reach this street, -1 one that reaches
       # it with no speed filed, and a number is the speed.
       p_telekom: {type: number, nullable: true, unit: mbps, provider: TELEKOM}

@@ -56,7 +56,9 @@ STREETS_INFRASTRUCTURE: Final[tuple[str, ...]] = (
 )
 
 STREETS_NULLABLE: Final = (
+    "id",
     "best_mbps",
+    "nprov",
     "p_telekom",
     "p_vodafone",
     "p_nova",

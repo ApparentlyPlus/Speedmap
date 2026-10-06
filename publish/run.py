@@ -30,6 +30,10 @@ MAX_ZOOM = 14
 # Streets are what the map is for, so they're never dropped to save room. Coarse zooms
 # coalesce them instead.
 STREET_RULES = ("--drop-densest-as-needed", "--coalesce-densest-as-needed")
+
+# Merges neighbouring features whose attributes are identical. Only the overview streets ever
+# are: everything else carries its own id.
+MERGE = ("--coalesce",)
 CELL_RULES = ("--drop-densest-as-needed",)
 
 # 333 polygons, the only thing drawn at zooms where the whole country fits
@@ -94,6 +98,7 @@ def finish(*runs: subprocess.Popen[bytes]) -> None:
 def build(out: pathlib.Path, work: pathlib.Path) -> None:
     """Cut the two archives."""
     streets = work / "streets.geojsonl"
+    overview = work / "streets_overview.geojsonl"
     cells = work / "cells.geojsonl"
     regions = work / "regions.geojsonl"
 
@@ -108,17 +113,19 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
 
     # beside the archive: it's one shape, wanted before the first tile arrives
     edge = out.parent / "greece.json"
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         made = {
             name: pool.submit(export, layer, path)
             for name, layer, path in (
                 ("streets", features.streets, streets),
+                ("overview", features.streets_overview, overview),
                 ("cells", features.cells, cells),
                 ("regions", features.regions, regions),
                 ("outline", features.outline, edge),
             )
         }
         print(f"streets: {made['streets'].result()} features")
+        print(f"overview: {made['overview'].result()} features")
         print(f"cells:   {made['cells'].result()} features")
         print(f"regions: {made['regions'].result()} features")
         print(f"outline: {made['outline'].result() / 1_000_000:.1f} MB -> {edge}")
@@ -130,6 +137,8 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
         coverage,
         [
             *layer(fields.STREETS_LAYER, streets, STREET_RULES),
+            # The same layer name, so the style reads one source layer at every zoom.
+            *layer(fields.STREETS_LAYER, overview, MERGE),
             *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
         ],
         ["--feature-filter", FILTER],

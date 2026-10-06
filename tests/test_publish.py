@@ -71,6 +71,56 @@ def test_a_street_carries_exactly_the_fields_the_contract_names(
     assert set(written[0]["properties"]) == set(fields.STREETS_FIELDS)
 
 
+def test_an_overview_street_drops_only_what_it_cannot_use(
+    drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
+) -> None:
+    """Below DETAIL_FROM a street is under a pixel: no id to click, nothing to count, and every
+    field the colour and the operator filter read."""
+    features.streets_overview(drawn, tmp_path / "overview.geojsonl")
+    written = read(tmp_path / "overview.geojsonl")
+    assert len(written) == 1
+    assert set(written[0]["properties"]) == set(fields.STREETS_FIELDS) - {"id", "nprov"}
+    assert written[0]["tippecanoe"] == {"maxzoom": features.DETAIL_FROM - 1}
+
+
+def test_the_two_street_sets_meet_without_a_gap(
+    drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
+) -> None:
+    """One zoom with neither set would be a map with no streets on it."""
+    features.streets(drawn, tmp_path / "streets.geojsonl")
+    features.streets_overview(drawn, tmp_path / "overview.geojsonl")
+    detail = read(tmp_path / "streets.geojsonl")[0]["tippecanoe"]["minzoom"]
+    overview = read(tmp_path / "overview.geojsonl")[0]["tippecanoe"]["maxzoom"]
+    assert detail == overview + 1
+
+
+def test_overview_streets_with_the_same_look_come_out_together(
+    drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
+) -> None:
+    """Tippecanoe only merges neighbours, so equal attribute sets have to be adjacent."""
+    for name in ("ΑΛΦΑ", "ΒΗΤΑ", "ΓΑΜΑ"):
+        drawn.execute(
+            "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom, "
+            "best_mbps) values (%s, %s, %s, %s, 'residential', 1, "
+            "'SRID=4326;MULTILINESTRING((23.0 40.7, 23.01 40.71))', 24)",
+            (name, name, name, name),
+        )
+    features.streets_overview(drawn, tmp_path / "overview.geojsonl")
+    speeds = [f["properties"]["best_mbps"] for f in read(tmp_path / "overview.geojsonl")]
+    assert speeds == sorted(speeds)
+
+
+def test_the_outline_has_a_gzip_twin(
+    drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
+) -> None:
+    """Served precompressed, so the copy has to be the same document."""
+    import gzip
+
+    features.outline(drawn, tmp_path / "greece.json")
+    plain = (tmp_path / "greece.json").read_bytes()
+    assert gzip.decompress((tmp_path / "greece.json.gz").read_bytes()) == plain
+
+
 def test_a_cell_carries_exactly_the_fields_the_contract_names(
     drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
 ) -> None:
