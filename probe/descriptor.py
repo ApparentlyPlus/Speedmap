@@ -1,6 +1,6 @@
-"""What each operator's checker looks like, read at runtime rather than compiled in.
+"""What each operator's checker looks like, read at runtime from adapters.yaml.
 
-You cannot make a third party's private API stable.
+A third party's private API can't be made stable, so it lives in data we can edit.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def descriptors(path: Path = ADAPTERS) -> dict[str, dict[str, Any]]:
 
 
 class Descriptor:
-    """One operator's, with the reads it needs typed at the point of use."""
+    """One operator's descriptor, with typed reads."""
 
     def __init__(self, code: str, path: Path = ADAPTERS) -> None:
         self.code = code
@@ -39,7 +39,7 @@ class Descriptor:
         return {str(k): str(v) for k, v in self.held.get(key, {}).items()}
 
     def rungs(self) -> tuple[tuple[Decimal, str], ...]:
-        """Speed to technology, fastest first, as the operator's own codes imply it."""
+        """Speed to technology, fastest first, as the operator's own codes imply."""
         return tuple(
             (Decimal(str(floor)), str(technology))
             for floor, technology in self.held.get("rungs", ())

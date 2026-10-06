@@ -18,7 +18,7 @@ def test_answering_none_of_the_time_is_broken() -> None:
 
 
 def test_answering_some_of_the_time_is_not_working() -> None:
-    """A checker that works one time in three is not working, however many answers arrive."""
+    """A checker that works one time in three is broken, however many answers arrive."""
     assert state(recent=10, answered=3, last_ok=NOW, now=NOW) == DEGRADED
     assert state(recent=10, answered=9, last_ok=NOW, now=NOW) == HEALTHY
 
@@ -53,10 +53,10 @@ def test_an_operator_asked_long_ago_is_not_one_never_asked() -> None:
 
 
 def test_a_flaky_checker_is_not_reported_as_a_silent_one() -> None:
-    """Degraded means answering and not every time, which is not the same as gone.
+    """Degraded means answering, just not every time, which is different from gone.
 
-    There was no branch for it, so it fell through to the sentence about silence and told the
-    reader "has not answered since 19 September" about an operator that had answered on.
+    It had no branch, so it fell through to the silence sentence and told the reader "has not
+    answered since 19 September" about an operator that had answered since.
     """
     flaky = Health("VODAFONE", DEGRADED, NOW, 12, 10)
     assert flaky.says == "answering 10 times in 12"

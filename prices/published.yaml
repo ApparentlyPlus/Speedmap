@@ -1,5 +1,5 @@
-# Tariffs from providers that publish no machine-readable catalogue. Each entry says where it
-# was read and when, so a wrong figure is traceable to a page rather than to nobody.
+# Tariffs from providers with no machine-readable catalogue. Each entry says where and when
+# it was read, so a wrong figure traces back to a page.
 
 INALAN:
   source: https://inalan.gr/paketa
@@ -28,8 +28,8 @@ TELEKOM:
   source: https://www.telekom.gr/
   observed_on: 2026-09-10
   plans:
-    # The two slower rungs come from their February 2026 announcement, which lists the same
-    # prices as the plan page for the ones both carry and no activation charge for any of them:
+    # The two slower rungs come from their February 2026 announcement. It lists the same
+    # prices as the plan page where both have a rung, and no activation charge on any.
     - key: TELEKOM_DP_UNLIMITED
       name: Telekom Double Play Unlimited
       technology: ADSL
@@ -69,8 +69,8 @@ TELEKOM:
       up_mbps: 500
       monthly_eur: 35.90
       setup_eur: 0
-    # Airtime only: the router is the customer's, which is what separates these from the
-    # wireless home products another operator sells.
+    # Airtime only. The router is the customer's own, unlike the wireless home products
+    # another operator sells.
     - key: TELEKOM_5G_WIFI_DP_50
       name: Telekom 5G WiFi Double Play 50
       technology: FWA_5G
@@ -87,7 +87,7 @@ TELEKOM:
       hardware_eur: 0
       needs_hardware: 5g_router
       setup_eur: 0
-    # The same line without a contract, paying for the router instead of being given it.
+    # the same line with no contract, buying the router instead of getting it free
     - key: TELEKOM_5G_WIFI_300_FREE
       name: Telekom 5G WiFi 300 Contract Free
       technology: FWA_5G
@@ -173,8 +173,8 @@ NOVA_MOBILE:
       needs_hardware: 5g_router
       setup_eur: 0
 
-# The introductory price runs twelve months of a twenty-four month contract and then the plan
-# reverts, which their own card states outright.
+# The introductory price runs for twelve months of a 24-month contract, then reverts. Their
+# own card says so.
 VODAFONE_MOBILE:
   source: https://www.vodafone.gr/
   observed_on: 2026-09-10
@@ -217,8 +217,8 @@ VODAFONE_MOBILE:
 DEI:
   source: https://www.dei.gr/el/gia-to-spiti/dei-fiber/
   observed_on: 2026-09-10
-  # From their own plan pages, VAT included, 24-month contract. Their rate card asks 50, 60 and
-  # 80 for the same three lines: it is published rather than sold, and nobody pays it.
+  # From their plan pages, VAT included, 24-month contract. Their rate card asks 50, 60 and
+  # 80 for the same three lines, a published figure nobody actually pays.
   plans:
     - key: DEI_FIBER_500
       name: ΔΕΗ Fiber 500Mbps
@@ -251,8 +251,8 @@ DEI:
 STARLINK:
   source: https://www.starlink.com/gr
   observed_on: 2026-09-10
-  # The dish is bought outright and is most of the first year's cost, which is the whole reason
-  # to blend it: 349€ over twenty four months is another 14,54 a month on top.
+  # The dish is bought outright and is most of the first year's cost, which is why it gets
+  # blended: 349€ over 24 months is another 14,54 a month.
   plans:
     - key: STARLINK_RESIDENTIAL_100
       name: Starlink Residential 100 Mbps
@@ -282,7 +282,7 @@ STARLINK:
 HCN:
   source: https://www.hcn.gr/el/
   observed_on: 2026-09-10
-  # Their page prices every tier "from", so these are floors rather than the whole story.
+  # their page prices every tier "from", so these are floors
   plans:
     - key: HCN_LIGHT_PLUS
       name: Light+

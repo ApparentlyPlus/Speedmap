@@ -1,7 +1,7 @@
-"""Re-ask about the addresses whose answers are about to stop being true.
+"""Re-ask about addresses whose answers are about to expire.
 
-Without this the cache only improves where someone happens to look, and the addresses nobody
-looks at are exactly the ones the register is worst about.
+Otherwise the cache only improves where someone happens to look, and the places nobody looks
+at are exactly where the register is weakest.
 """
 
 from __future__ import annotations
@@ -21,19 +21,19 @@ from probe.nova import Nova
 from probe.run import refresh, target_for
 from probe.vodafone import Vodafone
 
-# How many addresses one run will ask about. Three operators each, so a night of this is a
-# few hundred requests spread over hours: less than one person browsing for ten minutes.
+# Addresses per run, three operators each. A night is a few hundred requests over hours,
+# less than one person browsing for ten minutes.
 BUDGET = 200
 
-# Seconds between addresses. The point is not to be fast. A checker that answers a stranger
-# in two seconds should not be asked again for two more, and nothing here is urgent.
+# Seconds between addresses. A checker that answers a stranger in two seconds can wait two
+# more before the next question, and none of this is urgent.
 PACE = 2.0
 
-# Answers this close to expiring are worth refreshing now rather than at midnight tomorrow.
+# answers this close to expiry get refreshed now, not at midnight tomorrow
 SOON = "1 day"
 
-# Where more people live, more people will ask. Premises is the register's own count of
-# homes behind a point, so it orders the queue by who the answer is for.
+# Where more people live, more people will ask. premises is the register's count of homes
+# behind a point, so it orders the queue by how many people the answer is for.
 DUE = """
 select a.id
 from address a
@@ -48,7 +48,7 @@ limit %(budget)s
 def stale(
     conn: psycopg.Connection[TupleRow], now: datetime, budget: int
 ) -> list[int]:
-    """The addresses most worth asking about again, most-lived-in first."""
+    """Addresses most worth re-asking, most lived-in first."""
     rows = conn.execute(
         DUE, {"before": now, "soon": SOON, "budget": budget}
     ).fetchall()
@@ -62,7 +62,7 @@ def sweep(
     budget: int = BUDGET,
     pace: float = PACE,
 ) -> tuple[int, int]:
-    """Ask about each in turn. Returns how many were asked and how many answered."""
+    """Ask about each in turn. Returns (addresses asked, operators that answered)."""
     reply = answered = 0
     for address_id in stale(conn, now, budget):
         target = target_for(conn, address_id)

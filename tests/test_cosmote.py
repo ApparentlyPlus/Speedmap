@@ -96,7 +96,7 @@ def test_the_parcel_polygons_are_never_read(tmp_path: Path) -> None:
 
 
 def test_an_address_with_no_plans_is_not_an_answer(tmp_path: Path) -> None:
-    """An empty result means the checker was asked and said nothing, not that it said no."""
+    """An empty result means the checker was asked and said nothing, which isn't a no."""
     path = sqlite_scrape(tmp_path / "s.db", [
         (1, "Ν", "Δ", "ΟΔΟΣ", "Α", "Π", 1, "", "2026-08-06 05:51:55", 40.0, 23.0, "rooftop", None, None),
         (2, "Ν", "Δ", "ΟΔΟΣ", "Β", "Π", 2, None, "2026-08-06 05:51:55", 40.0, 23.0, "rooftop", None, None),

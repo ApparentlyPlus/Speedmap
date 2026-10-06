@@ -1,7 +1,7 @@
-"""Nova's catalogue, which they publish only one address at a time.
+"""Nova's catalogue, which they only publish one address at a time.
 
-They have no plan list of their own: the eligibility answer carries the tariff, and it
-carries only the plans that qualify at the address asked about.
+They have no plan list: the eligibility answer carries the tariff, and only the plans that
+qualify at the address asked about.
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ from prices.catalogue import Tariff
 from probe.adapter import Target
 from probe.nova import Nova, euros, speed_of, technology_of
 
-# Asking scopes the answer to the rung asked about and the ones either side of it, so the
-# catalogue is swept rather than read: preselecting 100 never mentions a gigabit exists.
+# An answer only covers the rung asked about and its neighbours, so we sweep the catalogue.
+# Preselecting 100 never mentions that a gigabit exists.
 PRESELECTIONS = ("2P_FIBER_100", "2P_FIBER_300", "2P_FIBER_500", "2P_FIBER_1000")
 
 FAMILY = {"FTTH": "fiber", "VECT_VDSL": "copper", "VDSL": "copper", "ADSL": "copper"}
@@ -22,7 +22,7 @@ FAMILY = {"FTTH": "fiber", "VECT_VDSL": "copper", "VDSL": "copper", "ADSL": "cop
 
 @dataclass(frozen=True)
 class Reference:
-    """A real address, used only to make them quote."""
+    """A real address, used only to get them to quote."""
 
     region: str
     municipality: str
@@ -31,8 +31,8 @@ class Reference:
     postcode: str
 
 
-# Addresses chosen so that between them every rung they sell has somewhere to appear: a street
-# on their own fiber reaches the gigabit tiers, an Athens copper street the rest.
+# Between them these show every rung they sell: a street on their own fiber gets the gigabit
+# tiers, an Athens copper street the rest.
 REFERENCES = (
     Reference("Ν. ΘΕΣΣΑΛΟΝΙΚΗΣ", "Δ. ΘΕΣΣΑΛΟΝΙΚΗΣ", "ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", "8", "54639"),
     Reference("Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", "100", "10434"),
@@ -40,7 +40,7 @@ REFERENCES = (
 
 
 def read(packages: list[dict[str, object]]) -> list[Tariff]:
-    """Their packages, in our vocabulary. A code with no speed in it names no line."""
+    """Their packages in our vocabulary. A code without a speed names no line."""
     tariffs: list[Tariff] = []
     for package in packages:
         code = str(package.get("code", ""))
@@ -58,15 +58,15 @@ def read(packages: list[dict[str, object]]) -> list[Tariff]:
             down_mbps=Decimal(mbps),
             monthly_eur=monthly,
             contract_months=int(contract) if isinstance(contract, int) else None,
-            # Their own tariff puts activation at 50€ and every current offer waives it.
-            # Recorded as waived, which is what a new customer is actually charged.
+            # Their tariff puts activation at 50€ and every current offer waives it, so it's
+            # recorded as waived, which is what a new customer pays.
             setup_eur=Decimal(0),
         ))
     return tariffs
 
 
 def fetch(references: tuple[Reference, ...] = REFERENCES) -> list[Tariff]:
-    """Every plan the reference addresses between them qualify for, deduplicated by code."""
+    """Every plan the reference addresses qualify for between them, deduplicated by code."""
     nova = Nova()
     found: dict[str, Tariff] = {}
     for reference in references:

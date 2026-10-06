@@ -23,8 +23,8 @@ CATALOGUE = (
     "&subcategory.productOffering.productSpecification.name=Fixed"
 )
 
-# Their qualification code, in our vocabulary. The same codes come back from the
-# availability check, which is what lets a plan be matched to a line.
+# Their qualification codes in our vocabulary. The availability check answers in the same
+# codes, which is how a plan gets matched to a line.
 TECHNOLOGY = {
     "ADSL": ("ADSL", "copper", 24),
     "VDSL_50": ("VDSL", "copper", 50),
@@ -37,15 +37,15 @@ TECHNOLOGY = {
     "FWA 5G": ("FWA_5G", "wireless", None),
 }
 
-# A home router is part of the offer, not an optional extra, and it is a real cost.
+# the home router comes with the offer and is a real cost
 HARDWARE = {"FWA_4G": "5g_router", "FWA_5G": "5g_router"}
 
-# Their plan pages state an activation fee that the catalogue payload leaves out entirely.
+# their plan pages state an activation fee the catalogue payload leaves out
 ACTIVATION = {"fiber": Decimal(6), "copper": Decimal(6), "wireless": Decimal(40)}
 
 
 class CatalogueError(RuntimeError):
-    """The catalogue could not be read."""
+    """The catalogue couldn't be read."""
 
 
 def euros(value: object) -> Decimal | None:
@@ -68,7 +68,7 @@ def identifier(offering: dict[str, Any], kind: str) -> str | None:
 
 
 def priced(offering: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
-    """The sale price and the list price it is struck from, when they differ."""
+    """The sale price, and the list price it's marked down from."""
     found: dict[str, Decimal] = {}
     entries = offering.get("productOfferingPrice")
     for entry in entries if isinstance(entries, list) else []:
@@ -87,8 +87,8 @@ def priced(offering: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
 def read(payload: dict[str, Any]) -> list[Tariff]:
     """Every fixed plan they publish, in our vocabulary.
 
-    A plan whose code we do not know is skipped rather than filed under a guess: it would be
-    shown against a line it may not run on.
+    A plan with an unknown code is skipped. Filed under a guess, it would show against a line
+    it may not run on.
     """
     tariffs: list[Tariff] = []
     subcategories = payload.get("subCategory")
@@ -105,6 +105,8 @@ def read(payload: dict[str, Any]) -> list[Tariff]:
             if known is None or sale is None:
                 continue
             technology, family, mbps = known
+            # equal prices mean no discount running
+            discount = None if listed is None or listed == sale else sale
             key = identifier(offering, "TariffPlanCode")
             tariffs.append(Tariff(
                 external_key=key if key is not None else str(offering.get("name")),
@@ -113,12 +115,16 @@ def read(payload: dict[str, Any]) -> list[Tariff]:
                 technology=technology,
                 down_mbps=None if mbps is None else Decimal(mbps),
                 needs_hardware=HARDWARE.get(technology),
-                monthly_eur=sale,
+                # The price it reverts to. Both used to be stored as the sale price, losing the
+                # list price and treating a discount as permanent.
+                monthly_eur=listed if discount is not None and listed is not None else sale,
                 setup_eur=ACTIVATION.get(family),
-                # They give the router with the plan and charge nothing for it.
+                # the router is included at no charge
                 hardware_eur=Decimal(0),
-                # Equal prices mean no discount is running, not a discount of nothing.
-                promo_monthly_eur=None if listed is None or listed == sale else sale,
+                promo_monthly_eur=discount,
+                # The feed never says how long a discount lasts. Unknown stays None, so the blend
+                # charges the list price for the whole window: a floor on the saving, with no
+                # months of discount invented.
             ))
     return tariffs
 

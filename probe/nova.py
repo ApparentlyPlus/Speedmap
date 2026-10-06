@@ -1,7 +1,7 @@
-"""Ask Nova what it will sell at an address.
+"""Ask Nova what it sells at an address.
 
-They want their own spelling, which their address API hands out: a street there is a (region,
-municipality, city, street, zipcode) tuple.
+They want their own spelling, which their address API hands out. A street there is a
+(region, municipality, city, street, zipcode) tuple.
 """
 
 from __future__ import annotations
@@ -28,16 +28,16 @@ LANDING = SPEC.url("warm")
 STREETS = SPEC.text("streets")
 ELIGIBILITY = SPEC.text("eligibility")
 
-# The entry package their plan page starts every visitor on.
+# the package their plan page starts every visitor on
 PRESELECTED = SPEC.payload("preselect")
 
-# Their code names the speed and nothing else about the medium: 2P_FIBER_100 is vectored copper
-# on a copper street and fiber on a fiber one, exactly as the other operator's FBR codes are.
+# The code names a speed, never the medium: 2P_FIBER_100 is vectored copper on a copper
+# street and fiber on a fiber one, same as Telekom's FBR codes.
 RUNGS = SPEC.rungs()
 
 
 def speed_of(code: str) -> int | None:
-    """The megabits a package code names, or None when it names none."""
+    """The megabits a package code names, or None."""
     for part in reversed(code.replace("-", "_").split("_")):
         if part.isdigit():
             return int(part)
@@ -63,7 +63,7 @@ def euros(value: object) -> Decimal | None:
 
 
 def read(payload: dict[str, Any]) -> Probed:
-    """The answer, parsed. Pure, so the shape is tested without asking anyone."""
+    """Parse the answer. Pure, so the shape can be tested offline."""
     result = payload.get("result")
     result = result if isinstance(result, dict) else {}
     packages = result.get("packages")
@@ -86,7 +86,7 @@ def read(payload: dict[str, Any]) -> Probed:
             continue
         technology = technology_of(mbps)
         held = best.get(technology)
-        # One technology, many packages at different speeds: keep the fastest of them.
+        # one technology, several packages: keep the fastest
         faster = held is None or held.max_down_mbps is None or held.max_down_mbps < mbps
         if faster:
             best[technology] = Offer(technology=technology, max_down_mbps=Decimal(mbps))
@@ -100,12 +100,12 @@ def read(payload: dict[str, Any]) -> Probed:
 
 @dataclass
 class Nova:
-    """A session against their plan pages, reused across checks."""
+    """A session on their plan pages, reused across checks."""
 
     code: str = "NOVA"
     client: httpx.Client | None = None
     user_agent: str = settings.user_agent
-    seen: dict[tuple[str, str], list[dict[str, Any]]] = field(default_factory=dict)
+    seen: dict[tuple[str, str, str], list[dict[str, Any]]] = field(default_factory=dict)
 
     def session(self) -> httpx.Client:
         if self.client is not None:
@@ -126,8 +126,9 @@ class Nova:
         return client
 
     def streets(self, region: str, municipality: str, initial: str) -> list[dict[str, Any]]:
-        """Their streets under one initial, kept because one call covers a whole town."""
-        key = (municipality, initial)
+        """Their streets under one initial, cached since one call covers a whole town."""
+        # keyed on region too: pre-Καλλικράτης municipality names repeat across prefectures
+        key = (region, municipality, initial)
         if key in self.seen:
             return self.seen[key]
         response = self.session().get(
@@ -142,7 +143,7 @@ class Nova:
         return found
 
     def locate(self, target: Target, region: str, municipality: str) -> dict[str, Any] | None:
-        """Which of their street entries this address is, chosen by postcode."""
+        """Which of their street entries this address is, picked by postcode."""
         name = target.street.upper()
         candidates = [
             s for s in self.streets(region, municipality, name[:1])
@@ -150,8 +151,8 @@ class Nova:
         ]
         if not candidates:
             return None
-        # A street name repeats across postcodes, and the wrong one answers about the wrong
-        # end of it: ΑΧΑΡΝΩΝ runs through three and only ours says which.
+        # A name repeats across postcodes, and the wrong one answers about the wrong end of
+        # the street. ΑΧΑΡΝΩΝ runs through three, and only ours says which.
         if target.postcode is not None:
             exact = [s for s in candidates if str(s.get("zipcode")) == target.postcode]
             if exact:
@@ -164,9 +165,8 @@ class Nova:
         target: Target,
         preselect: Mapping[str, object] | None = None,
     ) -> Probed:
-        """Their prefecture and municipality are the same ones the other operator wants,
-
-        with a prefix in front, so one recorded spelling answers for both.
+        """Their prefecture and municipality are the ones Telekom wants, prefixed, so one
+        recorded spelling serves both.
         """
         tried = namings(conn, target.municipality_id, target.street_fold,
                         target.lat, target.lon)
@@ -176,8 +176,8 @@ class Nova:
         for named in tried[:TRIES]:
             region = SPEC.text("prefecture_prefix") + named.nomos
             municipality = SPEC.text("municipality_prefix") + named.dimos
-            # Asked here rather than inside ask() so a municipality that does not have this
-            # street is a reason to try the next one rather than the end of the attempt.
+            # checked here, so a municipality without this street moves on to the next one
+            # instead of ending the attempt
             if self.locate(target, region, municipality) is not None:
                 return self.ask(target, region, municipality, preselect)
 
@@ -195,8 +195,7 @@ class Nova:
         if street is None:
             raise NotAskableError(f"no street matched {target.street} in {municipality}")
         payload = {
-            # Their own flow arrives here having already chosen a package, and an empty one
-            # returns no offers at all.
+            # their flow arrives with a package already chosen, and an empty one returns no offers
             "packagePreselected": PRESELECTED if preselect is None else preselect,
             "packageSelected": {"code": "", "title": "", "price": None, "packageGroupType": ""},
             "customerInfo": {

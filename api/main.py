@@ -1,6 +1,6 @@
-"""JSON over the register. Computes nothing: it returns stored state, including the state of
+"""JSON over the register. Computes nothing, returns stored state.
 
-Reads, with one exception.
+Read only, apart from two writes: reader reports, and addresses made because a reader asked.
 """
 
 from __future__ import annotations
@@ -32,7 +32,12 @@ from probe.vodafone import Vodafone
 from ranking.offer import options as buyable
 from ranking.rank import ENOUGH_MBPS, rank
 
-pool = ConnectionPool(settings.dsn, min_size=1, max_size=4, open=False)
+# JIT off. Every query here is an index lookup of a millisecond or two, and compiling one
+# because a spatial estimate crossed jit_above_cost costs a hundred times that on a Pi. Four
+# connections cap the load on the database.
+pool = ConnectionPool(
+    settings.dsn, min_size=1, max_size=4, open=False, kwargs={"options": "-c jit=off"},
+)
 
 
 @asynccontextmanager
@@ -65,8 +70,7 @@ def rows(
         return conn.execute(sql, params).fetchall()
 
 
-# What a person is allowed to say went wrong. Free text is capped rather than trusted:
-# it is stored as typed and never read as anything but text.
+# What a reader can report. Free text is capped, stored as typed, and only ever read as text.
 KINDS = Literal["availability", "price", "address", "other"]
 
 FILED = """
@@ -103,14 +107,18 @@ def health() -> Health:
 MIN_QUERY = 2
 MAX_RESULTS = 20
 
-# The fastest thing known to reach this address, for the dot beside it. Two sources: what an
-# operator has told us directly, and what the best line into the building is sold at.
+# The dot beside an address: the fastest of what an operator told us directly and what the
+# best line into the building retails at, capped by its filing the way 110 caps a street.
+# Uncapped, a door on a 2-10 Mbps cabinet showed 24 next to a street painted 10.
 BEST_MBPS = """
     greatest(
         (select max(v.max_down_mbps) from availability v
          where v.address_id = a.id and v.serviceable),
-        (select max(t.sold_mbps) from address_coverage ac
+        (select max(least(t.sold_mbps, coalesce(nb.max_mbps, sb.max_mbps)))
+         from address_coverage ac
          join technology t on t.code = ac.technology
+         left join speed_band sb on sb.id = ac.speed_band_id
+         left join speed_band nb on nb.id = ac.normal_band_id
          where ac.address_id = a.id and ac.family <> 'wireless')
     )
 """
@@ -120,72 +128,54 @@ ADDRESS_COLUMNS = f"""
     {BEST_MBPS}
 """
 
-# A street's best is the best of the addresses on it, worked out by the build rather than
-# here: asking it per keystroke cost 173ms against a tier that answers in a third of one.
-# Which part of town this run of the name is in, when its doors agree on one.
-#
-# A street is one connected road, so a name can be several rows inside a municipality and
-# they reach the list identical: 7,320 names are, and Χανιά - Θέρισο in Χανιά is two of
-# them, both a gigabit, nothing to choose between. The locality its own addresses carry is
-# the only thing that separates them.
-#
-# It is not always there. 10,645 of the rows in those groups have no address at all, mostly
-# rural roads the register never filed a door on, and those arrive bare rather than wearing
-# a label invented for them. mode() rather than any one door, because a long road crosses
-# more than one district and the answer wanted is where most of it is.
-STREET_LOCALITY = """
-    (select mode() within group (order by a.locality)
-     from address a
-     where a.street_id = s.id and a.locality is not null)
+# A street's best speed and its locality are both stored by the build. Working them out per
+# keystroke scanned every door of every street in the list. The locality is what separates
+# two runs of one name in a municipality (7,320 names), and is null when a run has no doors.
+STREET_COLUMNS = """
+    'street', s.id, s.name, null, s.locality, m.name, null, null, s.best_mbps
 """
 
-STREET_COLUMNS = f"""
-    'street', s.id, s.name, null, {STREET_LOCALITY}, m.name, null, null, s.best_mbps
-"""
-
-# Three tiers, widening only when the one above has not filled the page.
+# three tiers, widening only while the page isn't full
 TIERS = ("prefix", "word", "fuzzy")
 
-# How many streets a name with no number is answered with before the doors on it.
+# streets shown first for a name typed without a number
 STREET_SLOTS = 2
 
-# How many streets a bare number is offered on. More than two is a list of guesses.
+# streets a bare number gets offered on (more than two is guessing)
 PROPOSALS = 2
 
 
-# The register files a bare dash where it holds no street name: 70 addresses of it.
+# the register files a lone dash for a missing street name, on 70 addresses
 NAMELESS = "a.street <> '-'"
 
 
 @dataclass(frozen=True)
 class Term:
-    """A query taken apart: what to match on, and the house number to prefer."""
+    """A query split into what to match and the house number to prefer."""
 
     folded: str
     number: str | None
 
 
-# The house number the reader typed, ahead of every other way of ordering a street's doors.
-#
-# It hangs on `nulls last`. `street_no = '107'` is true on the door, false on its neighbours
-# and *null* on the 126,000 rows the register filed with no number at all, and a plain
-# `desc` in Postgres sorts nulls first. Asking for Μητροπόλεως 107 therefore answered with
-# three numberless Μητροπόλεως rows and put the thing that was asked for fourth.
+# The typed house number sorts before everything else. It hangs on `nulls last`:
+# `street_no = '107'` is true on that door, false on its neighbours and null on the 126,000
+# rows with no number, and Postgres sorts nulls first under plain `desc`. Μητροπόλεως 107
+# used to come back fourth, under three numberless doors.
 NUMBER_FIRST = "(a.street_no = %s) desc nulls last, "
 
 
 def condition(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]:
-    """The where clause for one tier, and the values it takes.
+    """The where clause and parameters for one tier.
 
-    The word tier asks for every token separately and in no particular order, because Greek
-    street names are filed both ways round.
+    The word tier matches each token separately in any order, since Greek street names get
+    filed both ways round.
     """
     joined = " ".join(tokens)
     prefix, anywhere = joined + "%", "% " + joined + "%"
     if tier == "prefix":
         return f"{column} like %s", [prefix]
     if tier == "word":
-        # Each token at the start of the key or at the start of a word inside it.
+        # each token at the start of the key or of a word inside it
         each = " and ".join(f"({column} like %s or {column} like %s)" for _ in tokens)
         values: list[object] = []
         for token in tokens:
@@ -198,22 +188,22 @@ def condition(column: str, tier: str, tokens: list[str]) -> tuple[str, list[obje
 
 
 def order(column: str, tier: str, tokens: list[str]) -> tuple[str, list[object]]:
-    """Within a tier every row matched equally well, so rank by size, not by spelling."""
+    """Rows in a tier matched equally well, so only fuzzy ranks by similarity."""
     if tier != "fuzzy":
         return "", []
     return f"similarity({column}, %s) desc,", [" ".join(tokens)]
 
 
-# How many distinct spellings a typo is allowed to have meant. The fuzzy tier matches against the
-# spellings rather than against the doors, and then fetches the doors on the spellings it liked.
+# Spellings a typo may have meant. Fuzzy matches against distinct spellings, then fetches
+# the doors carrying the ones it liked.
 KEY_SLOTS = 20
 
 
 def fuzzy_address_sql(key: str, term: Term, limit: int) -> tuple[str, tuple[object, ...]]:
-    """The fuzzy tier, asked of the spellings rather than of every door that carries one.
+    """The fuzzy tier, run over distinct spellings instead of every door.
 
-    It used to run `search_key % '…'` straight over all 1.8M addresses and it was the slowest
-    thing on the site by an order of magnitude.
+    Running `search_key % '…'` over all 1.8M addresses made it the slowest thing on the site
+    by an order of magnitude.
     """
     tokens = term.folded.split(" ")
     joined = " ".join(tokens)
@@ -244,18 +234,26 @@ def address_sql(key: str, tier: str, term: Term, limit: int) -> tuple[str, tuple
     tokens = term.folded.split(" ")
     where, taken = condition(column, tier, tokens)
     ranked, ranking = order(column, tier, tokens)
-    # The number the reader typed, ahead of every other way of ordering the street's
-    # addresses: it is the most specific thing they said and it was being thrown away.
+    # the typed number sorts first, it's the most specific thing the reader gave us
     wanted, number = (NUMBER_FIRST, [term.number]) if term.number else ("", [])
+    # The page of ids is picked first, from columns the prefix index carries, and only those
+    # few rows get read in full, named and priced. Two letters match 77,000 doors, and each
+    # used to be read and joined to its municipality to keep eight: 31,000 blocks per keystroke.
     return (
         f"""
     select {ADDRESS_COLUMNS}
-    from address a left join municipality m on m.id = a.municipality_id
-    where {NAMELESS} and {where}
+    from (
+        select a.id
+        from address a
+        where {NAMELESS} and {where}
+        order by {wanted}{ranked} a.premises desc nulls last, a.id
+        limit %s
+    ) page
+    join address a on a.id = page.id
+    left join municipality m on m.id = a.municipality_id
     order by {wanted}{ranked} a.premises desc nulls last, a.id
-    limit %s
     """,
-        tuple(taken + number + ranking + [limit]),
+        tuple(taken + number + ranking + [limit] + number + ranking),
     )
 
 
@@ -302,10 +300,10 @@ class Result(BaseModel):
 
 
 def proposable(key: str, tier: str, term: Term, limit: int) -> tuple[str, tuple[object, ...]]:
-    """Streets a number could be on, looked up in their own right.
+    """Streets a number could be on, looked up on their own.
 
-    The suggestion list fills with addresses first and a street may never reach the page, so
-    a proposal cannot be built out of whatever the tiers happened to return.
+    The tiers fill the page with addresses first and a street may never make it, so proposals
+    can't be built from whatever the tiers returned.
     """
     column = "s." + key
     tokens = term.folded.split(" ")
@@ -324,7 +322,7 @@ def proposable(key: str, tier: str, term: Term, limit: int) -> tuple[str, tuple[
 
 
 def like_literal(text: str) -> str:
-    """Escape the wildcards, so a user typing % searches for a percent sign."""
+    """Escape LIKE wildcards, so typing % searches for a percent sign."""
     for character in ("\\", "%", "_"):
         text = text.replace(character, "\\" + character)
     return text
@@ -350,13 +348,24 @@ def search(
     ),
 ) -> list[Result]:
     """Addresses and streets, in Greek or Greeklish, folded the way the index was built."""
+    # One connection for all tiers. A keystroke can run nine queries, and checking out a
+    # connection per query cost pool bookkeeping and left prepared statements on another.
+    with pool.connection() as conn:
+        return searched(conn, q, limit, kind)
+
+
+def searched(
+    conn: psycopg.Connection[Any], q: str, limit: int, kind: Literal["any", "street"]
+) -> list[Result]:
+    def ask(sql: str, params: tuple[object, ...]) -> list[tuple[Any, ...]]:
+        return conn.execute(sql, params).fetchall()
+
     greeklish = is_greeklish(q)
     folded = from_latin(street_key(q)) if greeklish else street_key(q)
     street, number = split_number(folded)
     term = Term(folded=like_literal(street), number=number)
 
-    # The two tables spell the same idea differently: an address key carries the locality, a
-    # street key is the name alone.
+    # an address key includes the locality, a street key is only the name
     sources = (
         (street_sql, "latin_key" if greeklish else "name_fold"),
     ) if kind == "street" else (
@@ -366,14 +375,14 @@ def search(
 
     hits: list[Result] = []
 
-    # A name with no number on it is a question about the street, so the street answers first.
+    # a name without a number is a question about the street, so streets go first
     if kind == "any" and term.number is None:
         for tier in TIERS:
             sql, taken = street_sql(
                 "latin_key" if greeklish else "name_fold", tier, term, STREET_SLOTS
             )
-            hits += results(rows(sql, taken), tier)
-            # The best tier that answered at all, and no further.
+            hits += results(ask(sql, taken), tier)
+            # stop at the first tier that answered
             if hits:
                 break
         hits = hits[:STREET_SLOTS]
@@ -385,7 +394,7 @@ def search(
             if remaining <= 0:
                 break
             sql, taken = builder(column, tier, term, remaining)
-            for row in results(rows(sql, taken), tier):
+            for row in results(ask(sql, taken), tier):
                 if (row.kind, row.id) in seen:
                     continue
                 seen.add((row.kind, row.id))
@@ -393,18 +402,18 @@ def search(
         if len(hits) >= limit:
             break
     if kind == "street":
-        # A map has no doors on it, so a number the reader typed picks the street it is on
-        # rather than offering to make a door nobody can click.
+        # A map has no doors, so a typed number picks its street instead of offering a door
+        # nobody can click.
         return hits[:limit]
-    return offer_the_number(hits, term, "latin_key" if greeklish else "name_fold", limit)
+    return offer_the_number(conn, hits, term, "latin_key" if greeklish else "name_fold", limit)
 
 
 def offer_the_number(
-    hits: list[Result], term: Term, key: str, limit: int
+    conn: psycopg.Connection[Any], hits: list[Result], term: Term, key: str, limit: int
 ) -> list[Result]:
-    """The number the reader typed, on a street we know, whether or not it is filed.
+    """The typed number on a street we know, filed or not.
 
-    Held addresses come first: one that exists is worth more than one we would have to make.
+    Filed addresses come first. One that exists beats one we'd have to make.
     """
     if term.number is None:
         return hits[:limit]
@@ -422,28 +431,24 @@ def offer_the_number(
                 locality=None, municipality=row[2], postcode=None, premises=None,
                 best_mbps=row[3], match="asked", street_id=row[0],
             )
-            for row in rows(sql, taken)
+            for row in conn.execute(sql, taken).fetchall()
         ]
-    # A street offered both as itself and as a door on it is two answers to one question,
-    # and the door is the one that was asked for.
+    # a street offered both as itself and as a door on it: keep the door, it's what was asked
     offered = {p.id for p in proposals}
     rest = [r for r in hits if not (r.kind == "street" and r.id in offered)]
     return (proposals + rest)[:limit]
 
 
-# One shape for both, but only address_coverage records how the match was made: for a
-# street it is an area by construction, because a street has no point of its own.
-AREA_MATCH = "'area'"
-
-# sold_mbps is what this kind of line is retailed at, and it is the figure the map is painted with
-# and the panel shows.
+# sold_mbps is the retail speed for the line, capped by the normally available band where one
+# was filed. It's the figure 110 paints the map with, so a panel can't disagree with its colour.
 OFFER_COLUMNS = """
-    p.code, p.display_name, ac.technology, ac.family, {matched}, ac.avail_date,
-    ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label, t.sold_mbps
+    p.code, p.display_name, ac.technology, ac.family, ac.matched_by, ac.avail_date,
+    ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label,
+    least(t.sold_mbps, coalesce(nb.max_mbps, sb.max_mbps))
 """
 
-# The street is resolved here rather than in the search, which answers per keystroke and
-# is measured in tenths of a millisecond. A reader looking at one address is not typing.
+# The street is looked up here and not in search, which runs per keystroke. Someone looking
+# at one address isn't typing.
 ADDRESS_DETAIL = """
 select a.id, a.street, a.street_no, a.locality, m.name, a.postcode,
        a.premises, a.connected, a.vhcn, st_x(a.geom::geometry), st_y(a.geom::geometry),
@@ -455,18 +460,19 @@ where a.id = %s
 """
 
 ADDRESS_OFFERS = f"""
-select {OFFER_COLUMNS.format(matched="ac.matched_by")}
+select {OFFER_COLUMNS}
 from address_coverage ac
 join provider p on p.id = ac.provider_id
 join technology t on t.code = ac.technology
 left join provider ip on ip.id = ac.infra_provider_id
 left join speed_band sb on sb.id = ac.speed_band_id
+left join speed_band nb on nb.id = ac.normal_band_id
 where ac.address_id = %s
 order by t.sold_mbps desc nulls last, p.code
 """
 
-# The shape as well as the box. A box says where to point the camera. The highlight has to run
-# along the street itself, and a street that bends is not its own rectangle. Merged first.
+# The shape as well as the box: the box aims the camera, the highlight runs along the street,
+# and a street that bends isn't a rectangle. Merged first.
 STREET_DETAIL = """
 select s.id, s.name, m.name, s.highway, s.ways,
        st_xmin(box), st_ymin(box), st_xmax(box), st_ymax(box),
@@ -477,66 +483,18 @@ cross join lateral (select st_envelope(s.geom::geometry) as box) extent
 where s.id = %s
 """
 
-# How large a filed area may be and still say anything about one street. Not a number here.
-CABINET = "cabinet_m2()"
-
-# A street has no address of its own, so its offers are the cabinets it runs through. distinct on,
-# because one road crosses several cabinets of the same operator.
-STREET_OFFERS = f"""
-select distinct on (code, technology) * from (
-    select {OFFER_COLUMNS.format(matched=AREA_MATCH)}
-    from street s
-    join coverage_area ac on st_intersects(ac.geom_2d, s.geom::geometry)
-    join provider p on p.id = ac.provider_id
-    join technology t on t.code = ac.technology
-    left join provider ip on ip.id = ac.infra_provider_id
-    left join speed_band sb on sb.id = ac.speed_band_id
-    where s.id = %s
-      and ac.area_m2 <= {CABINET}
-
-    union all
-
-    select {OFFER_COLUMNS.format(matched="'point'")}
-    from street s
-    join address a on a.street_id = s.id
-    join address_coverage ac on ac.address_id = a.id
-    join provider p on p.id = ac.provider_id
-    join technology t on t.code = ac.technology
-    left join provider ip on ip.id = ac.infra_provider_id
-    left join speed_band sb on sb.id = ac.speed_band_id
-    -- Fixed lines only, the same rule the street's own figure follows: an operator whose
-    -- 5G reaches everywhere is not an operator that reaches this street, and listing it
-    -- here would put the same gigabit on every road in the country.
-    where s.id = %s and ac.family <> 'wireless'
-
-    union all
-
-    -- Built fiber standing beside the street: 110's third route, read here too.
-    --
-    -- The map is painted from street_provider and this list is derived here, so the two
-    -- have to read the same sources or the street is drawn a colour the panel cannot
-    -- account for. It was: Χανιά - Θέρισο came out at a gigabit and opened on "no road
-    -- here with declared coverage", because 110 learned this route and the panel did not.
-    --
-    -- The same guard 110 uses, for the same reason: a filing the address layer placed
-    -- reaches the street through the door above, and counting it here as well would list
-    -- one operator twice.
-    select credited.code, credited.display_name, 'FTTH', 'fiber', 'built', null::date,
-           credited.code, null::int, null::numeric, null::numeric, null::text, t.sold_mbps
-    from street s
-    join raw_coverpoint c
-      on c.prempass > 0
-     and st_dwithin(s.geom, c.point::geography, built_fiber_m())
-    join provider filed on filed.register_id = c.infrprov and filed.builds_own_network
-    join provider credited on credited.id = coalesce(filed.credited_to, filed.id)
-    join technology t on t.code = 'FTTH'
-    where s.id = %s
-      and not exists (select 1 from address_point ap where ap.coverid = c.coverid)
-) reached (
-    code, display_name, technology, family, matched, avail_date,
-    infra_code, band_id, min_mbps, max_mbps, label, sold_mbps
-)
-order by code, technology, sold_mbps desc nulls last
+# A street's offers: doors on it, cabinets it crosses, built fiber beside it. 110 walks those
+# routes to paint the map and stores one row per operator and technology, so the panel reads
+# exactly what the colour came from, in one index lookup. Walked live it took 180 ms on Ερμού.
+STREET_OFFERS = """
+select p.code, p.display_name, so.technology, so.family, so.matched, so.avail_date,
+       ip.code, sb.id, sb.min_mbps, sb.max_mbps, sb.label, so.sold_mbps
+from street_offer so
+join provider p on p.id = so.provider_id
+left join provider ip on ip.id = so.infra_provider_id
+left join speed_band sb on sb.id = so.speed_band_id
+where so.street_id = %s
+order by p.code, so.technology
 """
 
 
@@ -636,8 +594,8 @@ def address(address_id: int) -> AddressDetail:
     )
 
 
-# The search row for one address, so an address just made comes back in the shape the
-# suggestion list already knows how to render.
+# One address as a search row, so a freshly made address comes back in the shape the
+# suggestion list already renders.
 SEARCH_ONE = f"""
     select {ADDRESS_COLUMNS}
     from address a left join municipality m on m.id = a.municipality_id
@@ -653,7 +611,7 @@ def street(street_id: int) -> StreetDetail:
         id=row[0], name=row[1], municipality=row[2], highway=row[3], ways=row[4],
         bbox=(row[5], row[6], row[7], row[8]),
         shape=json.loads(row[9]),
-        offers=offers(rows(STREET_OFFERS, (street_id, street_id, street_id))),
+        offers=offers(rows(STREET_OFFERS, (street_id,))),
     )
 
 
@@ -699,21 +657,27 @@ def report(filed: ReportIn) -> Report:
                 filed.provider_id, filed.plan_id, filed.contact,
             )).fetchone()
     except psycopg.errors.ForeignKeyViolation as unknown:
-        # An id we do not have is a mistaken report, not a server fault.
+        # an unknown id is a bad report, not a server error
         raise HTTPException(422, "unknown address, provider or plan") from unknown
     if row is None:
         raise HTTPException(500, "report not recorded")
     return Report(id=row[0], created_at=row[1])
 
 
-def names(conn: object, codes: list[str]) -> dict[str, str]:
-    """What each operator is called where a reader can see it."""
-    hits = rows("select code, display_name from provider where code = any(%s)", (codes,))
+def names(conn: psycopg.Connection[Any], codes: list[str]) -> dict[str, str]:
+    """Display names for operator codes.
+
+    Uses the caller's connection. It used to take a second one from the pool while holding the
+    first, so four concurrent requests on a pool of four each waited forever.
+    """
+    hits = conn.execute(
+        "select code, display_name from provider where code = any(%s)", (codes,)
+    ).fetchall()
     return {str(code): str(display) for code, display in hits}
 
 
-# The three that sell to households and can be asked. The rest are read from the register
-# and from what they publish, because there is nothing of theirs to ask.
+# The three retailers we can ask. Everyone else comes from the register and what they publish,
+# since they have no checker to ask.
 RETAIL = ["TELEKOM", "VODAFONE", "NOVA"]
 
 
@@ -766,8 +730,8 @@ class Options(BaseModel):
     options: list[Buyable]
 
 
-# Blending a lump sum across two years is an exact division and rarely lands on a cent.
-# The arithmetic stays exact and the answer is rounded once, here, where it is read.
+# Spreading a one-off over 24 months rarely lands on a cent. The arithmetic stays exact and
+# rounds once, here.
 CENTS = Decimal("0.01")
 
 
@@ -878,8 +842,17 @@ def address_probe(
         term: list[Adapter] = [ADAPTERS[code]() for code in wanted]
         answers = refresh(conn, target, term, datetime.now(UTC))
 
-    return [
-        Probed(
+    # An operator in backoff isn't asked and refresh returns nothing for it. Report it as not
+    # asked so it doesn't silently vanish from the answer.
+    probed: list[Probed] = []
+    for code in sorted(set(wanted)):
+        answer = answers.get(code)
+        if answer is None:
+            probed.append(Probed(
+                provider=code, asked=False, reached=False, serviceable=None, detail=None,
+            ))
+            continue
+        probed.append(Probed(
             provider=code,
             asked=True,
             reached=answer.result is not None,
@@ -888,9 +861,8 @@ def address_probe(
                 else answer.result.serviceable
             ),
             detail=answer.error,
-        )
-        for code, answer in sorted(answers.items())
-    ]
+        ))
+    return probed
 
 
 @app.get("/health/adapters", response_model=list[Operator], tags=["meta"])

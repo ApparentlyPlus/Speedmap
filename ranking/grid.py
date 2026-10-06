@@ -1,7 +1,6 @@
-"""What the mobile network actually reaches an address with, per operator.
+"""What each operator's mobile network reaches an address with.
 
-A data plan is only a fallback if the operator's own network is any good where the router will
-sit.
+A data plan is only a fallback if the operator's network is any good where the router sits.
 """
 
 from __future__ import annotations
@@ -12,8 +11,8 @@ from decimal import Decimal
 import psycopg
 from psycopg.rows import TupleRow
 
-# The band is a range and the floor of it is the honest half: a cell filed at 300-1000 is
-# promised to reach 300, and the rest is the operator's good fortune rather than a claim.
+# The band's floor is the honest half: a cell filed at 300-1000 promises 300, and the rest is
+# the operator's luck.
 REACH = """
 with here as (
     select floor(st_x(p.g) / 100)::int || '|' || floor(st_y(p.g) / 100)::int as gridid
@@ -41,15 +40,15 @@ class Reach:
     provider: str
     five_g: bool
     floor_mbps: Decimal | None
-    # The top of the band this operator filed here.
+    # top of the band this operator filed here
     ceiling_mbps: Decimal | None = None
 
 
 def mobile(conn: psycopg.Connection[TupleRow], address_id: int) -> dict[str, Reach]:
     """Each operator's mobile reach here, by provider code.
 
-    An operator absent from the answer does not cover this cell at all, which is a stronger
-    statement than a slow band and is why absence is not filled in with a zero.
+    An operator missing from the answer doesn't cover this cell at all, a stronger claim than a
+    slow band, which is why absence isn't filled in with zero.
     """
     found: dict[str, Reach] = {}
     for code, five_g, floor_mbps, ceiling_mbps in conn.execute(

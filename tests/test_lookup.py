@@ -67,7 +67,7 @@ def give_fiber(conn: psycopg.Connection[TupleRow], address_id: int, code: str) -
 
 
 def make_wholesale(conn: psycopg.Connection[TupleRow], infra: str, seller: str) -> None:
-    """Fifty filings, the minimum the relation counts as an agreement rather than an error."""
+    """Fifty filings, the minimum the view counts as an agreement and not a data error."""
     conn.execute(
         "insert into coverage (source, source_ref, provider_id, infra_provider_id, technology, "
         "family, assertion) select 'register', 'w' || g, %s, %s, 'FTTH', 'fiber', 'declared' "
