@@ -1,4 +1,4 @@
-/** The development handle the map page publishes, so a browser test can ask it questions. */
+/** Dev-only handle the map page exposes, so a browser test can query it. */
 import type { Map as Maplibre } from "maplibre-gl";
 
 declare global {

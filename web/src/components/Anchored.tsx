@@ -1,4 +1,4 @@
-/** The map behind an address, flown to it once and then frozen. */
+/** The map behind an answer: flown in once, then left to turn slowly. */
 
 import { useEffect, useRef } from "react";
 import maplibregl, {
@@ -8,7 +8,7 @@ import maplibregl, {
 import type { Geometry, Position } from "geojson";
 
 import { engine } from "../map/engine";
-import { LIMITS, hushed, ramps, style } from "../map/style";
+import { BUILDINGS, BUILDING_LAYERS, LIMITS, hushed, ramps, style } from "../map/style";
 import {
   GLOW,
   PASS_MS,
@@ -23,80 +23,74 @@ import {
 import { SOURCE, onlyStreet } from "../map/style";
 import { STREETS_LAYER } from "../map/tiles";
 
-/** The one street this map is about, map in colour over the quiet ones. */
+/** The street the answer is about, kept in colour over the quiet ones. */
 const SUBJECT = "subject";
 
-/** Close enough that the building is a building, far enough that it has neighbours. */
+/** Close enough to see the building, far enough to see its neighbours. */
 const ZOOM = 16.6;
 const PITCH = 58;
 const BEARING = -20;
 
-/** How far the camera leans once it has arrived. Enough to see the city has sides. */
+/** Camera tilt once it's arrived. Enough to show the city has sides. */
 const TILT = 42;
 
-/** As close as the camera will get to a short street. */
+/** Closest the camera gets to a short street. */
 const CLOSEST = 17.4;
 
-/** Just off solid, so a road behind a wall is a hint rather than a secret. */
+/** Just off solid, so a road behind a wall shows through a little. */
 const SHEER = 0.9;
 
-/** How much zoom the lean is given back. A box is fitted as though the map were flat. */
+/** Zoom given back for the tilt, since the box is fitted as if the map were flat. */
 const PITCH_ROOM = 0.6;
 
-/** Degrees a second. A turn takes two minutes, which is slower than anyone will watch. */
+/** Degrees a second. A full turn takes two minutes. */
 const SPIN = 3;
 
 /**
- * How long the descent from the country to the street takes.
- *
- * Long. The map opens on the whole of Greece and the street is one road somewhere in it,
- * ten zoom levels away. The reader is meant to watch that happen and come out of it
- * knowing where in the country the street sits. Run it quickly and they arrive somewhere
- * without having been anywhere.
+ * The fall from the whole country to the street, ten zoom levels down. Slow on purpose:
+ * the reader should come out of it knowing where in Greece the street is. At 3.6 s too many
+ * tiles arrived after the camera had passed their zoom, and the descent looked like a
+ * slideshow. Five seconds lets most of them land in time.
  */
-const DESCENT_MS = 3600;
+const DESCENT_MS = 5200;
+
+/** Fade-in for the footprints once the whole view has them. */
+const RAISE_MS = 420;
+
+/** Longest the city waits for a building tile that may never come. */
+const RAISE_CAP = 2500;
 
 /**
- * How far the camera pulls back on the way. One is a straight line in.
- *
- * flyTo arcs out before it comes in. That earns its keep when crossing the country at
- * street zoom. Here the camera already holds the whole country, so any arc at all is a
- * lurch backwards out of it before the descent starts.
+ * flyTo's arc. One is a straight line in. An arc helps when crossing the country at street
+ * zoom, but this camera starts on the whole country, so any arc reads as a lurch backwards.
  */
 const DESCENT_CURVE = 1;
 
-/**
- * Slow at both ends, quick through the middle. Linear travel starts and stops at full
- * speed, which reads as a jolt at each end however long the journey is.
- */
+/** Slow at both ends. Linear starts and stops at full speed, which jolts. */
 const SMOOTH = (t: number): number =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
-/** Whether this reader wants things to move at all. */
+/** prefers-reduced-motion */
 function stillness(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 }
 
-/** How fast the light is allowed to redraw, in milliseconds between frames. */
+/** Minimum ms between redraws of the light. */
 const TRACE_MS = 1000 / 30;
 
-/** The part of the map nothing is sitting on. */
+/** The part of the map not under the panel. */
 function clear(map: Maplibre): { top: number; right: number; bottom: number; left: number } {
   const edge = 36;
   const pad = { top: edge, right: edge, bottom: edge, left: edge };
   const box = map.getContainer().getBoundingClientRect();
   /*
-   * Whatever is covering the map, by the mark it carries rather than by its class. The
-   * selector named one layout, so the split panel went unseen: the camera fitted the
-   * street to the whole canvas and centred it at the middle of the window, which is
-   * behind the panel, and then turned around a point nobody can see.
+   * Find the cover by its data attribute. A class selector only matched one layout, so the
+   * split panel went unnoticed and the street was centred behind it.
    */
   const card = document.querySelector("[data-covers-map]")?.getBoundingClientRect();
 
-  // The card covers the map rather than sitting beside it, in both layouts. On a narrow
-  // screen it lies across the bottom, and on a wide one it is a column down the left. Only
-  // the first was allowed for, so on a desktop the street was fitted to the whole canvas
-  // and then centred, which put half of it behind the panel.
+  // The card overlaps the map in both layouts: across the bottom on narrow screens, down
+  // the left on wide ones. Only the narrow case used to be handled.
   if (card === undefined) return pad;
   if (card.width >= box.width * 0.75) {
     pad.bottom = Math.min(box.bottom - card.top + 16, box.height * 0.6);
@@ -114,14 +108,14 @@ export function Anchored({
 }: {
   readonly lon: number | null;
   readonly lat: number | null;
-  /** The street this result is on, when it is one we hold. */
+  /** The street this result is on, if we hold it. */
   readonly shape?: Geometry | null;
-  /** Which street that is, so it alone keeps its colour. */
+  /** Its id, so it alone keeps its colour. */
   readonly streetId?: number | null;
 }): React.ReactElement {
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Maplibre | null>(null);
-  // Read once, when the map is built. After that the point arrives as a move.
+  // read once at construction, after that a new point is a move
   const here = useRef<[number, number] | null>(
     lon !== null && lat !== null ? [lon, lat] : null,
   );
@@ -133,7 +127,6 @@ export function Anchored({
     const map = new Maplibre({
       container: box.current,
       style: hushed(style()),
-      // Where it opens.
       center: here.current ?? [24.0, 38.4],
       zoom: here.current === null ? 6 : ZOOM,
       pitch: here.current === null ? 0 : PITCH,
@@ -142,23 +135,15 @@ export function Anchored({
       attributionControl: false,
     });
     /*
-     * Told what covers it before it draws anything.
-     *
-     * The padding used to arrive with the flight, so the country the map opens on was
-     * centred on the whole window: half of Greece sat behind the panel, and the view only
-     * slid across to the clear half as the descent ran. Set here it costs nothing, because
-     * nothing has been painted to move.
+     * Padding before the first paint. Arriving with the flight, it centred the opening view on
+     * the whole window, half of Greece sat behind the panel, and the view slid across mid-descent.
      */
     map.setPadding(clear(map));
 
     /*
-     * The country fitted to the space it has, rather than opened at a fixed zoom.
-     *
-     * Zoom 6 was chosen when the map had the whole window. With the panel over the left of
-     * it the map has about four tenths of that to draw in, and the same zoom in a narrower
-     * frame is a piece of Greece rather than Greece: it sat high and to one side with the
-     * Peloponnese off the bottom. Fitted to LIMITS it is the whole country however much
-     * room is left for it, on any window.
+     * Fit Greece to the space left, instead of a fixed zoom. Zoom 6 dated from when the map had
+     * the whole window. With the panel over about six tenths of it, Greece sat high and to one
+     * side with the Peloponnese cut off.
      */
     if (here.current === null) {
       const opening = map.cameraForBounds(LIMITS);
@@ -166,19 +151,17 @@ export function Anchored({
     }
 
     mapRef.current = map;
-    // The same handle the map page keeps, for the same reason: only a real browser can say
-    // whether a light is running along a street. Development only. The build drops it.
+    // for the browser test, which needs to see the light actually move. dev builds only
     if (import.meta.env.DEV) {
       window.anchored = map;
     }
 
-    // MapLibre measures its container once, when it is built, and this one is built while
-    // the grid around it is reduced resolving.
+    // MapLibre measures its container once, and this one is built while the grid is still
+    // settling.
     const settle = requestAnimationFrame(() => map.resize());
     const watching = new ResizeObserver(() => {
       map.resize();
-      // The panel is a share of the window, so what it covers changes with the window and
-      // the point the map turns about has to move with it.
+      // the panel is a share of the window, so the pivot point moves when the window does
       if (map.getSource(TRACE) !== undefined) map.easeTo({ padding: clear(map), duration: 0 });
     });
     watching.observe(box.current);
@@ -191,33 +174,29 @@ export function Anchored({
     };
   }, []);
 
-  // The address, when it arrives after the map did: a move rather than a rebuild.
+  // a late-arriving address is a move, not a rebuild
   useEffect(() => {
     const map = mapRef.current;
     if (map === null || lon === null || lat === null) return;
     if (here.current !== null) return;
     here.current = [lon, lat];
     /**
-     * A street supersedes its own midpoint, so it is not visited on the way.
-     *
-     * Both arrive in the same render, out of one response, and the effect below frames the
-     * whole road. Leaning into the door first meant the reader watched the camera climb to
-     * one pitch over 1.2 seconds and then cut to another. That was the jolt: two moves to
-     * reach a place neither of them was aiming at. An address has no road to frame and
-     * still gets its move.
+     * With a street, skip the door. Both come from one response, and the effect below frames
+     * the whole road. Flying to the door first meant one 1.2 s climb to one pitch and then a cut
+     * to another. An address with no street still gets this move.
      */
     if (shape !== null && shape !== undefined) return;
     map.easeTo({ center: [lon, lat], zoom: ZOOM, pitch: PITCH, duration: 1200 });
   }, [lon, lat, shape]);
 
-  /** The light, added once the street is known and taken away with it. */
+  /** The light runs once the street is known and goes with it. */
   useEffect(() => {
     const map = mapRef.current;
     if (map === null || shape === null || shape === undefined) return;
     let running = 0;
-    // The map can be taken away underneath this.
+    // the map can be removed from under us
     let stopped = false;
-    // Whether the camera has finished arriving and may start turning.
+    // set once the camera lands, so the turn can start
     let turning = false;
     let last = 0;
 
@@ -226,14 +205,14 @@ export function Anchored({
 
     const reduced = stillness();
 
-    /** Showing, on screen, and wanted. All three, or the loop does no work. */
+    /** Visible tab, on screen, motion allowed: all three, or the loop idles. */
     let onScreen = true;
     let awake = !reduced && document.visibilityState === "visible";
 
     const wake = (): void => {
       awake = !reduced && onScreen && document.visibilityState === "visible";
-      // Time does not stop while the loop is parked, so the turn would otherwise resume by
-      // jumping however many degrees it owed for the minutes the tab spent in the back.
+      // Reset the clock while parked. Otherwise the turn jumps by however many degrees it owed
+      // for the minutes the tab sat in the background.
       if (!awake) last = 0;
     };
 
@@ -244,6 +223,10 @@ export function Anchored({
     });
     if (box.current !== null) watcher.observe(box.current);
 
+    /** Cleared on unmount, whether or not the descent finished. */
+    let giveUp = 0;
+    let onSourceData: ((event: maplibregl.MapSourceDataEvent) => void) | null = null;
+
     const add = (): void => {
       if (map.getSource(TRACE) !== undefined) return;
       map.addSource(TRACE, {
@@ -251,18 +234,57 @@ export function Anchored({
         data: { type: "FeatureCollection", features: [] },
       });
 
-      // Under the city, with the streets it belongs to. Added plainly it goes on top of
-      // everything, and then the light climbs whatever roof the street runs behind.
+      // Below the buildings. Added on top, the light climbed whatever roof the street runs behind.
       const under = ["building-shadow", "building", "place-label"].find(
         (layer) => map.getLayer(layer) !== undefined,
       );
- /** Everything but the street in question goes quiet. */
-      /** Take the buildings just off solid. */
-      if (map.getLayer("building") !== undefined) {
-        map.setPaintProperty("building", "fill-extrusion-opacity", [
-          "interpolate", ["linear"], ["zoom"], 14, 0, 15.2, SHEER,
-        ]);
-      }
+      /*
+       * Hold the footprints at zero for the whole descent and raise them together at the end.
+       * They start drawing at zoom 14, two levels before the camera lands, so the last second
+       * of the flight was buildings popping in tile by tile over a moving city.
+       */
+      const raised: [string, unknown][] = Object.entries(BUILDING_LAYERS)
+        .filter(([layer]) => map.getLayer(layer) !== undefined)
+        .map(([layer, property]) => {
+          const painted =
+            layer === "building"
+              ? (["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, SHEER] as unknown)
+              : map.getPaintProperty(layer, property);
+          map.setPaintProperty(layer, `${property}-transition`, { duration: 0, delay: 0 });
+          map.setPaintProperty(layer, property, 0);
+          return [layer, painted];
+        });
+
+      let up = false;
+      /*
+       * Wait for the landing too. The first version only asked whether the map was still and the
+       * source loaded. Both are true at zoom 5, where there are no buildings to load, so the
+       * footprints were released before the descent began and streamed in on the way down.
+       */
+      let arrived = false;
+      const raise = (): void => {
+        if (up) return;
+        up = true;
+        window.clearTimeout(giveUp);
+        for (const [layer, painted] of raised) {
+          const property = BUILDING_LAYERS[layer] as string;
+          map.setPaintProperty(layer, `${property}-transition`, {
+            duration: RAISE_MS,
+            delay: 0,
+          });
+          map.setPaintProperty(layer, property, painted as never);
+        }
+      };
+      // a tile that never arrives can't leave the city blank for good
+      giveUp = window.setTimeout(raise, DESCENT_MS + RAISE_CAP);
+      const landed = (): void => {
+        if (!arrived || map.isMoving()) return;
+        if (map.isSourceLoaded(BUILDINGS)) raise();
+      };
+      onSourceData = (event) => {
+        if (event.sourceId === BUILDINGS) landed();
+      };
+      map.on("sourcedata", onSourceData);
 
       if (streetId !== null && streetId !== undefined && map.getLayer(SUBJECT) === undefined) {
         map.addLayer(
@@ -290,68 +312,30 @@ export function Anchored({
       }
 
       for (const layer of traceLayers()) map.addLayer(layer, under);
-      // Set once: the light never dims, it only moves.
+      // set once, the light moves but never dims
       for (const [layer, opacity] of traceOpacity()) {
         map.setPaintProperty(layer, "line-opacity", opacity);
       }
 
       /**
-       * Frame the street, not the door. A fixed zoom on the address shows the building and a
-       * hundred metres of road, and the light spends most of its pass outside the frame.
+       * Frame the street. A fixed zoom on the door shows a building and 100 m of road, and the
+       * light spends most of its pass off screen.
        */
       const extent = focusOf(shape);
       if (extent !== null) {
-        // However far out that turns out to be. One name can cover thirty kilometres of
-        // rural road, and thirty kilometres of rural road is the answer to what was asked.
-        /** One move, not four. */
-        /**
-         * Fitted to the street, not to the circle it sweeps.
-         *
-         * turnable() squares the box so that a street lying east to west is still whole
-         * when the camera has turned ninety degrees onto it. Correct, and also why the
-         * road arrived as a thread across the middle of the screen: a 1.9 km street was
-         * being framed inside a 1.9 km square, and most of that square is the city either
-         * side of it. Fitting the street's own box puts the street across the frame. The
-         * turn is three degrees a second, so the ends drift out slowly and come back.
-         */
-        /*
-         * Padding on the map, not only on the fit.
-         *
-         * A bearing turns the map around the centre of its transform, and without padding
-         * that centre is the middle of the window. The street is framed off to one side of
-         * the window, because the other side is covered by the panel, so the turn swung it
-         * through an arc: it drifted behind the panel and back out again, and part of it
-         * was hidden for most of a revolution.
-         *
-         * Told where it is being covered, the transform puts its centre in the middle of
-         * what is left. That is the point the street is framed on and the point the map
-         * turns about, and they have to be the same point.
-         */
-        /*
-         * The padding travels with the flight rather than being set before it.
-         *
-         * setPadding moves the map the instant it is called, so the camera jumped sideways
-         * and then began its descent from wherever the jump had left it. Passed to flyTo
-         * it arrives with everything else, and the transform is still holding it when the
-         * turn starts, which is what keeps the turn about the street.
-         */
-        // No padding argument: the transform has held it since the map was built, and
-        // counting it twice leaves a negative box to fit into and no camera at all.
+        // However far out that is. One name can be 30 km of rural road, and then that's the answer.
+        //
+        // Fit the street's own box. turnable() squares it so an east-west street survives a
+        // 90-degree turn, which framed a 1.9 km street inside a 1.9 km square of city. The turn is
+        // 3 degrees a second, so the ends drift out slowly and back.
+        //
+        // The map's transform has carried the panel's padding since construction (see above), so
+        // the turn pivots on the clear part of the screen. Don't pass padding here as well: counted
+        // twice it leaves a negative box and no camera at all.
         const camera = map.cameraForBounds(extent, { maxZoom: CLOSEST });
-        /*
-         * The street's own middle, not the centre cameraForBounds hands back.
-         *
-         * Asked to fit a box inside a lopsided padding, cameraForBounds answers with a
-         * centre already shifted to one side, on the understanding that the transform is
-         * not padded. Padding the transform as well moves it the same way twice: the
-         * street settled about 250 pixels right of the point the map turns about, and
-         * spent every revolution swinging around it at that radius.
-         *
-         * Its zoom is still the right zoom, because that is a question about how big the
-         * box is against how much room there is to put it in, and the room is what the
-         * padding describes. Only the centre is wrong, and the centre wanted is the one
-         * the street already has.
-         */
+        // Centre on the street's own middle. cameraForBounds already shifts its centre for the
+        // padding, and with the transform padded too the street sat about 250 px off the pivot,
+        // circling it every turn. Its zoom is fine to keep.
         const middle: [number, number] = [
           (extent[0][0] + extent[1][0]) / 2,
           (extent[0][1] + extent[1][1]) / 2,
@@ -359,39 +343,32 @@ export function Anchored({
 
         if (camera !== undefined && camera.zoom !== undefined) {
           /**
-           * One descent, from the whole country to the street.
-           *
-           * There used to be two moves. The map opened on Greece, eased 1.2 seconds to the
-           * midpoint of the street at a fixed zoom, then eased 1.6 more to the frame that
-           * actually holds the road, at a different pitch. Neither was aiming where the
-           * pair of them ended up, so the camera lurched once on the way and again on
-           * arrival. Cutting straight to the frame took the lurch out, and took the
-           * journey with it: the street appeared with no sense of where in Greece it was.
-           *
-           * So the door is not visited at all. What is left is one slow fall out of the
-           * country view the map opened on, eased at both ends, and the turn starts on
-           * the frame it lands in.
+           * One continuous fall from the country to the street, eased at both ends, and the turn
+           * starts where it lands. It used to be two moves (1.2 s to the midpoint at a fixed zoom,
+           * then 1.6 s to the real frame at another pitch), and the camera lurched twice. Cutting
+           * straight to the frame fixed that and lost the sense of where in Greece the street was.
            */
           map.flyTo({
             center: middle,
-            // Room for the lean. The fit is worked out flat, and a tilted camera throws
-            // the far half of what it is looking at up the screen and off the top of it.
+            // Room for the tilt. The fit is computed flat, and a tilted camera throws the far half
+            // of the view up and off the top.
             zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
             pitch: TILT,
             bearing: 0,
             curve: DESCENT_CURVE,
             easing: SMOOTH,
-            // A reader who asked for stillness gets the frame, arrived at rather than
-            // flown to.
+            // reduced motion: arrive, don't fly
             duration: reduced ? 0 : DESCENT_MS,
           });
           map.once("moveend", () => {
             turning = true;
+            arrived = true;
+            landed();
           });
         }
       }
 
-      /** One loop, and only while anybody is looking at it. */
+      /** One loop, idle while nobody's looking. */
       const began = performance.now();
       let painted = 0;
 
@@ -401,8 +378,8 @@ export function Anchored({
         const source = map.getSource(TRACE);
         if (source === undefined || map.getLayer(TRACE) === undefined) return;
 
-        // Degrees a second rather than degrees a frame: the same speed on a slow map as a
-        // fast one, and the opening lean is left to finish before the turn starts.
+        // Degrees per second, not per frame, so slow and fast machines turn alike. The turn waits
+        // for the tilt to finish.
         if (turning && last !== 0 && now > last) {
           map.setBearing(map.getBearing() + (SPIN * (now - last)) / 1000);
         }
@@ -423,8 +400,7 @@ export function Anchored({
       };
 
       if (reduced) {
-        // The street, lit along its whole length and left alone. Reduced motion is a
-        // request for no movement, not for no answer.
+        // Reduced motion still gets an answer: the whole street lit, standing still.
         const source = map.getSource(TRACE);
         if (source !== undefined) {
           (source as maplibregl.GeoJSONSource).setData({
@@ -450,14 +426,16 @@ export function Anchored({
       document.removeEventListener("visibilitychange", wake);
       watcher.disconnect();
       map.off("load", add);
-      // A map that has already been removed has nothing left to take the light off.
+      window.clearTimeout(giveUp);
+      if (onSourceData !== null) map.off("sourcedata", onSourceData);
+      // a removed map has nothing left to clean
       try {
           for (const layer of [TRACE, GLOW, SUBJECT]) {
           if (map.getLayer(layer) !== undefined) map.removeLayer(layer);
         }
         if (map.getSource(TRACE) !== undefined) map.removeSource(TRACE);
       } catch {
-        // Gone with the map it was map on.
+        // went with the map
       }
     };
   }, [shape, streetId, lon, lat]);

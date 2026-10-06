@@ -1,7 +1,7 @@
 /**
- * Stand-in answers for the lab, so the new result screen can be built and argued about
- * without the API, the database or a network. Every scenario here is a real shape the
- * ranker produces, trimmed to the few plans a screen actually shows.
+ * Stand-in answers for the lab, so the result screen can be built without the API, the
+ * database or a network. Each scenario is a real shape the ranker produces, cut down to
+ * the few plans a screen shows.
  */
 
 import type { Geometry } from "geojson";
@@ -14,13 +14,13 @@ export const ERMOU_SHAPE = {"type": "MultiLineString", "coordinates": [[[23.7149
 export const SHAPE = ERMOU_SHAPE as unknown as Geometry;
 
 /**
- * The row this street is in the tiles, so the map keeps it in colour while the rest of the
- * city goes quiet. A fixture rather than a lookup: the lab answers without the API, and
- * this id is stable because the street is a component of a named road in a municipality.
+ * Ερμού's id in the tiles, so the map keeps it in colour while the city goes quiet. Hard-coded
+ * because the lab answers without the API. Stable across builds, since street ids are keyed on
+ * the name, municipality and component.
  */
 export const STREET_ID = 34815;
 
-/** Where the camera lands. The middle of the box the street occupies. */
+/** Camera target: the middle of the street's box. */
 export const WHERE = {
   lon: (ERMOU_BBOX[0] + ERMOU_BBOX[2]) / 2,
   lat: (ERMOU_BBOX[1] + ERMOU_BBOX[3]) / 2,
@@ -77,9 +77,8 @@ export type Scenario = {
 };
 
 /**
- * The five shapes worth designing against. They are not evenly likely: fiber and vectored
- * copper are most addresses, and satellite is a few thousand. The screen has to hold all
- * of them without one reading as an error.
+ * The five shapes worth designing for. Fiber and vectored copper cover most addresses and
+ * satellite only a few thousand, but none of them may look like an error.
  */
 export const SCENARIOS: readonly Scenario[] = [
   {

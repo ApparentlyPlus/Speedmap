@@ -1,14 +1,12 @@
 /**
- * What the answer means, said in one sentence before the list of plans.
- *
- * The list is ranked and priced and a reader can work it out from there, but working it out
- * is the part they came here to avoid. Copper at 24 Mbps and fiber at a gigabit are the same
- * shape of list, and the difference between them is the whole question.
+ * One sentence on what the answer means, before the plan list. The list is ranked and priced,
+ * but working it out is exactly what the reader came to skip. 24 Mbps copper and gigabit fiber
+ * produce the same shape of list, and the gap between them is the whole question.
  */
 
 import type { Buyable, Options } from "../api/client";
 
-/** What the best thing reaching an address is, which decides what to say about it. */
+/** The best line reaching an address, which decides the sentence. */
 export type Verdict =
   | "fiber"
   | "vectored"
@@ -17,21 +15,21 @@ export type Verdict =
   | "satellite"
   | "none";
 
-/** Vectored copper is retailed at this. Below it the line is ADSL or plain VDSL. */
-const VECTORED_MBPS = 100;
+/**
+ * Named by technology. The expected speed is tempered by measurement and the filing, so
+ * guessing from it called a vectored line measured at 93 Mbps ADSL and told the reader to
+ * buy a 5G router.
+ */
+const VECTORED = "VECT_VDSL";
 
-function speedOf(option: Buyable): number {
-  return option.expected_mbps === null || option.expected_mbps === undefined
-    ? 0
-    : Number(option.expected_mbps);
+function isVectored(option: Buyable): boolean {
+  return option.technology === VECTORED;
 }
 
 /**
- * Read off the plans rather than off the coverage rows.
- *
- * The plans are what the reader can act on, and they already have the register's answer
- * folded into them: a technology nothing reaches here produces no plan to sell. Asking the
- * coverage separately would mean two sources for one sentence and a way for them to differ.
+ * Read off the plans. They're what the reader can act on, and the register's answer is
+ * already folded in (nothing reaching here means nothing to sell). Reading coverage too
+ * would give one sentence two sources that could disagree.
  */
 export function verdictOf(answer: Options | null): Verdict {
   const options = answer?.options ?? [];
@@ -40,25 +38,20 @@ export function verdictOf(answer: Options | null): Verdict {
   const wired = options.filter((o) => o.family === "fiber" || o.family === "copper");
   if (wired.some((o) => o.family === "fiber")) return "fiber";
 
-  if (wired.length > 0) {
-    const best = Math.max(...wired.map(speedOf));
-    return best >= VECTORED_MBPS ? "vectored" : "legacy";
-  }
+  if (wired.length > 0) return wired.some(isVectored) ? "vectored" : "legacy";
 
   if (options.some((o) => o.family === "wireless")) return "wireless";
   if (options.some((o) => o.family === "satellite")) return "satellite";
   return "none";
 }
 
-/** The address the sentence is about, as the reader typed it. */
+/** The address, as the reader typed it. */
 export type Said = { readonly verdict: Verdict; readonly address: string };
 
 /**
- * One sentence each, and each says what to do rather than what was filed.
- *
- * "Legacy copper" is a fact about the line. "A 5G router will beat it" is the thing worth
- * knowing, and it is only true on the addresses where it is true, so the copy is chosen by
- * what actually reaches the door rather than written once and hedged.
+ * One sentence per verdict, each saying what to do. "Legacy copper" is a fact about the line.
+ * "A 5G router will beat it" is what's worth knowing, and it only holds where it holds, so
+ * the copy follows what actually reaches the door.
  */
 export const VERDICTS: Readonly<Record<"el" | "en", Readonly<Record<Verdict, (address: string) => string>>>> = {
   en: {

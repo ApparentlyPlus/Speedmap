@@ -1,11 +1,9 @@
 /**
- * The result screen, split down the middle: what was found on the left, where it is on the
- * right. The panel is not a card floating over a map any more, it is half the page, and the
- * map is the other half with nothing drawn over it.
+ * The result screen split in half: findings on the left, the map on the right with nothing
+ * drawn over it. The panel used to be a card floating on the map.
  *
- * The two halves are one surface rather than two. The panel's ground runs solid under the
- * text and thins across the last stretch before the middle, so the map appears out of it
- * rather than starting at an edge. A border down the centre would say these are two things.
+ * One surface. The panel's background is solid under the text and thins out just before the
+ * middle, so the map emerges from it. A border down the centre would split them into two things.
  */
 
 import { useState } from "react";
@@ -20,7 +18,7 @@ import { strings, type Language } from "../i18n";
 import { colourFor, mbps } from "../tokens";
 import { saidAbout, verdictOf } from "./verdict";
 
-/** How many plans stand below the verdict before the reader has to ask for more. */
+/** Plans shown under the verdict before "more". */
 const SHOWN = 4;
 
 export function Split({
@@ -37,7 +35,7 @@ export function Split({
   readonly answer: Options | null;
   readonly shape: Geometry | null;
   readonly where: { lon: number; lat: number } | null;
-  /** The street to keep lit while the rest of the map goes quiet. */
+  /** Stays lit while the rest of the map goes quiet. */
   readonly streetId: number | null;
   readonly language: Language;
 }): React.ReactElement {
@@ -55,15 +53,10 @@ export function Split({
   const verdict = verdictOf(answer);
   const shown = offers.slice(0, SHOWN);
 
-  /**
-   * How much of the heading size a long address gets to keep.
-   *
-   * "Ερμού 12" and "Λεωφόρος Μαραθώνος 104" are both addresses and one is three times the
-   * other. At one size the short one is right and the long one wraps to three lines and
-   * pushes the verdict off the fold. Measured in characters rather than in pixels because
-   * the answer has to be known before the browser has laid anything out, and a heading
-   * that resizes after it is on screen is worse than one that is slightly small.
-   */
+  // Shrink long addresses. "Ερμού 12" and "Λεωφόρος Μαραθώνος 104" can't share one size:
+  // at the right size for the short one, the long one wraps to three lines and shoves the
+  // verdict below the fold. Counted in characters, since we need the answer before layout,
+  // and a heading that resizes on screen is worse than one a touch small.
   const fit = name.length > 30 ? 0.62 : name.length > 22 ? 0.74 : name.length > 15 ? 0.87 : 1;
 
   return (
@@ -78,13 +71,8 @@ export function Split({
       <section className="split-panel" data-covers-map>
         <div className="split-panel-ground" aria-hidden="true" />
         <div className="split-panel-body">
-          {/*
-* The drawing and the address, side by side and the same height.
- *
-  * The house used to sit in a 232 pixel band with the list scrolling under it, which
-   * cropped the roof on every mode and left the aerial off the top. It has the whole
-    * upper band of the panel now and nothing clips it.
-*/}
+          {/* House and address side by side, same height. In a 232 px band with the list
+              scrolling under it, the house lost its roof and aerial in every mode. */}
           <header className="split-head">
             <div className="split-scene">
               <House
@@ -104,10 +92,10 @@ export function Split({
 
           <hr className="split-rule" />
 
-          {/* What the answer means, before the answer. */}
+          {/* what it means, before the plans */}
           <p className="split-verdict">{saidAbout(language, verdict, name)}</p>
 
-          {/* No rule here. The plans are the sentence continuing, not a new section. */}
+          {/* no rule: the plans continue the sentence */}
           {shown.length === 0 ? (
             <p className="split-empty">{text.nothingHere}</p>
           ) : (

@@ -1,6 +1,6 @@
 /**
- * Serve the tile archives in development, the way the reverse proxy serves them in production:
- * one file, read by range requests.
+ * Serves the tile archives in development the way Caddy does in production: one file, read
+ * with range requests.
  */
 
 import fs from "node:fs";
@@ -18,9 +18,11 @@ export function tiles(directories: readonly string[]): Plugin {
       const asked = request.url ?? "";
       if (!asked.startsWith(PREFIX)) return next();
 
-      const name = path.basename(asked.split("?")[0] ?? "");
-      // An archive or the country's outline, and only ever out of a named directory.
-      if (!name.endsWith(".pmtiles") && !name.endsWith(".json")) {
+      const wanted = decodeURIComponent(asked.split("?")[0] ?? "").slice(PREFIX.length);
+      // an archive, the outline, or a glyph range under fonts/, only from a named directory
+      const glyph = /^fonts\/[^/]+\/\d+-\d+\.pbf$/.test(wanted);
+      const name = glyph ? wanted : path.basename(wanted);
+      if (!glyph && !name.endsWith(".pmtiles") && !name.endsWith(".json")) {
         response.statusCode = 404;
         return response.end();
       }
@@ -29,7 +31,7 @@ export function tiles(directories: readonly string[]): Plugin {
       let size = 0;
       for (const root of roots) {
         const candidate = path.join(root, name);
-        if (path.dirname(candidate) !== root) continue;
+        if (!candidate.startsWith(root + path.sep)) continue;
         try {
           size = fs.statSync(candidate).size;
           file = candidate;
@@ -46,10 +48,9 @@ export function tiles(directories: readonly string[]): Plugin {
       response.setHeader("Content-Type", "application/octet-stream");
       response.setHeader("Accept-Ranges", "bytes");
 
-      // An archive is tens of megabytes read a few kilobytes at a time, and without a tag
-      // the browser throws every range away and asks again. Revalidated rather than held,
-      // because cutting new tiles while the page is open would otherwise splice one
-      // archive onto another.
+      // Tens of MB read a few kB at a time. Without an ETag the browser drops every range and
+      // asks again. Revalidated each time, because re-cutting tiles with the page open would
+      // otherwise splice two archives together.
       const stamp = fs.statSync(file);
       const tag = `"${stamp.size.toString(16)}-${stamp.mtimeMs.toString(16)}"`;
       response.setHeader("ETag", tag);
@@ -59,8 +60,7 @@ export function tiles(directories: readonly string[]): Plugin {
         return response.end();
       }
 
-      // A range is how PMTiles is read at all: the client asks for the header, then the
-      // directory, then one tile.
+      // PMTiles only reads by range: header, then directory, then one tile
       const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
       if (range === null) {
         response.setHeader("Content-Length", size);
@@ -75,8 +75,7 @@ export function tiles(directories: readonly string[]): Plugin {
     };
   };
 
-  // The same middleware for both servers: `npm run preview` serves the built pages, and a
-  // built page with no tiles under it is a map of the sea.
+  // same middleware for `npm run preview`, or a built page has no tiles and shows only sea
   return {
     name: "speedmap-tiles",
     configureServer(server) {
