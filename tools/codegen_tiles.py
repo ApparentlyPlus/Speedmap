@@ -1,7 +1,7 @@
 """Generate both sides of the tile contract from schema/tiles.yaml.
 
-The field names in a vector tile are an API with no enforcement: a renderer asking for a
-field the builder stopped writing gets undefined, paints its fallback, and reports nothing.
+Field names in a vector tile are an API with no enforcement: a renderer asking for a field the
+builder stopped writing gets undefined, paints its fallback, and says nothing.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from typing import Any
 
 import yaml
 
-# Both generated files are linted like the rest, so prose has to be wrapped here rather
-# than emitted as one long line and argued about later.
+# both generated files get linted, so descriptions are wrapped here and never emitted as
+# one long line
 WIDTH = 92
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -25,8 +25,8 @@ TYPESCRIPT_OUT = ROOT / "web" / "src" / "map" / "tiles.ts"
 
 BANNER = "Generated from schema/tiles.yaml. Do not edit; edit the schema and regenerate."
 
-# A unit in the schema becomes a unit in the type, because several prototype bugs were a
-# number in the right shape and the wrong unit, and nothing in the code objected.
+# A schema unit becomes a type unit. Several prototype bugs were a number of the right
+# shape and the wrong unit, and nothing objected.
 BRANDED = {"mbps": "Mbps"}
 
 PYTHON_TYPES = {"integer": "int", "number": "float", "string": "str"}
@@ -34,7 +34,7 @@ TYPESCRIPT_TYPES = {"integer": "number", "number": "number", "string": "string"}
 
 
 def wrapped(text: str, prefix: str) -> list[str]:
-    """A description broken to the line length, each line carrying its own comment marker."""
+    """A description wrapped to the line length, each line with its own comment marker."""
     flat = " ".join(str(text).split())
     return [prefix + line for line in textwrap.wrap(flat, WIDTH - len(prefix))]
 

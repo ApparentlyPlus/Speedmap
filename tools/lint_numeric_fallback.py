@@ -1,8 +1,15 @@
-# !/usr/bin/env python3.
+#!/usr/bin/env python3
 """Forbid substituting a plausible number for a missing one.
 
-The Python spellings of that mistake are: speed = row.get("maxdown") or 0 # SM001 invents 0
-Mbps premises = prempass or 1 # SM001 invents a dwelling speed = row.get("maxdown".
+The Python spellings of that mistake are:
+
+    speed = row.get("maxdown") or 0     # SM001 invents 0 Mbps
+    premises = prempass or 1            # SM001 invents a dwelling
+    speed = row.get("maxdown", 0)       # SM002 same lie, different syntax
+
+Deliberate uses are allowed, but must say why:
+
+backoff = configured_delay or 1.0  # allow fallback: tuning knob, not a fact
 """
 
 from __future__ import annotations
@@ -68,7 +75,7 @@ class _Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        # d.get(key, 0) and getattr(o, name.
+        # d.get(key, 0) and getattr(o, name, 0) are the same substitution
         name: str | None = None
         default: ast.expr | None = None
         if isinstance(node.func, ast.Attribute) and node.func.attr == "get" and len(node.args) == 2:

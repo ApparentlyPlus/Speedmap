@@ -1,7 +1,7 @@
-"""The two tile layers, as newline-delimited GeoJSON.
+"""The tile layers as newline-delimited GeoJSON.
 
 Postgres builds the JSON and COPY streams it out, so 214,000 features never become 214,000
-Python dictionaries on the way to a file.
+Python dicts on the way to a file.
 """
 
 from __future__ import annotations
@@ -15,29 +15,39 @@ from psycopg.rows import TupleRow
 
 from publish import fields
 
-# One row per street, with each operator's best under the field the contract names it.
-# The pivot is generated so that adding an operator is a schema edit, not a SQL edit.
+# One row per street, each operator's best under the field name the contract gives it. The
+# pivot is generated, so adding an operator is a schema edit. It's one grouped pass over
+# street_provider, hash-joined: twelve correlated subqueries per street came to a million
+# index probes over 80,000 streets.
 STREETS = """
+with reach as (
+    select sp.street_id, count(*) as nprov
+           {aggregates}
+    from street_provider sp
+    join provider p on p.id = sp.provider_id
+    group by sp.street_id
+)
 select json_build_object(
     'type', 'Feature',
     'geometry', st_asgeojson(st_transform(s.geom::geometry, 4326), 6)::json,
     'properties', json_build_object(
         'id', s.id,
         'best_mbps', s.best_mbps,
-        'nprov', (select count(*) from street_provider sp where sp.street_id = s.id)
+        'nprov', coalesce(r.nprov, 0)
         {operators}
     )
 )::text
 from street s
+left join reach r on r.street_id = s.id
 where s.geom is not null
--- Ordered, because tippecanoe writes features out in the order it reads them and the
--- renderer draws them in that order. Without it Postgres may hand back the same rows in a
--- different sequence on the next build, and two streets that cross swap which one is on top.
--- That is how a rebuild with no data change still moved several hundred pixels.
+-- Ordered, because tippecanoe writes features in the order it reads them and the renderer
+-- draws them in that order. Unordered, Postgres can return them differently next build, and
+-- two crossing streets swap which is on top. A rebuild with no data change once moved
+-- several hundred pixels that way.
 order by s.id
 """
 
-# One feature per municipality, for the zooms where a street is a fraction of a pixel.
+# one feature per municipality, for zooms where a street is a fraction of a pixel
 REGION_SMOOTH = 0.0005
 
 REGIONS = """
@@ -51,9 +61,8 @@ select json_build_object(
         'name', m.name,
         'addresses', coalesce(mc.addresses, 0),
         'fiber', coalesce(mc.fiber, 0),
-        -- Nought to one, and nought when nothing is filed rather than null: the ramp this
-        -- is painted by is a share, and a share of no addresses is not a speed nobody knows,
-        -- it is a municipality the register has not described.
+        -- 0 to 1, and 0 when nothing is filed, never null. It's a share, and a share of no
+        -- addresses means the register hasn't described the place.
         'fiber_share', case
             when coalesce(mc.addresses, 0) = 0 then 0
             else round(mc.fiber::numeric / mc.addresses, 4)
@@ -72,14 +81,14 @@ order by m.id
 """
 
 
-# Half a zoom 16 tile, in Web Mercator metres.
+# half a zoom 16 tile, in Web Mercator metres
 HALF_TILE = 40075016.686 / (1 << 16) / 2
 
-# How far past the coastline a cell may sit and still be Greek, in degrees: about two kilometres.
+# how far past the coast a cell can sit and still count as Greek, in degrees (about 2 km)
 SHORE = 0.02
 
-# Only tested cells exist, and the figure is the reason the cell is there, so nothing here is
-# nullable. Greece is about four per cent tested: an empty view is the normal case.
+# Only tested cells exist and the figure is why they're there, so nothing is nullable. About
+# 4% of Greece is tested, so an empty view is normal.
 CELLS = """
 with greece as (
     select st_buffer(st_union(geom::geometry), {shore}) as area from municipality
@@ -101,33 +110,49 @@ select json_build_object(
         'tests', c.tests
     )
 )::text
-from speed_cell c, greece g
+from (
+    -- One square per tile and family, the latest quarter. Every quarter is kept, and drawing
+    -- them all stacks a copy per quarter, each darker than the last.
+    select distinct on (quadkey, family) *
+    from speed_cell
+    order by quadkey, family, observed_on desc
+) c, greece g
 where c.geom is not null
   and st_intersects(g.area, c.geom::geometry)
 order by c.quadkey
 """
 
 
-# An operator that reaches a street and filed no speed for it, which 49,897 street-operator pairs
-# are.
+# an operator that reaches a street with no speed filed (49,897 street-operator pairs)
 SERVED_UNFILED = -1
 
 
-def operators() -> str:
-    """The per-operator columns, named by the contract rather than by this file."""
+def aggregates() -> str:
+    """Each operator's best, and whether it reaches at all: two columns per field."""
     return "".join(
-        f", '{field}', (select coalesce(max(sp.mbps), {SERVED_UNFILED}) "
-        f"from street_provider sp join provider p on p.id = sp.provider_id "
-        f"where sp.street_id = s.id and p.code = '{code}' having count(*) > 0)"
+        f", max(sp.mbps) filter (where p.code = '{code}') as {field}_mbps"
+        f", count(*) filter (where p.code = '{code}') as {field}_n"
         for code, field in fields.STREETS_BY_PROVIDER.items()
     )
 
 
-def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> int:
-    """Stream one layer to a file, and only then give it its name.
+def operators() -> str:
+    """The per-operator columns, named by the contract.
 
-    A build that dies half way through leaves the temporary file behind and the previous
-    layer untouched, rather than a renderer reading half of one.
+    Null where the operator doesn't reach, SERVED_UNFILED where it reaches with no speed.
+    """
+    return "".join(
+        f", '{field}', case when r.{field}_n > 0 "
+        f"then coalesce(r.{field}_mbps, {SERVED_UNFILED}) end"
+        for field in fields.STREETS_BY_PROVIDER.values()
+    )
+
+
+def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> int:
+    """Stream one layer to a file, renaming it into place only when complete.
+
+    A build that dies halfway leaves its temp file behind and the previous layer intact, so no
+    renderer ever reads half of one.
     """
     out.parent.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -138,7 +163,7 @@ def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> in
             os.fdopen(descriptor, "w", encoding="utf-8") as handle,
             conn.cursor(name="publish") as cursor,
         ):
-            # Server side, so a layer is streamed rather than assembled in memory first.
+            # server-side, so the layer streams instead of building up in memory
             cursor.itersize = 5000
             cursor.execute(sql)
             for (feature,) in cursor:
@@ -153,22 +178,22 @@ def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> in
 
 
 def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    return write(conn, STREETS.format(operators=operators()), out)
+    return write(conn, STREETS.format(aggregates=aggregates(), operators=operators()), out)
 
 
-# How much the coastline is smoothed, in degrees: about twenty metres.
+# coastline smoothing, in degrees (about 20 m)
 SMOOTH = 0.0002
 
-# Enough to close the slivers between one municipality and the next without moving the coast
-# anywhere a reader would notice: about a hundred and fifty metres.
+# Closes the slivers between neighbouring municipalities without moving the coast anywhere
+# you'd notice: about 150 m.
 KNIT = 0.0015
 
-# The country itself, as one polygon. The land is published and the sea is not, which is the way
-# round that works.
+# The country as one polygon. We publish the land and not the sea, which is the way round
+# that works.
 OUTLINE = """
 select st_asgeojson(
-    -- Valid, because a ring that crosses itself triangulates into whatever the renderer
-    -- makes of it, and what it makes of it is a slab over somebody's island.
+    -- Made valid: a self-crossing ring triangulates into whatever the renderer makes of it,
+    -- which turned out to be a slab over somebody's island.
     st_makevalid(
         st_simplifypreservetopology(st_buffer(st_union(geom::geometry), {knit}), {smooth})
     ),
@@ -179,7 +204,7 @@ from municipality
 
 
 def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    """The country, written as one GeoJSON feature."""
+    """The country as a single GeoJSON feature."""
     row = conn.execute(OUTLINE.format(knit=KNIT, smooth=SMOOTH)).fetchone()
     if row is None or row[0] is None:
         raise SystemExit("no municipalities: the country has no outline")

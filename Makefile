@@ -69,8 +69,12 @@ web-build: # build the frontend for deployment
 	cd web && npm ci && npm run build
 
 .PHONY: tiles
-tiles: # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
+tiles: fonts # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
 	$(PY) -m publish.run
+
+.PHONY: fonts
+fonts: # fetch the label glyphs once, to be served beside the tiles
+	$(PY) -m tools.fonts
 
 .PHONY: codegen
 codegen: # regenerate the tile contract and the OpenAPI document

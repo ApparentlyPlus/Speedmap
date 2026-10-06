@@ -1,6 +1,6 @@
-"""The units that run this without anyone typing anything.
+"""The systemd units that run all this unattended.
 
-A unit file is code that nobody runs in development and everybody depends on in production.
+A unit file is code nobody runs in development and everybody depends on in production.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ SERVICES = sorted(DEPLOY.glob("*.service"))
 
 
 def parsed(path: Path) -> configparser.ConfigParser:
-    # Units allow a key more than once; ExecStart repeats to run steps in order.
+    # units allow a key more than once, and ExecStart repeats to run steps in order
     unit = configparser.ConfigParser(strict=False)
     unit.optionxform = str  # type: ignore[method-assign, assignment]
     unit.read_string(path.read_text(encoding="utf-8"))
@@ -42,8 +42,8 @@ def test_a_timer_has_the_service_it_starts(path: Path) -> None:
 
 @pytest.mark.parametrize("path", TIMERS, ids=lambda p: p.name)
 def test_a_missed_run_catches_up(path: Path) -> None:
-    """A Pi that was off at half two must still sweep when it comes back: the addresses
-    nobody visits are exactly the ones that otherwise never get refreshed."""
+    """A Pi that was off at half two still sweeps when it comes back. The addresses nobody
+    visits are the ones that otherwise never get refreshed."""
     assert parsed(path)["Timer"]["Persistent"] == "true"
 
 
@@ -54,8 +54,8 @@ def test_a_timer_says_when(path: Path) -> None:
 
 @pytest.mark.parametrize("path", SERVICES, ids=lambda p: p.name)
 def test_a_service_runs_something_that_exists(path: Path) -> None:
-    """Every python -m in a unit names a module in this repository, or the job is a no-op
-    that reports success every night for months."""
+    """Every python -m in a unit names a module in this repo, or the job does nothing and
+    reports success every night for months."""
     for line in path.read_text(encoding="utf-8").splitlines():
         found = re.search(r"ExecStart=.*-m\s+([\w.]+)", line)
         if found is not None:
@@ -68,8 +68,8 @@ def test_a_job_is_not_run_as_root(path: Path) -> None:
 
 
 def test_the_backup_covers_what_cannot_be_rebuilt(db: psycopg.Connection[TupleRow]) -> None:
-    """Everything else is the register verbatim or derived from it. These five are answers
-    operators gave, prices on the day we read them, and what people told us was wrong."""
+    """Everything else is the register verbatim or derived from it. These five are operator
+    answers, prices on the day we read them, and what people told us was wrong."""
     script = (DEPLOY / "backup.sh").read_text(encoding="utf-8")
     named = set(re.findall(r"--table=(\w+)", script))
     assert named == {"availability", "probe_attempt", "plan", "plan_price", "report"}
@@ -83,14 +83,14 @@ def test_the_backup_covers_what_cannot_be_rebuilt(db: psycopg.Connection[TupleRo
 
 
 def test_the_backup_renames_only_once_whole() -> None:
-    """A dump that was interrupted must never be mistaken for one that finished."""
+    """An interrupted dump can never pass for a finished one."""
     script = (DEPLOY / "backup.sh").read_text(encoding="utf-8")
     assert "--file=\"$out.partial\"" in script
     assert 'mv "$out.partial" "$out"' in script
     assert "set -euo pipefail" in script
 
 
-# the one process in front of everything.
+# the one process in front of everything
 
 
 CADDYFILE = DEPLOY / "Caddyfile"
@@ -101,8 +101,8 @@ def caddyfile() -> str:
 
 
 def test_every_route_is_served_by_the_one_document() -> None:
-    """The app has four routes and one file. A reader who arrives at /map directly, or
-    reloads on it, must get the app rather than a 404 for a file that never existed."""
+    """Four routes, one file. Arriving at /map directly, or reloading on it, has to serve the
+    app and never a 404 for a file that doesn't exist."""
     assert "try_files {path} /index.html" in caddyfile()
 
 
@@ -114,8 +114,8 @@ def test_the_api_is_on_the_same_origin() -> None:
 
 
 def test_a_probe_is_given_longer_than_a_page() -> None:
-    """A live probe waits on an operator's own checker, which takes between two and eight
-    seconds and occasionally never answers at all."""
+    """A live probe waits on the operator's own checker, which takes two to eight seconds and
+    occasionally never answers."""
     assert re.search(r"response_header_timeout\s+\d+s", caddyfile())
 
 
@@ -126,16 +126,16 @@ def test_hashed_assets_are_held_and_pages_are_not() -> None:
 
 
 def test_the_policy_allows_what_the_map_actually_needs() -> None:
-    """MapLibre runs its work in a worker created from a blob, and draws into a canvas it
-    reads back as a blob. A policy that forbids either gives a blank map and no error."""
+    """MapLibre runs a worker created from a blob and reads its canvas back as a blob. A
+    policy forbidding either gives a blank map and no error."""
     policy = next(line for line in caddyfile().splitlines() if "Content-Security-Policy" in line)
     assert "worker-src 'self' blob:" in policy
     assert "blob:" in policy.split("img-src")[1].split(";")[0]
 
 
 def test_nothing_is_loaded_from_anywhere_else() -> None:
-    """No basemap, no font CDN, no analytics: the policy should say so rather than allow a
-    hole for something that was removed."""
+    """No external basemap, fonts or analytics, so the policy shouldn't leave a hole for
+    something that was removed."""
     policy = next(line for line in caddyfile().splitlines() if "Content-Security-Policy" in line)
     assert "default-src 'self'" in policy
     assert "http://" not in policy
