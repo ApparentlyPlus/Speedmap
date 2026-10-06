@@ -1,6 +1,6 @@
-"""Order what someone can actually buy at an address.
+"""Order what someone can buy at an address.
 
-Speed stops mattering once there is enough of it.
+Speed stops mattering once there's enough of it.
 """
 
 from __future__ import annotations
@@ -10,15 +10,15 @@ from decimal import Decimal
 
 from ranking.cost import MonthlyCost
 
-# What an ordinary household actually uses. Not a technical limit: a judgement about when
-# the next rung stops being worth paying for.
+# What an ordinary household uses. A judgement about when the next rung stops being worth
+# paying for, with no technical limit behind it.
 ENOUGH_MBPS = Decimal(100)
 
-# A month of household streaming, in gigabytes.
+# a month of household streaming, in GB
 HOUSEHOLD_GB = 200
 
-# Which to prefer when two offers are otherwise equal. A line in the ground does not share its
-# capacity with the neighbourhood at seven in the evening. A cell does.
+# Tie-break between otherwise equal offers. A line in the ground doesn't share capacity with
+# the neighbourhood at seven in the evening. A cell does.
 STEADINESS = {"fiber": 0, "coax": 1, "copper": 2, "wireless": 3, "satellite": 4}
 UNSTEADY = len(STEADINESS)
 
@@ -34,8 +34,8 @@ class Option:
     """One thing that could be bought here."""
 
     provider: str
-    # What a customer would recognise. The code is what every join uses. This is what the
-    # reader is shown, and they are not always the same word.
+    # The brand a customer recognises. The code is the join key, and the two aren't always
+    # the same word.
     provider_name: str
     plan: str
     technology: str
@@ -43,9 +43,9 @@ class Option:
     expected_mbps: Decimal | None
     cost: MonthlyCost
     data_cap_gb: int | None = None
-    # Where the speed came from, so a card can say why it says what it does.
+    # where the speed came from, so a card can explain itself
     basis: str = "advertised"
-    # Evidence from tests, and nothing else.
+    # evidence from speed tests only
     confidence: float = 0.0
     tests: int = 0
 
@@ -62,10 +62,10 @@ def steadiness(family: str) -> int:
 
 
 def enough_for(option: Option, need: Decimal) -> bool:
-    """Whether this clears the bar, on speed and on how long it lasts.
+    """Whether this clears the bar on speed and on data allowance.
 
-    An unknown speed never clears it: not knowing how fast a wireless link is here is not
-    evidence that it is fast enough.
+    An unknown speed never clears it. Not knowing how fast a wireless link is here is no evidence
+    that it's fast enough.
     """
     if option.data_cap_gb is not None and option.data_cap_gb < HOUSEHOLD_GB:
         return False
@@ -73,21 +73,20 @@ def enough_for(option: Option, need: Decimal) -> bool:
 
 
 def order(option: Option, need: Decimal) -> tuple[int, Decimal, Decimal, Decimal]:
-    """The sort key, in two groups, so what is fast enough never sits under what is not.
+    """Sort key in two groups, so nothing fast enough sits below something that isn't.
 
-    There used to be a third group below both, for offers with no cost at all.
+    A third group below both used to hold offers with no cost at all.
     """
     speed = option.expected_mbps if option.expected_mbps is not None else Decimal(0)
     if enough_for(option, need):
-        # Everything here is fast enough, so the question is what it is carried on and then what
-        # it costs.
+        # all fast enough, so the question is what it runs on, then the price
         return (0, Decimal(steadiness(option.family)), option.cost.total, -speed)
-    # Nothing here is fast enough, so speed is the question and cost breaks the tie.
+    # none fast enough, so speed decides and price breaks ties
     return (1, -speed, Decimal(steadiness(option.family)), option.cost.total)
 
 
 def rank(options: list[Option], need: Decimal = ENOUGH_MBPS) -> list[Ranked]:
-    """Best first. Everything is placed, because everything now has a price."""
+    """Best first. Everything gets placed, since everything now has a price."""
     ordered = sorted(options, key=lambda o: order(o, need))
 
     out: list[Ranked] = []

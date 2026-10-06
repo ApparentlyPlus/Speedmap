@@ -39,7 +39,7 @@ def test_speed_names_the_medium() -> None:
 
 
 def test_the_fastest_package_of_a_technology_wins() -> None:
-    """Fiber 100 and Fiber 300 are one line sold twice, not two lines."""
+    """Fiber 100 and Fiber 300 are one line sold twice."""
     found = {o.technology: o for o in read(ANSWER).offers}
     assert found["FTTH"].max_down_mbps == Decimal(300)
     assert found["VECT_VDSL"].max_down_mbps == Decimal(100)
@@ -75,7 +75,7 @@ def test_the_postcode_picks_which_street_is_meant() -> None:
     from probe.adapter import Target
 
     nova = Nova()
-    nova.seen[("Δ. ΑΘΗΝΑΙΩΝ", "Α")] = [
+    nova.seen[("Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ", "Α")] = [
         {"street": "ΑΧΑΡΝΩΝ", "zipcode": "10432", "city": "ΑΘΗΝΑ"},
         {"street": "ΑΧΑΡΝΩΝ", "zipcode": "10434", "city": "ΑΘΗΝΑ"},
     ]
@@ -91,7 +91,7 @@ def test_an_ambiguous_street_is_not_guessed() -> None:
     from probe.adapter import Target
 
     nova = Nova()
-    nova.seen[("Δ. ΑΘΗΝΑΙΩΝ", "Α")] = [
+    nova.seen[("Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ", "Α")] = [
         {"street": "ΑΧΑΡΝΩΝ", "zipcode": "10432", "city": "ΑΘΗΝΑ"},
         {"street": "ΑΧΑΡΝΩΝ", "zipcode": "10434", "city": "ΑΘΗΝΑ"},
     ]

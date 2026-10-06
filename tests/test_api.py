@@ -12,13 +12,14 @@ from psycopg.rows import TupleRow
 from psycopg_pool import ConnectionPool
 
 from api import main
+from normalise.build import STEPS, sql_step
 from normalise.greeklish import from_greek
 from tests.conftest import TEST_DSN
 
 
 @pytest_asyncio.fixture
 async def client(db: psycopg.Connection[TupleRow]) -> AsyncIterator[httpx.AsyncClient]:
-    """The app with its pool pointed at the test database, driven without a network."""
+    """The app with its pool on the test database, driven over ASGI with no network."""
     original = main.pool
     main.pool = ConnectionPool(TEST_DSN, min_size=1, max_size=2, open=True)
     transport = httpx.ASGITransport(app=main.app)
@@ -35,13 +36,13 @@ SAMPLE = [
     ("Λεωφόρος Αλεξάνδρας", "ΑΛΕΞΑΝΔΡΑΣ", "5", "ΑΘΗΝΑ", "ΑΛΕΞΑΝΔΡΑΣ ΑΘΗΝΑ", 12),
     ("Αγίου Ιωάννου", "ΑΓΙΟΥ ΙΩΑΝΝΟΥ", "7", "ΗΛΙΟΥΠΟΛΗ", "ΑΓΙΟΥ ΙΩΑΝΝΟΥ ΗΛΙΟΥΠΟΛΗ", 7),
     ("100% Οδός", "100% ΟΔΟΣ", "1", "ΑΘΗΝΑ", "100% ΟΔΟΣ ΑΘΗΝΑ", 1),
-    # Filed surname-first here. The same street is filed forename-first a suburb away, and
-    # a reader who types one order must not be told the other does not exist.
+    # Filed surname first here, and forename first a suburb away. Typing either order has to
+    # find it.
     ("Συμεωνίδη Αλεξάνδρου", "ΣΥΜΕΩΝΙΔΗ ΑΛΕΞΑΝΔΡΟΥ", "8", "ΘΕΣΣΑΛΟΝΙΚΗ",
      "ΣΥΜΕΩΝΙΔΗ ΑΛΕΞΑΝΔΡΟΥ ΘΕΣΣΑΛΟΝΙΚΗ", 9),
 ]
 
-# Streets exist where the register files no address at all, as in Lagkadas.
+# streets the register filed no address on at all, as in Lagkadas
 STREETS = [("Αχιλλέα Τζελίλη", "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ"), ("Πάροδος Τζελίλη", "ΠΑΡΟΔΟΣ ΤΖΕΛΙΛΗ")]
 
 
@@ -64,6 +65,13 @@ def seeded_address(db: psycopg.Connection[TupleRow]) -> Iterator[None]:
     db.commit()
     yield
     db.execute("truncate address, street cascade")
+    db.commit()
+
+
+def built(db: psycopg.Connection[TupleRow], *steps: str) -> None:
+    """Run build steps over what a test seeded, since the API reads what the build stored."""
+    for name in steps:
+        sql_step(STEPS / f"{name}.sql").run(db)
     db.commit()
 
 
@@ -90,7 +98,7 @@ async def test_health_counts_what_is_built(
 
 
 async def test_the_schema_is_served(client: httpx.AsyncClient) -> None:
-    """OpenAPI is generated from the models, so it cannot drift from the code."""
+    """OpenAPI is generated from the models, so it can't drift from the code."""
     schema = (await client.get("/openapi.json")).json()
     assert schema["info"]["title"] == "speedmap.gr"
     assert "/health" in schema["paths"]
@@ -109,7 +117,7 @@ async def test_a_prefix_finds_the_address(
 async def test_bigger_buildings_come_first(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """Within a tier every row matched equally well, so rank by dwellings passed."""
+    """Rows in a tier matched equally well, so the bigger building comes first."""
     hits = await found(client, "ΑΧΑΡΝΩΝ")
     assert [h["street_no"] for h in hits] == ["128", "12"]
 
@@ -151,7 +159,7 @@ async def test_greeklish_reaches_a_street_with_no_addresses(
 async def test_a_word_in_the_middle_is_found(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """ΤΖΕΛΙΛΗ is not a prefix of ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ, so the prefix tier cannot see it."""
+    """ΤΖΕΛΙΛΗ isn't a prefix of ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ, so only the word tier can find it."""
     hits = await found(client, "Τζελίλη")
     assert [h["match"] for h in hits[:2]] == ["word", "word"]
 
@@ -159,7 +167,7 @@ async def test_a_word_in_the_middle_is_found(
 async def test_the_house_number_typed_is_the_one_offered(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """Number 128 is the bigger building, but 12 is the one that was asked for."""
+    """128 is the bigger building, but 12 is the one asked for."""
     hits = await found(client, "ΑΧΑΡΝΩΝ 12")
     assert hits[0]["street_no"] == "12"
 
@@ -167,7 +175,7 @@ async def test_the_house_number_typed_is_the_one_offered(
 async def test_a_house_number_does_not_narrow_the_street(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """It orders. It does not filter. A number we do not hold still reaches the street."""
+    """The number orders, it doesn't filter. A number we don't hold still finds the street."""
     hits = await found(client, "ΑΧΑΡΝΩΝ 4000")
     assert [h["street_no"] for h in hits if h["kind"] == "address"] == ["128", "12"]
 
@@ -175,7 +183,7 @@ async def test_a_house_number_does_not_narrow_the_street(
 async def test_a_street_that_is_only_a_number_is_still_a_street(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """A lone number is a name, not a house: 100% Οδός must survive it being taken away."""
+    """A lone number is part of a name here, and 100% Οδός has to survive it being split off."""
     assert [h["name"] for h in await found(client, "100%")] == ["100% Οδός"]
 
 
@@ -202,7 +210,7 @@ async def test_a_number_we_do_not_hold_is_offered_on_the_street(
 async def test_a_number_we_hold_is_not_proposed(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """One that exists beats one we would have to make, so nothing is offered."""
+    """One that exists beats one we'd have to make, so nothing is proposed."""
     hits = await found(client, "ΑΧΑΡΝΩΝ 12")
     assert [h["kind"] for h in hits if h["kind"] == "proposed"] == []
 
@@ -210,7 +218,7 @@ async def test_a_number_we_hold_is_not_proposed(
 async def test_a_street_is_not_offered_twice(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """Once as a door and once as itself is two answers to one question."""
+    """Offering it once as a door and once as a street answers the same question twice."""
     hits = await found(client, "Τζελίλη 40")
     offered = {h["id"] for h in hits if h["kind"] == "proposed"}
     assert not [h for h in hits if h["kind"] == "street" and h["id"] in offered]
@@ -219,7 +227,7 @@ async def test_a_street_is_not_offered_twice(
 async def test_addresses_are_offered_before_streets(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """An address is actionable. A street is where we fall back to."""
+    """An address can be acted on. A street is the fallback."""
     hits = await found(client, "ΑΧΑΡΝΩΝ")
     kinds = [h["kind"] for h in hits]
     assert kinds == sorted(kinds, key=lambda k: k != "address")
@@ -279,7 +287,7 @@ async def test_asking_makes_the_address(
 async def test_asking_twice_is_the_same_address(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """The reader may ask again. The operators' answers belong to one door, not to a visit."""
+    """The reader may ask again. Operator answers belong to the door, whoever asked."""
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     first = await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
     again = await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
@@ -289,7 +297,7 @@ async def test_asking_twice_is_the_same_address(
 async def test_a_made_address_is_findable(
     client: httpx.AsyncClient, seeded_address: None
 ) -> None:
-    """It is an address from that moment on, so the next search holds it rather than offers it."""
+    """From then on it's an address, so the next search finds it instead of offering it."""
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
     hits = await found(client, "Τζελίλη 40")
@@ -300,10 +308,10 @@ async def test_a_made_address_is_findable(
 async def test_a_made_address_stands_where_its_neighbour_does(
     client: httpx.AsyncClient, db: psycopg.Connection[TupleRow], seeded_address: None
 ) -> None:
-    """Half way along the street is a point chosen for being easy to compute.
+    """A new door stands where its nearest-numbered neighbour does.
 
-    It put Τζελίλη 40 nearly half a kilometre from the only address filed on that street, in a
-    different Ookla tile holding two measurements instead of six.
+    The street's midpoint put Τζελίλη 40 nearly half a kilometre from the only address on that
+    street, in a different Ookla tile with two measurements instead of six.
     """
     db.execute(
         "insert into address (street, street_fold, street_no, search_key, latin_key, geom) "
@@ -326,7 +334,7 @@ async def test_a_made_address_stands_where_its_neighbour_does(
 async def test_a_street_with_no_addresses_falls_back_to_its_middle(
     client: httpx.AsyncClient, db: psycopg.Connection[TupleRow], seeded_address: None
 ) -> None:
-    """Some streets have nothing filed on them at all, which is why they are streets here."""
+    """Some streets have nothing filed at all, which is why streets are searchable here."""
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     made = await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
     assert made.status_code == 201
@@ -390,7 +398,7 @@ async def test_an_address_carries_its_offers(
 async def test_an_offer_with_no_filed_speed_says_so(
     client: httpx.AsyncClient, seeded_offer: int
 ) -> None:
-    """73.3% of filed services carry no band. Null must survive to the client, not become 0."""
+    """73.3% of filed services carry no band. Null has to reach the client as null, never 0."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     copper = next(o for o in body["offers"] if o["provider"] == "TELEKOM")
     assert copper["speed"] is None
@@ -399,7 +407,7 @@ async def test_an_offer_with_no_filed_speed_says_so(
 async def test_a_band_is_reported_as_a_range(
     client: httpx.AsyncClient, seeded_offer: int
 ) -> None:
-    """The register files a range, never a number, and the open end stays open."""
+    """The register files a range, never a number, and an open end stays open."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     fiber = next(o for o in body["offers"] if o["provider"] == "NOVA")
     assert fiber["speed"] == {
@@ -413,7 +421,7 @@ async def test_a_band_is_reported_as_a_range(
 async def test_the_builder_is_reported_separately(
     client: httpx.AsyncClient, seeded_offer: int
 ) -> None:
-    """Nova sells over FIBERGRID's fiber. Collapsing them hides who owns the network."""
+    """Nova sells over FIBERGRID's fiber. Merging them would hide who owns the network."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     fiber = next(o for o in body["offers"] if o["provider"] == "NOVA")
     assert fiber["infra_provider"] == "FIBERGRID"
@@ -422,7 +430,7 @@ async def test_the_builder_is_reported_separately(
 async def test_how_the_match_was_made_is_reported(
     client: httpx.AsyncClient, seeded_offer: int
 ) -> None:
-    """A filing against this building is stronger evidence than falling inside a cabinet."""
+    """A filing against this building is stronger evidence than sitting inside a cabinet."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     assert {o["provider"]: o["matched_by"] for o in body["offers"]} == {
         "NOVA": "point",
@@ -449,7 +457,7 @@ async def test_a_street_reports_its_merged_ways(
 
 
 async def test_a_report_is_recorded(client: httpx.AsyncClient) -> None:
-    """Everything here is best effort, and best effort only improves if people can say so."""
+    """Everything here is best effort, which only improves if people can tell us."""
     response = await client.post("/reports", json={
         "kind": "price", "detail": "Το 1Gbps δεν κοστίζει 60 ευρώ, το πήρα 19,90.",
     })
@@ -458,13 +466,13 @@ async def test_a_report_is_recorded(client: httpx.AsyncClient) -> None:
 
 
 async def test_a_report_needs_something_to_say(client: httpx.AsyncClient) -> None:
-    """A blank report is noise in the queue that someone has to read."""
+    """A blank report is noise someone has to read."""
     response = await client.post("/reports", json={"kind": "price", "detail": "όχι"})
     assert response.status_code == 422
 
 
 async def test_a_report_about_nothing_we_hold_is_refused(client: httpx.AsyncClient) -> None:
-    """An id we do not have is a mistaken report, not a server fault."""
+    """An unknown id is a bad report, not a server error."""
     response = await client.post("/reports", json={
         "kind": "availability", "detail": "This address has fiber, you say it does not.",
         "address_id": 999999999,
@@ -480,13 +488,13 @@ async def test_a_report_kind_is_one_of_ours(client: httpx.AsyncClient) -> None:
 
 
 async def test_a_long_report_is_capped(client: httpx.AsyncClient) -> None:
-    """Free text is capped rather than trusted."""
+    """Free text is capped."""
     response = await client.post("/reports", json={"kind": "other", "detail": "x" * 3000})
     assert response.status_code == 422
 
 
 async def test_options_are_ranked_and_priced(client: httpx.AsyncClient) -> None:
-    """The whole engine, over HTTP: what is buyable here, best first."""
+    """The whole engine over HTTP: what's buyable here, best first."""
     address = await client.get("/search", params={"q": "Αχαρνών"})
     found = [r for r in address.json() if r["kind"] == "address"]
     if not found:
@@ -504,7 +512,7 @@ async def test_options_for_nothing_are_a_404(client: httpx.AsyncClient) -> None:
 
 
 async def test_the_bar_can_be_moved_by_the_caller(client: httpx.AsyncClient) -> None:
-    """Someone working from home wants the gigabit the household does not."""
+    """Someone working from home wants the gigabit an ordinary household doesn't."""
     address = await client.get("/search", params={"q": "Αχαρνών"})
     found = [r for r in address.json() if r["kind"] == "address"]
     if not found:
@@ -538,8 +546,8 @@ async def test_a_result_carries_its_best_known_speed(client: httpx.AsyncClient) 
 async def test_an_address_with_no_street_name_is_not_suggested(
     client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
 ) -> None:
-    """The register files a bare dash where it holds no name. Such a row reads as '- -' and
-    tells the reader nothing they can act on, so it stays in the index and out of search."""
+    """The register files a lone dash where it has no name. That row reads as "- -" and gives
+    the reader nothing to act on, so it stays in the index and out of search."""
     db.execute(
         "insert into address (street, street_fold, street_no, geom, search_key, latin_key) "
         "values ('-', '-', '-', st_setsrid(st_point(23.7, 37.9), 4326), "
@@ -551,8 +559,8 @@ async def test_an_address_with_no_street_name_is_not_suggested(
 
 
 async def test_one_operator_can_be_asked_alone(client: httpx.AsyncClient) -> None:
-    """Three checkers behind one request makes the reader wait for the slowest before
-    learning anything about the other two."""
+    """Three checkers behind one request means waiting on the slowest before hearing about
+    the other two."""
     address = await client.get("/search", params={"q": "Αχαρνών"})
     found = [r for r in address.json() if r["kind"] == "address"]
     if not found:
@@ -566,12 +574,12 @@ async def test_one_operator_can_be_asked_alone(client: httpx.AsyncClient) -> Non
 async def test_a_street_lit_by_built_fiber_says_who_lights_it(
     client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
 ) -> None:
-    """The colour and the panel come from different queries and must name the same operator.
+    """The colour and the panel must name the same operator.
 
-    street_provider paints the map and this list is derived in api/main.py, so the two are
-    two copies of 110's routes. When 110 gained a third and the panel did not, Χανιά -
-    Θέρισο drew at a gigabit and opened on "no road here with declared coverage". Nothing
-    failed: the street had a figure, the figure was right, and the panel below it was empty.
+    They used to be two copies of 110's routes, one in the step and one in api/main.py. When
+    110 gained a third and the panel did not, Χανιά - Θέρισο drew at a gigabit and opened on
+    "no road here with declared coverage". Both now read street_offer, which 110 writes, and
+    this is what holds them to that.
     """
     db.execute(
         "insert into provider (code, display_name, kind, builds_own_network, register_id) "
@@ -584,13 +592,13 @@ async def test_a_street_lit_by_built_fiber_says_who_lights_it(
     ).fetchone()
     assert row is not None
     street_id = int(row[0])
-    # Built fiber beside the road, with no address anywhere: route one and route two both
-    # have nothing to say about this street.
+    # built fiber beside the road and no address anywhere, so routes one and two find nothing
     db.execute(
         "insert into raw_coverpoint (coverid, infrprov, prempass, address, point) values "
         "('lit-1', 904, 9, '64007,ΦΩΣ, ,Δ. ΤΕΣΤ', st_setsrid(st_point(23.0, 40.7), 4326))"
     )
     db.commit()
+    built(db, "110_street_reach")
 
     body = (await client.get(f"/streets/{street_id}")).json()
     assert [(o["provider"], o["matched_by"]) for o in body["offers"]] == [("BUILDER", "built")]
@@ -603,12 +611,10 @@ async def test_a_street_lit_by_built_fiber_says_who_lights_it(
 async def test_two_runs_of_one_name_are_told_apart_by_their_doors(
     client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
 ) -> None:
-    """A name is several roads in a municipality now, and the list showed them identical.
+    """Two runs of one name get told apart by their doors' locality.
 
-    Splitting streets into connected runs left 7,320 names appearing more than once inside
-    one municipality, reaching the suggestions as the same name in the same place twice,
-    with nothing to pick between. The locality the doors on each run agree on is the only
-    thing that separates them.
+    Since streets were split into connected runs, 7,320 names appear more than once in one
+    municipality, and showed up in suggestions as the same name in the same place twice.
     """
     for component, locality in ((0, "ΚΑΤΩ ΤΟΥΜΠΑ"), (1, "ΑΝΩ ΤΟΥΜΠΑ")):
         row = db.execute(
@@ -626,6 +632,7 @@ async def test_two_runs_of_one_name_are_told_apart_by_their_doors(
             (str(component + 1), locality, int(row[0])),
         )
     db.commit()
+    built(db, "066_street_locality")
 
     streets = await found(client, "Παπάφη", kind="street")
     assert sorted(str(h["locality"]) for h in streets) == ["ΑΝΩ ΤΟΥΜΠΑ", "ΚΑΤΩ ΤΟΥΜΠΑ"]
@@ -637,9 +644,8 @@ async def test_two_runs_of_one_name_are_told_apart_by_their_doors(
 async def test_a_run_with_no_doors_is_left_unlabelled(
     client: httpx.AsyncClient, db: psycopg.Connection[TupleRow]
 ) -> None:
-    """10,645 of them have no filed door, mostly rural. They get no label rather than a
-    guessed one: a locality borrowed from the road of the same name across the valley
-    would be worse than the blank it replaces."""
+    """10,645 runs have no filed door, mostly rural, and get no label. A locality borrowed from
+    the same-named road across the valley would be worse than a blank."""
     db.execute(
         "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom) "
         "values ('Ανώνυμος', 'ΑΝΩΝΥΜΟΣ', 'ANONYMOS', 'ΑΝΩΝΥΜΟΣ', 'track', 1, "

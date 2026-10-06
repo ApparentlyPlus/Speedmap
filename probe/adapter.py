@@ -1,7 +1,7 @@
-"""What every operator's checker is asked, and what it answers with.
+"""What every operator's checker is asked and what it answers.
 
-Adapters need different things to identify a place, coordinates, or the street spelled
-their way, so Target carries enough for all of them and each takes what it uses.
+Adapters identify a place differently (coordinates, or the street in their own spelling), so
+Target carries enough for all of them and each takes what it needs.
 """
 
 from __future__ import annotations
@@ -15,19 +15,19 @@ from psycopg.rows import TupleRow
 
 
 class ProbeError(RuntimeError):
-    """The checker could not be asked. Not an answer, and never cached as one."""
+    """The checker couldn't be asked. That's no answer, and it's never cached."""
 
 
 class NotAskableError(ProbeError):
-    """We hold no spelling for this address, so it cannot be put to this operator.
+    """We hold no spelling for this address, so it can't be put to this operator.
 
-    Our gap, not theirs: recorded, but not counted against the operator's health.
+    Our gap, so it's recorded but not counted against the operator's health.
     """
 
 
 @dataclass(frozen=True)
 class Target:
-    """One address, in every form an operator might want to be given it."""
+    """One address in every form an operator might want it."""
 
     address_id: int
     lat: float
@@ -35,8 +35,8 @@ class Target:
     street: str
     street_no: str
     municipality: str
-    # Their spelling is looked up by id and fold, not by name: their municipalities are the
-    # pre-Kallikratis ones and mostly do not share ours.
+    # their spelling is looked up by id and fold: their municipalities are the
+    # pre-Kallikratis ones and mostly don't match ours
     municipality_id: int = 0
     street_fold: str = ""
     locality: str | None = None
@@ -45,9 +45,9 @@ class Target:
 
 @dataclass(frozen=True)
 class Offer:
-    """One technology an operator will sell here.
+    """One technology an operator sells here.
 
-    Speeds are None when they qualified the technology without quoting one, normal for FWA.
+    Speeds are None when they qualified it without quoting one, which is normal for FWA.
     """
 
     technology: str
@@ -60,7 +60,7 @@ class Offer:
 class Probed:
     """What one operator said about one address.
 
-    Not serviceable is an answer and is cached. A failure raises instead, and an
+    "Not serviceable" is an answer and gets cached. A failure raises instead, and an
     inconclusive reply ("needs looking into by hand") is neither yes nor no.
     """
 
@@ -68,15 +68,15 @@ class Probed:
     offers: tuple[Offer, ...] = ()
     raw: dict[str, object] | None = None
     conclusive: bool = True
-    # The response as it arrived, kept only where it earns its size: canaries and failures.
+    # the raw response, kept only where it's worth the space: canaries and failures
     body: str | None = None
 
 
 class Adapter(Protocol):
     """An operator's availability checker.
 
-    All of them take a connection. Two need it to read how they spell the address, and the
-    third ignoring it is cheaper than the caller knowing which is which.
+    All take a connection. Two read their spelling of the address with it, and the third
+    ignoring it is simpler than callers knowing which is which.
     """
 
     code: str

@@ -1,6 +1,6 @@
-"""Ask about addresses whose answer is already known.
+"""Ask about addresses whose answer we already know.
 
-An adapter that has been redesigned out from under us does not return an error.
+An adapter whose checker got redesigned under it doesn't error. It just answers wrong.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ from probe.vodafone import Vodafone
 
 CANARIES = Path(__file__).parent / "canaries.yaml"
 
-# What a canary is allowed to expect. Anything subtler is a canary that cries wolf, which
-# is worse than none: it gets ignored, and then the real failure is ignored with it.
+# All a canary may expect. Anything subtler cries wolf, which is worse than no canary: it
+# gets ignored, and the real failure with it.
 OFFERS = "offers"
 REFUSAL = "refusal"
 
@@ -74,15 +74,14 @@ def load(path: Path = CANARIES) -> list[Canary]:
 
 
 def judge(canary: Canary, reply: Reply) -> Verdict:
-    """Whether the adapter is working, which is not whether the address has service."""
+    """Whether the adapter works, which is a different question from whether there's service."""
     result = reply.result
     if result is None:
         return Verdict(canary.name, reply.provider, False, f"unreachable: {reply.error}")
     if not result.conclusive:
         return Verdict(canary.name, reply.provider, False, "answered nothing conclusive")
     if canary.expect == OFFERS and not result.offers:
-        # The failure this exists for: a 200, a page, and no offers on a street that has
-        # had service for years.
+        # what this exists for: a 200, a page, and no offers on a street served for years
         return Verdict(canary.name, reply.provider, False, "no offers where there are some")
     if canary.expect == REFUSAL and result.serviceable:
         return Verdict(canary.name, reply.provider, False, "offers where there are none")
@@ -95,7 +94,7 @@ def run(
     adapters: list[Adapter],
     now: datetime,
 ) -> list[Verdict]:
-    """Ask every canary of every adapter it names, and keep the bodies for comparison."""
+    """Ask each canary of every adapter it names, keeping the bodies to compare later."""
     verdicts: list[Verdict] = []
     for canary in canaries:
         row = conn.execute(FIND, {
@@ -111,8 +110,7 @@ def run(
             continue
         wanted = [a for a in adapters if not canary.providers or a.code in canary.providers]
         for adapter in wanted:
-            # Asked directly rather than through refresh: a canary ignores the backoff,
-            # because the whole point is to notice while the adapter is still broken.
+            # asked directly, past the backoff: the point is to notice while it's still broken
             answer = ask(conn, adapter, target)
             store(conn, target.address_id, answer, now, keep_raw=True)
             verdicts.append(judge(canary, answer))

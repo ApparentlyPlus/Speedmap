@@ -1,6 +1,6 @@
-"""What people actually got near an address, as distinct from what they were sold.
+"""What people actually got near an address, which can differ from what they were sold.
 
-Every other input to a ranking is an operator describing itself.
+Every other input to the ranking is an operator describing itself.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from psycopg.rows import TupleRow
 
 from ranking.tile import quadkey
 
-# Which of Ookla's two worlds a technology of ours lives in.
+# which of Ookla's two families each technology falls under
 WORLD = {
     "fiber": "fixed",
     "coax": "fixed",
@@ -31,7 +31,7 @@ order by family, observed_on desc
 
 @dataclass(frozen=True)
 class Measured:
-    """One quarter of tests in one tile, for one of Ookla's two worlds."""
+    """One quarter of tests in one tile, for one of Ookla's families."""
 
     family: str
     down_mbps: Decimal
@@ -42,9 +42,9 @@ class Measured:
 def nearby(
     conn: psycopg.Connection[TupleRow], lat: float, lon: float
 ) -> dict[str, Measured]:
-    """The most recent measurements for the tile this address falls in.
+    """The latest measurements for the tile this address is in.
 
-    A tile is about 600 m across, so this is the street and the few around it rather than
+    A tile is about 600 m across, so this describes the street and its neighbours more than
     the address.
     """
     found: dict[str, Measured] = {}
@@ -59,6 +59,6 @@ def nearby(
 
 
 def for_family(measured: dict[str, Measured], family: str) -> Measured | None:
-    """The measurement that speaks to this technology, if there is one."""
+    """The measurement relevant to this technology, if any."""
     world = WORLD.get(family)
     return None if world is None else measured.get(world)

@@ -1,7 +1,7 @@
-"""How each operator's checker is faring.
+"""How each operator's checker is doing.
 
-An operator missing from a comparison is a worse lie than a visible gap: the reader has no
-way to tell "we asked and they said no" from "we could not ask".
+Leaving an operator out of a comparison is a worse lie than showing the gap: the reader
+can't tell "we asked and they said no" from "we couldn't ask".
 """
 
 from __future__ import annotations
@@ -17,24 +17,34 @@ DEGRADED = "degraded"
 BROKEN = "broken"
 UNTRIED = "untried"
 
-# How far back an answer still counts as evidence the checker works. Longer than the
-# nightly canary by enough that one missed run is not an alarm.
+# How far back an answer still shows the checker works. Longer than the nightly canary, so
+# one missed run doesn't raise an alarm.
 WINDOW = timedelta(days=3)
 
-# Below this share of attempts succeeding, something is wrong even though answers are
-# arriving: a checker that works one time in three is not working.
+# Below this success rate something's wrong even with answers arriving. One in three isn't
+# working.
 SHAKY = 0.8
 
-# Askable attempts only.
+# Askable attempts only. Both parts read (provider_id, attempted_at desc): the window as a
+# range, the last success by walking back from the newest. It used to aggregate every
+# attempt ever, on a table the sweep grows by hundreds of rows a night.
 SINCE = """
-select p.code,
-       count(*) filter (where a.attempted_at >= %(since)s and a.askable) as recent,
-       count(*) filter (where a.attempted_at >= %(since)s and a.askable and a.ok) as recent_ok,
-       max(a.attempted_at) filter (where a.ok) as last_ok
+select p.code, coalesce(recent.n, 0), coalesce(recent.ok, 0), last.at
 from provider p
-left join probe_attempt a on a.provider_id = p.id
+left join lateral (
+    select count(*) filter (where a.askable) as n,
+           count(*) filter (where a.askable and a.ok) as ok
+    from probe_attempt a
+    where a.provider_id = p.id and a.attempted_at >= %(since)s
+) recent on true
+left join lateral (
+    select a.attempted_at as at
+    from probe_attempt a
+    where a.provider_id = p.id and a.ok
+    order by a.attempted_at desc
+    limit 1
+) last on true
 where p.code = any(%(codes)s)
-group by p.code
 """
 
 
@@ -48,18 +58,18 @@ class Health:
 
     @property
     def says(self) -> str:
-        """What the reader should be told, in the reader's terms."""
+        """What to tell the reader, in their terms."""
         if self.state == HEALTHY:
             return "answering"
         if self.state == UNTRIED:
-            # Untried covers two different silences and they should not read alike: one we have
-            # never put a question to, and one we have but not lately.
+            # untried covers two silences that shouldn't read alike: never asked, and not
+            # asked lately
             if self.last_ok_at is None:
                 return "not asked yet"
             return f"last answered {self.last_ok_at:%-d %B}"
         if self.state == DEGRADED:
-            # Degraded means it IS answering, just not every time, `state` only reaches it when
-            # answered is above zero.
+            # degraded means it is answering, just not every time (state only gets here when
+            # answered > 0)
             return f"answering {self.answered} times in {self.attempts}"
         if self.last_ok_at is None:
             return "has never answered"
@@ -67,10 +77,10 @@ class Health:
 
 
 def state(recent: int, answered: int, last_ok: datetime | None, now: datetime) -> str:
-    """Healthy, shaky, or gone."""
+    """Healthy, shaky or gone."""
     if recent == 0:
-        # Nothing asked lately. If it answered within the window it is fine. The sweep may
-        # simply have had nothing due.
+        # Nothing asked lately. Fine if it answered within the window, the sweep may just
+        # have had nothing due.
         return HEALTHY if last_ok is not None and now - last_ok <= WINDOW else UNTRIED
     if answered == 0:
         return BROKEN
@@ -80,7 +90,7 @@ def state(recent: int, answered: int, last_ok: datetime | None, now: datetime) -
 def health(
     conn: psycopg.Connection[TupleRow], codes: list[str], now: datetime
 ) -> dict[str, Health]:
-    """One state per operator, derived from what happened rather than from a stored flag."""
+    """One state per operator, worked out from what happened. No stored flag."""
     rows = conn.execute(
         SINCE, {"since": now - WINDOW, "codes": codes}
     ).fetchall()

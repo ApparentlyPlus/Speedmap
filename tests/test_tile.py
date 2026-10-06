@@ -34,6 +34,6 @@ def test_the_grid_is_square_at_every_zoom() -> None:
 
 
 def test_a_pole_is_clamped_rather_than_raised() -> None:
-    """Mercator runs to infinity there. A bad coordinate should give a wrong tile, not a crash."""
+    """Mercator runs to infinity there. A bad coordinate should give a wrong tile, never a crash."""
     assert len(quadkey(90.0, 0.0)) == ZOOM
     assert len(quadkey(-90.0, 0.0)) == ZOOM
