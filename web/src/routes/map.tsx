@@ -1,11 +1,10 @@
 /**
- * The map. Every street in the country, coloured by the fastest thing known to reach it, and
- * filterable to one operator at a time, which is the question people actually arrive with.
+ * The map: every street in the country, coloured by the fastest line known to reach it.
+ * Filterable to one operator, since "can I get Vodafone here" is what most people arrive asking.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { Map as Maplibre, NavigationControl, type Point as MapPoint } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 import type { Geometry } from "geojson";
 
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
@@ -36,49 +35,44 @@ import {
   onlyStreet,
   ramps,
   touchPad,
+  regionOpacity,
   regionPaint,
   style,
   type View,
 } from "../map/style";
 
-/**
- * Sources the page can do without. Everything else failing is a failure worth saying so.
- */
+/** Sources the page can live without. Anything else failing gets reported. */
 const OPTIONAL_SOURCES = new Set<string>([BASE, BUILDINGS]);
 
-/** How long the map takes to arrive somewhere that was asked for. Long enough to be followed. */
+/** Long enough to follow with the eye. */
 const TRAVEL_MS = 2200;
 
 /** As close as the camera will get to a short street. */
 const CLOSEST = 16;
 
-/** The gap left between the street and whatever is nearest it on screen. */
+/** Gap between the street and whatever sits nearest it on screen. */
 const EDGE = 44;
 
 /**
- * Which operators are a choice of supplier and which are only a network. Read off the tile
- * contract rather than listed again here, so a provider added to the schema lands in the
- * right half of the panel without this file being touched.
+ * Suppliers you can buy from, and networks you can't. Read off the tile contract so a new
+ * provider in the schema lands in the right half of the panel without touching this file.
  */
 const WHOLESALE = new Set(STREETS_INFRASTRUCTURE);
 const OPERATORS = Object.keys(STREETS_BY_PROVIDER);
 const RETAILERS = OPERATORS.filter((code) => !WHOLESALE.has(code));
 const NETWORKS = OPERATORS.filter((code) => WHOLESALE.has(code));
 
-/**
- * Slow at both ends, quick through the middle. Linear travel starts and stops at full speed,
- * which reads as a jolt at each end however long the journey is.
- */
+/** Slow at both ends. Linear travel starts and stops at full speed and jolts at each end. */
 const EASE = (t: number): number =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
-/** Long enough that a typist does not generate a request per letter. */
+/** Long enough that a typist doesn't fire a request per letter. */
 const SETTLE_MS = 250;
 
-/** How long the footprints take to come up once the whole view has them. */
+/** Fade-in for the footprints once the whole view has them. */
 const RAISE_MS = 220;
 
-/** The longest the city is left blank waiting for a tile that may never arrive. */
+/** Longest the city stays blank waiting on a tile that may never come. */
 const WAIT_CAP = 3000;
 
 type Showing = "ready" | "failed";
@@ -87,32 +81,25 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const text = strings(language);
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Maplibre | null>(null);
-  /** The camera the reader arrived on, kept from the first render. */
+  // the camera from the URL the reader arrived on, read before the map rewrites the hash
   const arrived = useRef(window.location.hash);
   const [provider, setProvider] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [chosen, setChosen] = useState<StreetDetail | null>(null);
-  /**
-   * A measured square, read straight off the tile. Everything the square says is already in the
-   * feature the renderer handed over, so picking one asks the server nothing.
-   */
+  // a measured square, straight off the tile: it carries everything shown, so no request
   const [cell, setCell] = useState<Cell | null>(null);
   const [view, setView] = useState<View>("coverage");
-  /** The prefecture choropleth, off until asked for. */
   const [regions, setRegions] = useState(false);
   const [showing, setShowing] = useState<Showing>("ready");
 
   useEffect(() => {
     if (box.current === null || mapRef.current !== null) return;
 
-    // The worker pool and the PMTiles protocol, shared with every other map here.
     engine();
 
-    /**
-     * The camera in the URL, so a view of one neighbourhood is a link to it. The opening camera
-     * is passed only when the reader did not arrive on a link to one.
-     */
+    // The camera lives in the URL so a view is shareable. HOME only applies when the reader
+    // didn't arrive on such a link.
     const linked = arrived.current.length > 1;
     if (linked && window.location.hash.length <= 1) {
       window.history.replaceState(null, "", arrived.current);
@@ -122,31 +109,25 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       container: box.current,
       style: style(),
       ...(linked ? {} : { center: HOME.centre, zoom: HOME.zoom }),
-      // Credited on /attribution instead, which the corner link goes to.
+      // credited on /attribution, behind the corner link
       attributionControl: false,
       hash: true,
       maxBounds: LIMITS,
       minZoom: FLOOR_ZOOM,
-      // Keep what has already been decoded. The default holds about five zooms' worth, which
-      // a zoom out of four levels walks straight past, so coming back to a place cost 96 ms
-      // a move instead of nothing.
+      // The default cache holds about five zooms. Zooming out four and back came to 96 ms a
+      // move, all of it decoding tiles we'd already had.
       maxTileCacheZoomLevels: 12,
-      // The archive is replaced whole, weekly, and its URL never changes inside a session.
+      // the archive is swapped whole, weekly, and its URL is stable within a session
       refreshExpiredTiles: false,
     });
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     mapRef.current = map;
-    // A handle for the console and for the browser test, which is the only thing that can tell
-    // a map that draws from a map that merely has no errors.
+    // for the console and the browser test, which checks the map actually drew something
     if (import.meta.env.DEV) {
       window.atlas = map;
     }
 
- /**
-  * MapLibre rejects a whole style on one bad expression, and says so by firing an event
-  * rather than by throwing.
-  */
-    /** A street is the only thing on this map, so it is the only thing to click. */
+    // squares under Measured, streets below
     map.on("click", "cells", (event) => {
       const hit = event.features?.[0]?.properties;
       if (hit === undefined) return;
@@ -159,10 +140,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       });
     }
 
-    /**
-     * The street under the pointer, allowing for a line three pixels across and a thumb that
-     * is not. The exact point first so an outright hit wins, then the padded box.
-     */
+    // A line is three pixels across and a thumb isn't. Try the exact point first so a
+    // direct hit wins, then a padded box around it.
     const streetUnder = (at: MapPoint): number | null => {
       if (map.getLayer(STREETS_LAYER) === undefined) return null;
       const exact = map.queryRenderedFeatures(at, { layers: [STREETS_LAYER] });
@@ -181,19 +160,25 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       return typeof id === "number" ? id : null;
     };
 
+    // Only the latest click may fill the panel. Two quick clicks used to race, and the
+    // slower answer (often the first street clicked) won.
+    let clicked = 0;
     map.on("click", (event) => {
       const id = streetUnder(event.point);
       if (id === null) return;
       setCell(null);
+      const mine = ++clicked;
       street(id)
-        .then(setChosen)
-        .catch(() => setChosen(null));
+        .then((found) => {
+          if (mine === clicked) setChosen(found);
+        })
+        .catch(() => {
+          if (mine === clicked) setChosen(null);
+        });
     });
 
-    /**
-     * The cursor, once a frame at most and never while the map is moving. Dragging is when
-     * the main thread has least to spare, and the answer is stale by the next frame anyway.
-     */
+    // At most once a frame, and never mid-drag: that's when the main thread is busiest,
+    // and the answer is stale a frame later anyway.
     let asking = false;
     map.on("mousemove", (event) => {
       if (asking || map.isMoving()) return;
@@ -204,15 +189,12 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       });
     });
 
-    /**
-     * Buildings arrive a tile at a time, and over Athens one tile is 600 kB and a quarter of
-     * a second, so a zoom in from above them showed the near ones land before the far ones.
-     * Four separate arrivals, at 600, 628, 674 and 718 ms. Hold them at nothing for the
-     * length of the zoom and bring the whole view up at once instead.
-     *
-     * Only when there were none on screen to begin with. Buildings already drawn are never
-     * taken away, so panning and zooming inside the city look as they always did.
-     */
+    // Over Athens a building tile is 600 kB and takes a quarter second, so zooming in, the
+    // footprints landed in four separate waves (600, 628, 674 and 718 ms). We hold them at
+    // zero for the zoom and raise the whole view at once.
+    //
+    // Only when none were on screen to start with. Buildings already drawn stay put, so
+    // panning around inside the city is unchanged.
     const raise = (opacity: "hold" | "show"): void => {
       for (const [layer, property] of Object.entries(BUILDING_LAYERS)) {
         if (map.getLayer(layer) === undefined) continue;
@@ -242,7 +224,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       }
       held = true;
       raise("hold");
-      // A tile that never arrives must not leave the city blank.
+      // a tile that never arrives can't leave the city blank
       giveUp = window.setTimeout(show, WAIT_CAP);
     });
 
@@ -256,11 +238,9 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     });
 
     map.on("error", (fault) => {
-      // The basemap and the building footprints are built by planetiler from an OSM
-      // extract, not by this repository, and a checkout without them is the normal state
-      // of a fresh clone. Losing the land underneath the streets is worth a line in the
-      // console. It is not worth telling the reader the map failed while the map is
-      // drawing every street they came for.
+      // Basemap and footprints come out of planetiler, outside this repo, so a fresh clone
+      // won't have them. Worth a console line. Telling the reader the map failed while it's
+      // drawing every street they came for would be wrong.
       const missing = (fault as { sourceId?: string }).sourceId;
       if (missing !== undefined && OPTIONAL_SOURCES.has(missing)) {
         // eslint-disable-next-line no-console
@@ -278,10 +258,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     };
   }, []);
 
-  /**
-   * The same index the landing searches, because a street is a place on this map as much as it
-   * is a row in a list, and two search boxes that disagree about what exists would be two
-   */
+  // Same index as the landing page. Two search boxes disagreeing about which streets exist
+  // would be a bug report waiting to happen.
   useEffect(() => {
     const asked = query.trim();
     if (asked.length < 2) {
@@ -290,8 +268,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     }
     const stop = new AbortController();
     const timer = window.setTimeout(() => {
-      // Streets only. A number picks the street it is on rather than a door on the map,
-      // because there is nothing on a map for a door to be.
+      // Streets only. A typed number picks its street, since a map has nowhere to put a door.
       search(asked, stop.signal, "street")
         .then(setResults)
         .catch(() => setResults([]));
@@ -302,7 +279,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     };
   }, [query]);
 
-  /** Switching operator changes two properties on two layers. */
+  // switching operator touches two properties on two layers
   useEffect(() => {
     const map = mapRef.current;
     if (map === null) return;
@@ -310,17 +287,15 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     const apply = (): void => {
       const filter = only(provider);
       for (const [layer, paint] of Object.entries(ramps(provider))) {
-        // Skip the missing layer, do not abandon the rest of the function: `return` here meant
-        // that one absent layer left the operator filter half applied and the view switch below.
+        // continue, don't return: a return here once left the filter half applied and skipped
+        // the view switch below
         if (map.getLayer(layer) === undefined) continue;
         map.setPaintProperty(layer, "line-color", paint);
         map.setFilter(layer, filter);
       }
 
-      /**
-       * Filed and measured are two claims about different things, so only one is on at a time:
-       * map together, a street tinted by what an operator promised and a square tinted by what
-       */
+      // Filed and measured answer different questions, so only one shows at a time. Mixed,
+      // a street coloured by a promise would sit beside a square coloured by a speed test.
       const streets = view === "coverage";
       for (const layer of ["streets-halo", "streets"]) {
         if (map.getLayer(layer) !== undefined) {
@@ -331,13 +306,14 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           );
         }
       }
-      /** The choropleth follows the view rather than sitting under all three. */
+      // the choropleth follows whichever view is on
       for (const layer of REGION_LAYERS) {
         if (map.getLayer(layer) === undefined) continue;
         map.setLayoutProperty(layer, "visibility", regions ? "visible" : "none");
       }
       if (map.getLayer("regions") !== undefined) {
         map.setPaintProperty("regions", "fill-color", regionPaint(view));
+        map.setPaintProperty("regions", "fill-opacity", regionOpacity(view));
       }
 
       if (map.getLayer("cells") !== undefined) {
@@ -364,7 +340,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     };
   }, [provider, view, regions]);
 
-  // Light whichever street is selected, and put the light out when none is.
+  // light up the selected street, or nothing
   useEffect(() => {
     const map = mapRef.current;
     if (map === null) return;
@@ -373,12 +349,10 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       const lit = onlyStreet(streetId);
       for (const layer of ["streets-picked-halo", "streets-picked"]) {
         if (map.getLayer(layer) === undefined) continue;
-        // Off entirely when nothing is chosen, so tiles are not built for a layer that is
-        // drawing no streets.
+        // hidden when nothing's chosen, so no tile work for a layer drawing nothing
         map.setLayoutProperty(layer, "visibility", streetId === null ? "none" : "visible");
         map.setFilter(layer, lit);
-        // Filters do not transition, opacity does: the street is always drawn, and what
-        // fades is how much of it there is to see.
+        // filters can't transition and opacity can, so the fade lives on opacity
         map.setPaintProperty(layer, "line-opacity", streetId === null ? 0 : LIT[layer]);
       }
     };
@@ -423,7 +397,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                   type="button"
                   className="atlas-hit"
                   onClick={() => {
-                    // Picking a street selects it, and only then travels to it.
+                    // select first, then travel (see travelTo for why)
                     setCell(null);
                     void travelTo(mapRef.current, result, setChosen);
                     setQuery("");
@@ -435,14 +409,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                       ? result.name
                       : `${result.name} ${result.street_no}`}
                   </span>
-                  {/*
-* Where it is, as precisely as the doors on it allow.
- *
-  * A name can be several roads in one municipality since streets were split
-   * into connected runs, and 7,320 of them are. The locality its own
-    * addresses agree on is the only thing that tells two of them apart, and
-     * where there are no addresses there is nothing to say.
-*/}
+                  {/* 7,320 names cover two or more roads in one municipality. The locality
+                      their doors agree on is what tells them apart. No doors, no label. */}
                   <span className="atlas-hit-where">
                     {[result.locality, result.municipality].filter(Boolean).join(" · ")}
                   </span>
@@ -470,226 +438,188 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           ))}
         </ul>
 
-        {/*
-* A checkbox rather than another pill.
- *
-  * The pills above it are a choice between three views and the operator pills are a
-   * choice of one operator. This is neither. It is an overlay that either is or is
-    * not on, and dressing it as a pill put it in a row of things that look like
-     * alternatives to each other.
-*/}
-       <label className="atlas-toggle" title={text.regionsHint}>
-         <input
-           type="checkbox"
-           checked={regions}
-           onChange={(event) => setRegions(event.target.checked)}
-         />
-         <span>{text.regions}</span>
-       </label>
+        {/* A checkbox, since this is an overlay that's on or off. As a pill it sat in a row
+            of mutually exclusive choices and looked like one of them. */}
+        <label className="atlas-toggle" title={text.regionsHint}>
+          <input
+            type="checkbox"
+            checked={regions}
+            onChange={(event) => setRegions(event.target.checked)}
+          />
+          <span>{text.regions}</span>
+        </label>
 
-       {view === "coverage" && (
-         <>
-           <h2 className="atlas-head">{text.operator}</h2>
-           <ul className="atlas-operators">
-             <li>
-               <button
-                 type="button"
-                 className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
-                 onClick={() => setProvider(null)}
-               >
-                 {text.anyOperator}
-               </button>
-             </li>
-             {RETAILERS.map((code) => (
-               <li key={code}>
-                 <button
-                   type="button"
-                   className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                   style={
-                     { "--brand": brandOf(code).colour } as React.CSSProperties
-                   }
-                   onClick={() => setProvider(provider === code ? null : code)}
-                 >
-                   {/*
-* The name the reader knows, rather than the register's code.
- *
-  * The code is a join key. OTE is a holding company nobody shops for, and
-   * the shop, the bill and the router all say Telekom. A button reading one
-    * thing over data saying another leaves the reader to do a translation
-     * we have already done.
-*/}
-                   {brandOf(code).name}
-                 </button>
-               </li>
-             ))}
-           </ul>
+        {view === "coverage" && (
+          <>
+            <h2 className="atlas-head">{text.operator}</h2>
+            <ul className="atlas-operators">
+              <li>
+                <button
+                  type="button"
+                  className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
+                  onClick={() => setProvider(null)}
+                >
+                  {text.anyOperator}
+                </button>
+              </li>
+              {RETAILERS.map((code) => (
+                <li key={code}>
+                  <button
+                    type="button"
+                    className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
+                    style={
+                      { "--brand": brandOf(code).colour } as React.CSSProperties
+                    }
+                    onClick={() => setProvider(provider === code ? null : code)}
+                  >
+                    {/* the brand people know: the code is a join key, and nobody shops at "OTE"
+                        when the shop, the bill and the router all say Telekom */}
+                    {brandOf(code).name}
+                  </button>
+                </li>
+              ))}
+            </ul>
 
-           {/*
-* The networks, under their own heading.
- *
-  * These reach streets and sell to nobody: wholesale builders who pass premises
-   * for other operators to retail over, and Metadosis, which files services and
-    * publishes no tariff to compare. Sat in the same row as Telekom and Vodafone
-     * they look like two more suppliers a reader could pick between. Dropped
-      * altogether they take the fiber with them, and that fiber decides whether
-       * anyone will ever sell a gigabit down the street.
-*/}
-           <h2 className="atlas-head" title={text.infrastructureHint}>
-             {text.infrastructure}
-           </h2>
-           <ul className="atlas-operators">
-             {NETWORKS.map((code) => (
-               <li key={code}>
-                 <button
-                   type="button"
-                   className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                   style={
-                     { "--brand": brandOf(code).colour } as React.CSSProperties
-                   }
-                   onClick={() => setProvider(provider === code ? null : code)}
-                 >
-                   {brandOf(code).name}
-                 </button>
-               </li>
-             ))}
-           </ul>
-         </>
-       )}
+            {/* Wholesale builders, plus Metadosis (files services, publishes no tariff). Next
+                to Telekom and Vodafone they looked like suppliers you could pick. Dropping them
+                would hide the fiber that decides whether anyone sells a gigabit here. */}
+            <h2 className="atlas-head" title={text.infrastructureHint}>
+              {text.infrastructure}
+            </h2>
+            <ul className="atlas-operators">
+              {NETWORKS.map((code) => (
+                <li key={code}>
+                  <button
+                    type="button"
+                    className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
+                    style={
+                      { "--brand": brandOf(code).colour } as React.CSSProperties
+                    }
+                    onClick={() => setProvider(provider === code ? null : code)}
+                  >
+                    {brandOf(code).name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
 
-       <h2 className="atlas-head">{text.legend[view]}</h2>
-       {/*
-* The bands this view can actually produce, not all seven.
- *
-  * Coverage tops each street out at what its line is retailed at and a filing can
-   * only cap that further, so nothing ever lands between 100 Mbps and a gigabit:
-    * three of the ramp's rows would show a colour the map will never paint. Measured
-     * is a real continuum, median 60, p90 270, and uses the lot.
-*/}
-       <ul className="atlas-ramp">
-         {bandsPainted(view !== "coverage").map((band) => (
-           <li className="atlas-band" key={band.name}>
-             <span className="atlas-swatch" style={{ background: band.colour }} />
-             {band.name}
-           </li>
-         ))}
-         {/*
-* The last row is a different silence under each view.
- *
-  * Under Coverage it is a street no line reaches, map dark because it is
-   * absence rather than a slow street. The third state this legend used to carry —
-    * reaches here, filed no speed, is gone: the figure comes from the technology
-     * now, so anything that reaches a street has a number.
-      *
-       * Under Measured and Mobile it is a place nobody has ever run a speed test in,
-        * which is most of Greece.
-*/}
-         <li className="atlas-band">
-           <span className="atlas-swatch" style={{ background: UNSERVED }} />
-           {view === "coverage" ? text.unreached : text.untested}
-         </li>
-       </ul>
+        <h2 className="atlas-head">{text.legend[view]}</h2>
+        {/* Only the bands this view can paint. A filing can only cap a street below its retail
+            speed, so coverage never lands between 100 and 1000 and three ramp rows would be
+            colours the map never uses. Measured is continuous (median 60, p90 270). */}
+        <ul className="atlas-ramp">
+          {bandsPainted(view !== "coverage").map((band) => (
+            <li className="atlas-band" key={band.name}>
+              <span className="atlas-swatch" style={{ background: band.colour }} />
+              {band.name}
+            </li>
+          ))}
+          {/* Coverage: a street no line reaches, dark because it's absence and not a slow street.
+              Measured and Mobile: nobody has ever run a speed test here, which is most of Greece.
+              There used to be a third state, "reaches, no speed filed". The figure comes from
+              the technology now, so anything that reaches a street has a number. */}
+          <li className="atlas-band">
+            <span className="atlas-swatch" style={{ background: UNSERVED }} />
+            {view === "coverage" ? text.unreached : text.untested}
+          </li>
+        </ul>
 
-       {cell !== null && (
-         <section className="atlas-picked">
-           <button
-             type="button"
-             className="atlas-shut"
-             onClick={() => setCell(null)}
-             aria-label={text.back}
-           >
-             ×
-           </button>
-           <h2 className="atlas-picked-name">{text.measuredHere}</h2>
-           <p className="atlas-picked-where">
-             {text.views[cell.family === "mobile" ? "mobile" : "measured"]} · {cell.tests}{" "}
-             {text.tests}
-           </p>
-           <ul className="atlas-measured">
-             <li className="atlas-measure">
-               <span className="atlas-measure-name">{text.down}</span>
-               <span
-                 className="atlas-measure-speed"
-                 style={{ color: colourFor(mbps(Number(cell.down_mbps))) }}
-               >
-                 {Math.round(Number(cell.down_mbps))} Mbps
-               </span>
-             </li>
-             <li className="atlas-measure">
-               <span className="atlas-measure-name">{text.up}</span>
-               <span className="atlas-measure-speed">
-                 {Math.round(Number(cell.up_mbps))} Mbps
-               </span>
-             </li>
-           </ul>
-         </section>
-       )}
+        {cell !== null && (
+          <section className="atlas-picked">
+            <button
+              type="button"
+              className="atlas-shut"
+              onClick={() => setCell(null)}
+              aria-label={text.back}
+            >
+              ×
+            </button>
+            <h2 className="atlas-picked-name">{text.measuredHere}</h2>
+            <p className="atlas-picked-where">
+              {text.views[cell.family === "mobile" ? "mobile" : "measured"]} · {cell.tests}{" "}
+              {text.tests}
+            </p>
+            <ul className="atlas-measured">
+              <li className="atlas-measure">
+                <span className="atlas-measure-name">{text.down}</span>
+                <span
+                  className="atlas-measure-speed"
+                  style={{ color: colourFor(mbps(Number(cell.down_mbps))) }}
+                >
+                  {Math.round(Number(cell.down_mbps))} Mbps
+                </span>
+              </li>
+              <li className="atlas-measure">
+                <span className="atlas-measure-name">{text.up}</span>
+                <span className="atlas-measure-speed">
+                  {Math.round(Number(cell.up_mbps))} Mbps
+                </span>
+              </li>
+            </ul>
+          </section>
+        )}
 
-       {chosen !== null && (
-         <section className="atlas-picked">
-           <button
-             type="button"
-             className="atlas-shut"
-             onClick={() => setChosen(null)}
-             aria-label={text.back}
-           >
-             ×
-           </button>
-           <h2 className="atlas-picked-name">{chosen.name}</h2>
-           <p className="atlas-picked-where">{chosen.municipality}</p>
-           {chosen.offers.length === 0 ? (
-             <p className="atlas-picked-none">{text.mapNothingHere}</p>
-           ) : (
-             <ul className="atlas-offers">
-               {chosen.offers.map((offer) => (
-                 <li className="atlas-offer" key={`${offer.provider}-${offer.technology}`}>
-                   <span
-                     className="atlas-offer-dot"
-                     style={{ background: brandOf(offer.provider).colour }}
-                   />
-                   <span className="atlas-offer-name">{offer.provider_name}</span>
-                   <span className="atlas-offer-tech">
-                     {offer.technology}
-                     {offer.infra_provider !== null &&
-                       offer.infra_provider !== offer.provider && (
-                         <span className="atlas-offer-infra">
-                           {" "}
-                           · {text.over} {offer.infra_provider}
-                         </span>
-                       )}
-                   </span>
-                   {/*
-* What the line is sold at, not what the register filed for it. The
- * band is still in the response and is deliberately not shown: it is
-  * absent on seven filings in ten, and where it is present it is a
-   * class the line often cannot carry.
-*/}
-                   <span className="atlas-offer-speed">
-                     {offer.sold_mbps === null || offer.sold_mbps === undefined
-                       ? text.unfiled
-                       : `${Number(offer.sold_mbps)} Mbps`}
-                   </span>
-                 </li>
-               ))}
-             </ul>
-           )}
-         </section>
-       )}
+        {chosen !== null && (
+          <section className="atlas-picked">
+            <button
+              type="button"
+              className="atlas-shut"
+              onClick={() => setChosen(null)}
+              aria-label={text.back}
+            >
+              ×
+            </button>
+            <h2 className="atlas-picked-name">{chosen.name}</h2>
+            <p className="atlas-picked-where">{chosen.municipality}</p>
+            {chosen.offers.length === 0 ? (
+              <p className="atlas-picked-none">{text.mapNothingHere}</p>
+            ) : (
+              <ul className="atlas-offers">
+                {chosen.offers.map((offer) => (
+                  <li className="atlas-offer" key={`${offer.provider}-${offer.technology}`}>
+                    <span
+                      className="atlas-offer-dot"
+                      style={{ background: brandOf(offer.provider).colour }}
+                    />
+                    <span className="atlas-offer-name">{offer.provider_name}</span>
+                    <span className="atlas-offer-tech">
+                      {offer.technology}
+                      {offer.infra_provider !== null &&
+                        offer.infra_provider !== offer.provider && (
+                          <span className="atlas-offer-infra">
+                            {" "}
+                            · {text.over} {offer.infra_provider}
+                          </span>
+                        )}
+                    </span>
+                    {/* The retail speed, held to the filing. The register's own band stays out of
+                        the panel: it's missing on seven filings in ten. */}
+                    <span className="atlas-offer-speed">
+                      {offer.sold_mbps === null || offer.sold_mbps === undefined
+                        ? text.unfiled
+                        : `${Number(offer.sold_mbps)} Mbps`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
-       <p className={`atlas-state atlas-state-${showing}`}>
-         {showing === "failed" && text.searchFailed}
-       </p>
-     </section>
-   </main>
- );
+        <p className={`atlas-state atlas-state-${showing}`}>
+          {showing === "failed" && text.searchFailed}
+        </p>
+      </section>
+    </main>
+  );
 }
 
 /**
- * The part of the map nothing is sitting on.
- *
- * The panel sits on top of the map rather than beside it: 232 pixels down the left on a
- * wide screen, the top 46% on a narrow one. Fitting a street to the whole canvas therefore
- * fitted it to a rectangle the reader can only see part of, and parked it under the panel
- * about half the time.
+ * The part of the map the panel doesn't cover. The panel floats over the map (232 px down the
+ * left on wide screens, the top 46% on narrow ones), so fitting a street to the whole canvas
+ * parked it under the panel about half the time.
  */
 function clearOf(map: Maplibre): { top: number; right: number; bottom: number; left: number } {
   const pad = { top: EDGE, right: EDGE, bottom: EDGE, left: EDGE };
@@ -697,7 +627,7 @@ function clearOf(map: Maplibre): { top: number; right: number; bottom: number; l
   const panel = document.querySelector(".atlas-panel")?.getBoundingClientRect();
   if (panel === undefined) return pad;
 
-  // Wide: the panel is a column down one side. Narrow: it lies across the top.
+  // wide screens: a column down one side. narrow: a band across the top
   if (panel.width >= box.width * 0.75) {
     pad.top = Math.min(panel.bottom - box.top + EDGE, box.height * 0.6);
   } else {
@@ -706,7 +636,7 @@ function clearOf(map: Maplibre): { top: number; right: number; bottom: number; l
   return pad;
 }
 
-/** Two frames: long enough for React to have committed and MapLibre to have restyled. */
+/** Two frames, enough for React to commit and MapLibre to restyle. */
 function settled(): Promise<void> {
   return new Promise((done) => {
     requestAnimationFrame(() => requestAnimationFrame(() => done()));
@@ -714,18 +644,14 @@ function settled(): Promise<void> {
 }
 
 /**
- * Take the camera to a result, once the street it is going to has been lit.
+ * Light the street, then fly to it. In that order.
  *
- * The order matters more than anything else here. Selecting a street turns two layers from
- * `visibility: none` to visible, and MapLibre answers that by re-parsing every tile in view
- * for the new layers. Start the flight first and that work lands on its opening frames,
- * which is the jolt: the camera sets off, stalls while the viewport is rebuilt, then
- * catches up. So the street is chosen, two frames are allowed to pass, and only then does
- * anything move.
+ * Selecting a street switches two layers on, and MapLibre re-parses every tile in view for
+ * them. Start the flight first and the re-parse lands on its opening frames: the camera
+ * sets off, stalls, then lurches to catch up. So we pick, wait two frames, then move.
  *
- * The box is the longest run of the street rather than all of it. A name can still cover
- * two runs a few streets apart, and a camera fitted to both frames the gap between them
- * and shows neither.
+ * The frame is the street's longest run. A name can cover two runs a few blocks apart,
+ * and fitting both frames the empty gap between them.
  */
 async function travelTo(
   map: Maplibre | null,
@@ -752,17 +678,15 @@ async function travelTo(
     await settled();
 
     const [west, south, east, north] = found.bbox;
-    // The same cast Place and Road make: the generated type is the open record the schema
-    // describes, and every producer of it is PostGIS writing GeoJSON.
+    // same cast as Place and Road: the schema types this as an open record, PostGIS fills it
     const shape = found.shape as unknown as Geometry;
     const extent =
       focusOf(shape) ??
       extentOf(shape) ??
       ([[west, south], [east, north]] as [[number, number], [number, number]]);
 
-    // One move rather than a fit: cameraForBounds works the frame out without touching the
-    // camera, so the whole journey is a single eased easeTo instead of fitBounds deciding
-    // where it is going while it is already going there.
+    // cameraForBounds works out the frame without moving anything, so the trip is one eased
+    // move. fitBounds re-decides its target mid-flight.
     const camera = map.cameraForBounds(extent, {
       padding: clearOf(map),
       maxZoom: CLOSEST,
@@ -775,7 +699,7 @@ async function travelTo(
       easing: EASE,
     });
   } catch {
-    // A camera that cannot be moved is not worth an error message on a map.
+    // a camera that won't move isn't worth an error message
     pick(null);
   }
 }

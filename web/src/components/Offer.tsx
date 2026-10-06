@@ -1,4 +1,4 @@
-/** One thing that can be bought here. Three bands: who is selling, how fast, what it costs. */
+/** One plan you can buy here, in three bands: seller, speed, price. */
 
 import type { Buyable } from "../api/client";
 import { strings, type Language } from "../i18n";
@@ -26,13 +26,12 @@ export function Offer({
 
   return (
     <li
-      // Choosing one redraws the house beside it: its colour is the speed's colour and its
-      // family decides where the signal comes from.
+      // picking one redraws the house: colour from the speed, signal path from the family
       className={`offer${best ? " offer-best" : ""}${chosen ? " offer-chosen" : ""}`}
       aria-current={chosen}
       onClick={onChoose}
-      // Staggered so the list assembles rather than appearing, capped so a long one does
-      // not keep the reader waiting on an animation they did not ask for.
+      // Staggered so the list builds up. Capped at eight, because nobody asked to wait on a
+      // long list animating in.
       style={
         {
           "--brand": brandOf(option.provider).colour,
@@ -68,23 +67,20 @@ export function Offer({
           </li>
           {best && <li className="tag tag-best">{text.bestHere}</li>}
         </ul>
-        {/*
-* "from" when a one-off was never published. The monthly rate is known and is the
- * larger number, so the offer is priced and placed like any other. What is not
-  * known is a setup fee, and saying the price is unknown over that told the reader
-   * less than the monthly rate alone would have.
-*/}
-       <span className="offer-cost">
-         {!option.cost.complete && <span className="offer-from">{text.priceFrom}</span>}
-         <span className="offer-price">{option.cost.total}€</span>
-         <span className="offer-per">{text.perMonth}</span>
-       </span>
-     </footer>
-   </li>
- );
+        {/* "From" when a setup fee was never published. The monthly rate is known and is
+            the bigger number, so the offer still gets priced and ranked. Calling the whole
+            price unknown over a missing fee told the reader less than the rate alone. */}
+        <span className="offer-cost">
+          {!option.cost.complete && <span className="offer-from">{text.priceFrom}</span>}
+          <span className="offer-price">{option.cost.total}€</span>
+          <span className="offer-per">{text.perMonth}</span>
+        </span>
+      </footer>
+    </li>
+  );
 }
 
-/** The plan name without the brand the mark and the pill already carry. */
+/** Plan name minus the brand, which the logo and pill already show. */
 function shorten(plan: string, brand: string): string {
   const rest = plan.slice(brand.length).trim();
   return plan.toUpperCase().startsWith(brand.toUpperCase()) && rest !== "" ? rest : plan;

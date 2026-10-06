@@ -1,4 +1,4 @@
-/** The shape of the answer, drawn before the answer arrives. */
+/** A skeleton of the answer, shown while it loads. */
 
 const ROWS = [0, 1, 2];
 

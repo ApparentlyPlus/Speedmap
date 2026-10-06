@@ -1,6 +1,6 @@
 /*
- * The split result screen. Half the page is what was found, half is where it is, and the
- * join between them is a gradient rather than an edge.
+ * The split result screen: what was found on one half, where it is on the other, joined by a
+ * gradient instead of an edge.
  */
 
 .split {
@@ -10,8 +10,8 @@
 }
 
 /*
- * The panel is a column, not a card: no border, no radius, no shadow. Those said "this
- * floats above the map". It does not float above it any more, it is the other half of it.
+ * A column, no card: no border, radius or shadow. Those said it floats above the map, and now
+ * it's the other half of the screen.
  */
 .split-panel {
   display: grid;
@@ -19,36 +19,27 @@
   z-index: 1;
   inset: 0 auto 0 0;
   /*
-   * Wider than half. The map wants the right of the screen, not exactly half of it, and
-   * holding the panel to 50vw meant the text stopped well short of the middle to leave
-   * room for the fade. The fade lives in the overhang instead, so the content can run up
-   * to the midpoint and the thinning happens past it.
+   * Wider than half. Held to 50vw, the text stopped well short of the middle to leave room for
+   * the fade. The fade lives in the overhang instead, so content runs to the midpoint and the
+   * thinning happens past it.
    */
   width: 60vw;
   animation: split-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /*
- * Its own layer, so the fade is a property of the ground and not of the text standing on
- * it. Painting the gradient on .split-panel would take the type down with it.
- *
- * Solid for the first two thirds, then the last third spends itself. The stops are not
- * evenly spaced: a linear ramp reads as a band with two visible ends, and the eye finds
- * the start of it. Easing the alpha hides where it begins.
+ * The ground gets its own layer, so the fade belongs to it and not to the text on top.
+ * A gradient on .split-panel would fade the type too. Solid for two thirds, then the last third
+ * thins out on an eased curve: a linear ramp reads as a band, and the eye finds where it starts.
  */
 .split-panel-ground {
   position: absolute;
   inset: 0;
   /*
-   * The stops trace a smootherstep rather than a ramp placed by eye.
-   *
-   * Six stops chosen by hand are six changes of slope, and a change of slope reads as a
-   * line whether or not the value jumped. The one people find is usually the first, where
-   * solid ground gives way to the ramp. This curve leaves at zero slope and arrives at
-   * zero slope, so no point along it changes rate abruptly.
-   *
-   * Only the curve. The ground is still the width of the panel and still solid for the
-   * first 68% of it, so the plans still end twenty-six pixels before it starts to go.
+   * The stops follow a smootherstep. Six stops placed by eye are six changes of slope, and each
+   * one reads as a line, usually the first where solid ground gives way. This curve leaves and
+   * arrives at zero slope. The ground is still solid for the first 68%, so the plans end 26 px
+   * before it starts to go.
    */
   background: linear-gradient(
     to right,
@@ -79,10 +70,7 @@
   pointer-events: none;
 }
 
-/*
- * The text stops well before the ground does. Running it into the fade would leave the last
- * word of a line sitting on the map.
- */
+/* Text stops well before the ground does, or a line's last word would sit on the map. */
 .split-panel-body {
   display: flex;
   position: relative;
@@ -92,37 +80,24 @@
   padding: clamp(24px, 3.4vh, 44px) 0 clamp(48px, 7vh, 80px) clamp(28px, 4vw, 64px);
   overflow-y: auto;
   /*
-   * Everything stops before the ground starts thinning. A card whose right edge lands in
-   * the fade has one corner on the panel and the other on the map, and reads as torn
-   * rather than as fading.
-   */
-  /*
-   * Everything stands on solid ground, and the fade is left empty.
-   *
-   * The rule and the plans used to run to 639 on a 1440 wide window while the ground stops
-   * being solid at 588, so the last forty pixels of every card were sitting on a surface
-   * that was already half map. A card has a border and a corner and it either rests on
-   * something or it does not. The fade reads as a fade when there is nothing in it.
+   * Everything stays on solid ground and the fade is left empty. On a 1440 px window the plans
+   * ran to 639 while the ground stopped being solid at 588, so the last 40 px of every card
+   * sat on half-map. A card has corners: it rests on something or it doesn't, and one
+   * straddling the fade looks torn.
    */
   padding-right: 35%;
 
   /*
-   * No scrollbar. The panel ends in a fade halfway across the window, and a scrollbar is
-   * drawn at the edge of the scrolling box, which put a grey rail straight down the middle
-   * of the screen with map on both sides of it.
+   * No scrollbar. The panel ends in a fade halfway across the window, and the scrollbar drew
+   * a grey rail down the middle of the screen with map on both sides.
    */
   scrollbar-width: none;
 }
 
-/* The drawing and the address, on one line, sharing a baseline band. */
 /*
- * The drawing gets a square, the address gets the rest.
- *
- * Sized in fractions, the first column took whatever half the panel width happened to be
- * and the canvas came out 513 by 232. A scene composed in a square, rendered into a
- * letterbox, is framed on its height and then floats in the middle of all that spare
- * width, so the house sat well left of the address it was paired with and nothing in the
- * row lined up. The column is the square now, and the canvas fills it exactly.
+ * House and address on one row. The house gets a square, the address the rest. Sized in
+ * fractions, the canvas came out 513 by 232: a square scene in a letterbox, framed on its height
+ * and floating in spare width, well left of its address. Now the column is the square.
  */
 .split-head {
   --scene: clamp(180px, 25vh, 290px);
@@ -131,13 +106,9 @@
   flex: none;
 
   /*
-   * The pair is centred on the column, not stood at the left of it.
-   *
-   * A 1fr second column gave the address the whole remaining width, and an address is
-   * eight characters more often than it is forty: "Ερμού 12" sat against the house with
-   * six hundred pixels of nothing after it, and the two of them read as shoved into the
-   * corner. Sized to the text and centred, the pair holds the middle of the panel however
-   * long the name turns out to be.
+   * The pair is centred. A 1fr column gave the address all the remaining width, and an address
+   * is far more often 8 characters than 40: "Ερμού 12" sat against the house with 600 px of
+   * nothing after it. Sized to the text and centred, the pair holds the middle at any length.
    */
   grid-template-columns: var(--scene) minmax(0, max-content);
   justify-content: center;
@@ -147,13 +118,13 @@
 }
 
 /*
- * Nothing clips it. The scene draws its own margins and the canvas is square, so the roof
- * and the aerial have room above the house rather than being cut off by a band height.
+ * Nothing clips it. The scene draws its own margins and the canvas is square, so the roof and
+ * aerial have room above the house.
  */
 .split-scene {
   /*
-   * Square, and flush with the column. Hanging it out to the left put the drawing on one
-   * margin and the rule, the sentence and every plan under it on another.
+   * Square and flush with the column. Hanging it out to the left put the drawing on one margin
+   * and everything under it on another.
    */
   width: var(--scene);
   height: var(--scene);
@@ -168,7 +139,7 @@
 
 .split-name {
   margin: 0;
-  /* --fit comes from the length of the address. See Split.tsx. */
+  /* --fit comes from the address length, see Split.tsx */
   font-size: calc(clamp(26px, 2.8vw, 42px) * var(--fit, 1));
   font-weight: 500;
   line-height: 1.05;
@@ -185,10 +156,8 @@
 }
 
 /*
- * Faint, and short of the fade, so it does not point at the join.
- *
- * flex: none because the panel is a flex column and a one pixel child is the first thing
- * flex shrinks: it measured zero high and drew nothing at all.
+ * Faint, and short of the fade so it doesn't point at the join. flex: none because the panel
+ * is a flex column and flex shrinks a 1 px child first: it measured zero high and drew nothing.
  */
 .split-rule {
   flex: none;
@@ -199,15 +168,12 @@
   background: var(--rule);
 }
 
-/*
- * The one paragraph on the page. Set larger than the list under it, because it is the
- * answer and the list is the evidence.
- */
+/* The page's one paragraph, set larger than the list under it: this is the answer, the list
+ * is the evidence. */
 .split-verdict {
   /*
-   * The same column as the plans. 46ch is a comfortable measure and it is also 76 pixels
-   * narrower than the cards below, which reads as the paragraph being indented from the
-   * right for no reason anybody can see.
+   * Same width as the plans. 46ch is a comfortable measure, but 76 px narrower than the cards
+   * it looked indented from the right for no visible reason.
    */
   margin: 0 0 clamp(20px, 2.6vh, 32px);
   color: var(--ink-dim);
@@ -216,7 +182,7 @@
   text-wrap: pretty;
 }
 
-/* No rule above these. They continue the sentence. */
+/* No rule above these, they continue the sentence. */
 .split-offers {
   display: flex;
   flex-direction: column;
@@ -244,8 +210,8 @@
 }
 
 /*
- * Narrow: the split stops being a split. The map goes to the top third and the panel takes
- * the rest, and the fade turns through ninety degrees with it.
+ * Narrow screens: no split. The map takes the top third, the panel the rest, and the fade
+ * turns ninety degrees with it.
  */
 @media (width <= 900px) {
   .split-panel {
@@ -301,8 +267,8 @@
 }
 
 /*
- * The bench controls. Deliberately plain and deliberately ugly: this is not part of the
- * design, and anything considered here would start being read as a decision.
+ * Bench controls. Plain and ugly on purpose: they aren't part of the design, and anything
+ * polished here would start being read as a decision.
  */
 .lab-bar {
   display: flex;

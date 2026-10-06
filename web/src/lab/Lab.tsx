@@ -1,11 +1,11 @@
 /**
- * The scratchpad. Not a page of the site: a bench for the result screen, so the layout can
- * be argued about against every shape of answer without waiting on the API, the ranker or a
- * network. Dev only, and main.tsx will not route to it in a build.
+ * A bench for the result screen, not a page of the site. Lets the layout be argued over
+ * against every shape of answer without the API, the ranker or a network. Dev only, and
+ * main.tsx won't route to it in a build.
  *
- * The switcher along the bottom is the point. A screen that reads well on a gigabit address
- * in Athens and falls apart on an island with nothing but satellite is not finished, and
- * the only way to see that is to flip between them in one second.
+ * The switcher at the bottom is the point. A screen that works for gigabit Athens and falls
+ * apart on an island with only satellite isn't finished, and you only see that by flipping
+ * between them.
  */
 
 import { useEffect, useState } from "react";
@@ -19,21 +19,20 @@ export function Lab(): React.ReactElement {
   const [at, setAt] = useState(0);
 
   /**
-   * The address arrives late, because it does.
-   *
-   * Place fetches it after the map is already on screen, and the map reads that: given a
-   * position at construction it opens on the street, and given none it opens on the
-   * country and falls to the street when one turns up. Handing the fixture over at mount
-   * skipped the whole descent, so the bench was showing a screen nobody will ever see and
-   * the thing most worth looking at could not be looked at.
+   * The address arrives late, like it does for real. Place fetches it after the map is on
+   * screen. Given a position at construction the map opens on the street, given none it
+   * opens on Greece and falls to the street. Handing the fixture over at mount skipped the
+   * descent, the part most worth looking at.
    */
   const [found, setFound] = useState(false);
+  const [language, setLanguage] = useState<Language>(languageOf(window.location.pathname));
+  // the language as well: switching remounts the screen, and with the address already
+  // found it opened on the street and skipped the descent
   useEffect(() => {
     setFound(false);
     const timer = window.setTimeout(() => setFound(true), 420);
     return () => window.clearTimeout(timer);
-  }, [at]);
-  const [language, setLanguage] = useState<Language>(languageOf(window.location.pathname));
+  }, [at, language]);
   const scenario = SCENARIOS[at] ?? SCENARIOS[0];
   if (scenario === undefined) throw new Error("no scenarios to show");
 

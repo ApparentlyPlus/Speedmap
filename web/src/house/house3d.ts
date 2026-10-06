@@ -1,6 +1,5 @@
 /**
- * The house, as its own scene. Not the map: the map shows where a building is, and this shows
- * what is reaching it.
+ * The house as its own scene. The map shows where a building is, and this shows what reaches it.
  */
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -23,12 +22,9 @@ export type SceneOptions = {
   readonly mode?: Mode;
   readonly still?: boolean;
   /**
-   * Whether the house stands on a lit plate of its own.
-   *
-   * Inside a 232 pixel band the plate is the ground the house sits on. Given a quarter of
-   * the screen it becomes a lit rectangle with four corners, and the drawing reads as a
-   * picture in a frame rather than as a thing on the page. Off, the soft shadow lands on
-   * whatever is behind the canvas.
+   * Whether the house stands on its own lit plate. In a 232 px band the plate is the ground.
+   * Given a quarter of the screen it turns into a lit rectangle and the house looks framed.
+   * Off, the soft shadow falls on whatever is behind the canvas.
    */
   readonly grounded?: boolean;
 };
@@ -37,14 +33,14 @@ const WALL = 0x1a1e26;
 const ROOF = 0x0f1218;
 const TRIM = 0x2b323d;
 
-/** Where the signal comes from, and what the house is doing about it. */
+/** Where the signal comes from, and what the house does with it. */
 const SHAPE = {
   landline: { open: 0, router: 0, dish: 0, route: 'ground' },
   cellular: { open: 1, router: 1, dish: 0, route: 'air' },
   satellite: { open: 0, router: 0, dish: 1, route: 'sky' },
 };
 
-/** Busier and quicker the faster the line, so the number is visible without being read. */
+/** Busier and quicker on a faster line, so you see the speed without reading a number. */
 function traffic(mbps: number): { speed: number; density: number } {
   const k = Math.min(1, Math.log10(Math.max(mbps, 10) / 10) / Math.log10(300));
   return { speed: 0.12 + k * 0.5, density: 1.4 + k * 5.5 };
@@ -73,7 +69,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
 
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 400);
 
-  // Key from the front left, rim from behind right. The rim is what draws the bevels.
+  // key light front left, rim from behind right (the rim is what picks out the bevels)
   const key = new THREE.DirectionalLight(0xdfe8ff, 1.35);
   key.position.set(5, 7, 6);
   scene.add(key);
@@ -85,7 +81,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   const house = new THREE.Group();
   scene.add(house);
 
-  /** A bevelled slab from a flat outline: the bevel is the point. */
+  /** A bevelled slab from a flat outline. */
   function slab(
     shape: THREE.Shape,
     depth: number,
@@ -115,7 +111,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   body.rotation.x = 0;
   house.add(body);
 
-  // A roof with an overhang, because a roof flush with the wall is the tell of a primitive.
+  // overhang, since a roof flush with the walls looks like a primitive
   const roofShape = new THREE.Shape();
   roofShape.moveTo(-W / 2 - 0.22, 0);
   roofShape.lineTo(W / 2 + 0.22, 0);
@@ -124,8 +120,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   const roof = slab(roofShape, D + 0.34, 0.05, roofMat);
   house.add(roof);
 
- /** Sit the roof on the walls, measured rather than guessed. */
-  /** The extent of a mesh's own geometry, which is what everything here is placed against. */
+ // the roof sits on the walls by measurement, not by guess
   function bounds(mesh: THREE.Mesh): THREE.Box3 {
     mesh.geometry.computeBoundingBox();
     return mesh.geometry.boundingBox!;
@@ -135,12 +130,12 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   roof.position.set(0, EAVES - bounds(roof).min.y, 0);
   const RIDGE = roof.position.y + bounds(roof).max.y;
 
-  // Windows: emissive, so they carry the house's only warm light and give the walls scale.
+  // emissive windows: the only warm light on the house, and they give the walls scale
   const glass = new THREE.MeshStandardMaterial({
     color: 0x0a0c10, emissive: new THREE.Color(0xffd9a0), emissiveIntensity: 0.9,
     roughness: 0.25, metalness: 0,
   });
-  /** Where the front of the wall actually is. */
+  /** Where the wall's front face really is. */
   const FRONT = bounds(body).max.z + 0.03;
 
   const PANES: readonly (readonly [number, number])[] = [
@@ -155,12 +150,12 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   door.position.set(0, 0.5, FRONT);
   house.add(door);
 
-  // Through the slope rather than out of the ridge, and tall enough to clear it.
+  // through the slope, not out of the ridge, and tall enough to clear it
   const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.15, 0.32), roofMat);
   chimney.position.set(-0.78, RIDGE - 0.18, -0.45);
   house.add(chimney);
 
-  // The router, inside.
+  // router, inside
   const router = new THREE.Group();
   const shell = new THREE.Mesh(
     new THREE.BoxGeometry(0.66, 0.13, 0.44),
@@ -179,7 +174,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   router.position.set(0, 1.0, 0);
   house.add(router);
 
-  // The dish, on the roof.
+  // dish, on the roof
   const dish = new THREE.Group();
   const BOWL = 0.36;
   const bowl = new THREE.Mesh(
@@ -192,17 +187,17 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, MAST, 8), trimMat);
   mast.position.y = -MAST / 2;
   dish.add(mast);
-  /** Standing on the slope, not buried in it. */
+  /** Stands on the slope instead of sinking into it. */
   const DISH_X = 0.86;
   const HALF = W / 2 + 0.22;
   const slope = EAVES + 1.35 * (1 - Math.abs(DISH_X) / HALF);
-  // Lifted by the whole mast, and then by the bowl's own radius: the group's origin is the
-  // centre of the bowl, so anything less buries its lower rim in the tiles.
+  // Lifted by the mast plus the bowl's radius. The group's origin is the bowl's centre, so
+  // anything less buries the lower rim in the tiles.
   dish.position.set(DISH_X, slope + MAST + BOWL * 0.35, 0.62);
   house.add(dish);
 
-  // A soft dark disc under the house: cheaper than a shadow map and easier to control at
-  // this exposure, where a real shadow is either invisible or a hard black hole.
+  // A blurred disc under the house in place of a shadow map. At this exposure a real shadow
+  // is either invisible or a hard black hole, and a hard-edged one reads as a plate.
   function softDisc(): THREE.CanvasTexture {
     const size = 128;
     const c = document.createElement("canvas");
@@ -217,8 +212,6 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     return new THREE.CanvasTexture(c);
   }
 
-  // A soft disc rather than a shadow map: at this exposure a real shadow is either invisible
-  // or a hard black hole, and a hard-edged circle reads as a plate the house is standing on.
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(3.6, 48).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({
@@ -236,7 +229,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     scene.add(ground);
   }
 
-  // ---- the three routes, each a tube of flowing light.
+  // the three routes, each a tube of flowing light
   const ROUTES: Record<string, Flow> = {
     ground: flow([[-9, 0.06, 0], [-4, 0.06, 0], [-1.2, 0.06, 0], [0, 0.06, 0], [0, 0.9, 0]],
                  { colour, radius: 0.085 }),
@@ -245,8 +238,8 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   };
   for (const r of Object.values(ROUTES)) scene.add(r.mesh);
 
-  // Cellular is not a path but a broadcast, so it is rings rather than a tube.
-  /** Turned to face the camera every frame, so they are always drawn as circles. */
+  // cellular is a broadcast, so it's rings, no tube
+  /** Billboarded every frame so they always draw as circles. */
   const rings = Array.from({ length: 4 }, () => {
     const r = ring(colour);
     r.position.set(0, 1.05, 0);
@@ -255,26 +248,12 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   });
 
   /**
-   * The box the camera frames, and it has to hold the widest thing any mode draws.
-   *
-   * It was fitted to the house, 5.4 by 6.4, which is right up to the moment cellular turns
-   * on: the broadcast rings grow to a radius of nearly three and the outermost ones were
-   * being cut off by all four edges. Sized to the rings instead, so the house sits a
-   * little smaller and nothing that leaves it runs out of frame.
-   *
-   * Centred below the middle of the house rather than on it. The chimney, the aerial and
-   * the dish all stand above the roof, so the drawing's weight is higher than its box.
-   */
-  /**
-   * Two boxes, because the drawing is two sizes.
-   *
-   * The house and its wires fit in HOUSE. Turn cellular on and the broadcast rings grow to
-   * a radius of three around the aerial, and framing those inside HOUSE cut every ring off
-   * against all four edges. Framing everything inside BROADCAST instead fixes the rings and
-   * leaves the house small on the four modes out of five that draw no rings at all.
-   *
+   * Two boxes, since the drawing comes in two sizes. The house and wires fit HOUSE. Cellular's
+   * rings grow to a radius of about three around the aerial, and HOUSE cut them off on all four
+   * sides. BROADCAST holds them but leaves the house small in the four modes without rings.
    * So the camera holds HOUSE and eases back to BROADCAST as the rings come in, on the same
-   * 0 to 1 the walls open on. Nothing is cut off and nothing is far away.
+   * 0 to 1 the walls open on. Centred below the house's middle, since the chimney, aerial and
+   * dish all stand above the roof.
    */
   const HOUSE = { height: 5.4, width: 6.4 };
   const BROADCAST = { height: 7.4, width: 8.2 };
@@ -282,7 +261,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   const AIM = new THREE.Vector3(0.58, 0.4, 0.92).normalize();
 
   let sized = { w: 0, h: 0 };
-  /** How far back each box has to be watched from, at the size the canvas is now. */
+  /** Camera distance for each box at the canvas's current size. */
   let range = { near: 0, far: 0 };
 
   function resize(): void {
@@ -301,7 +280,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     camera.updateProjectionMatrix();
   }
 
-  /** Where the camera stands, given how much of the broadcast is showing. */
+  /** Camera position for how much of the broadcast is showing. */
   function watchFrom(air: number): void {
     const back = range.near + (range.far - range.near) * air;
     camera.position.copy(AIM).multiplyScalar(back).add(new THREE.Vector3(0, CENTRE, 0));
@@ -319,11 +298,9 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     const open = a.open + (b.open - a.open) * eased;
     const flow4 = traffic(mbps);
 
-    // The walls opening is the transition: everything else follows from it.
-    /**
-     * three caches whether a material needs the transparent pass, so flipping the flag without
-     * saying so leaves the walls solid however low the opacity goes.
-     */
+    // the walls opening drives everything else
+    // three caches whether a material needs the transparent pass. Flip the flag without
+    // telling it and the walls stay solid at any opacity.
     const clear = open > 0.01;
     if (wallMat.transparent !== clear) {
       wallMat.transparent = clear;
@@ -355,36 +332,52 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     }
 
     const air = (a.route === 'air' ? 1 - eased : 0) + (b.route === 'air' ? eased : 0);
-    // Before the rings, because they are turned to face the camera and a camera moved after
-    // them leaves a frame of rings facing where it used to be.
+    // Before the rings, which face the camera. Move the camera after them and you get a frame
+    // of rings facing where it used to be.
     watchFrom(air);
 
     rings.forEach((r, i) => {
       const paint = r.material as THREE.MeshBasicMaterial;
       r.visible = air > 0.01;
       const phase = ((now / 2600) + i / rings.length) % 1;
-      // Starting at the aerial rather than at arm's length from it, so the wave is seen
-      // leaving the router rather than already on its way.
-      // Stops inside SUBJECT. A ring that leaves the frame is a wave that hit a wall.
+      // Start at the aerial so the wave is seen leaving the router. Stop inside SUBJECT: a
+      // ring leaving the frame looks like a wave hitting a wall.
       const size = 0.12 + phase * 2.9;
       r.quaternion.copy(camera.quaternion);
       r.scale.set(size, size, size);
-      // Fading in as well as out, so a ring is never seen springing into existence at the
-      // aerial, the same rule the tubes follow at their ends.
+      // fade in as well as out, so no ring pops into being at the aerial (tubes do the same)
       paint.opacity = Math.min(1, phase * 6) * (1 - phase) * 0.5 * air;
     });
 
     renderer.render(scene, camera);
-    if (!still) raf = requestAnimationFrame(frame);
+    if (!still && seen) raf = requestAnimationFrame(frame);
   }
+
+  /**
+   * Pause while scrolled off screen. Hidden tabs stop rAF on their own, scrolled canvases
+   * don't, so on a phone the house kept drawing behind the plan list. The step is capped,
+   * so it resumes where it left off.
+   */
+  let seen = true;
+  const watcher = new IntersectionObserver((entries) => {
+    const now = entries.some((entry) => entry.isIntersecting);
+    if (now === seen) return;
+    seen = now;
+    if (seen) start();
+    else cancelAnimationFrame(raf);
+  });
+  watcher.observe(canvas);
 
   function start(): void {
     cancelAnimationFrame(raf);
     if (still) frame();
-    else raf = requestAnimationFrame(frame);
+    else if (seen) raf = requestAnimationFrame(frame);
   }
   start();
-  window.addEventListener('resize', () => { if (still) frame(); });
+  // named so stop() can remove it: anonymous, every address left one behind, keeping its
+  // renderer and scene alive
+  const onResize = (): void => { if (still) frame(); };
+  window.addEventListener('resize', onResize);
 
   return {
     setMode(next: Mode) {
@@ -404,9 +397,11 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     setStill(next: boolean) { still = next; start(); },
     stop() {
       cancelAnimationFrame(raf);
+      watcher.disconnect();
+      window.removeEventListener('resize', onResize);
       for (const r of Object.values(ROUTES)) r.dispose();
-      // Geometries, materials and render targets are not garbage collected. Leaking a
-      // scene per address is the classic version of this bug.
+      // geometries, materials and render targets aren't garbage collected, and leaking a
+      // scene per address is the classic version of this bug
       scene.traverse((o) => {
         const mesh = o as Partial<THREE.Mesh>;
         mesh.geometry?.dispose();

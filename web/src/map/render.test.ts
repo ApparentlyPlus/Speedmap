@@ -1,6 +1,6 @@
 /**
- * The map, rendered by a real browser. The style validator says a style is well formed. It
- * cannot say the map draws.
+ * The map rendered in a real browser. The validator can say a style is well formed, but not
+ * that the map draws.
  */
 
 import { chromium, type Browser, type Page } from "playwright";
@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const WHERE = "http://127.0.0.1:5173";
 
-/** Thessaloniki, close enough in that streets are the point. */
+/** Thessaloniki, close enough that the streets are the point. */
 const CITY = "#13/40.635/22.945";
 
 const SETTLE = 9000;
@@ -30,8 +30,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   const faults: string[] = [];
 
   beforeAll(async () => {
-    // Software rendering, because a test machine has no GPU and the point is the geometry
-    // rather than the pixels.
+    // software GL: test machines have no GPU, and we're checking geometry, not pixels
     browser = await chromium.launch({
       args: ["--use-gl=swiftshader", "--enable-unsafe-swiftshader"],
     });
@@ -49,7 +48,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("finishes loading", async () => {
-    // False here is the symptom every one of those bugs produced.
+    // false here is what every one of those bugs looked like
     expect(await page.evaluate(() => window.atlas?.loaded() ?? false)).toBe(true);
   });
 
@@ -66,8 +65,8 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("draws the basemap under them", async () => {
-    // Roads and water come out of an archive read by range request. If that is not wired
-    // up the coverage floats on a black rectangle, which is what it used to do.
+    // Roads and water come from a range-read archive. Unwired, the coverage floats on a black
+    // rectangle, as it once did.
     const drawn = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["road", "water"] }).length,
     );
@@ -75,8 +74,8 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("draws buildings where there are buildings", async () => {
-    // Footprints only start at zoom fourteen, so this one has to go and look. It puts the
-    // camera back: the tests share a page, and the next one counts what is in view.
+    // footprints start at zoom 14, so go and look, then put the camera back: the tests share
+    // a page and the next one counts what's in view
     await page.evaluate(() => window.atlas.jumpTo({ center: [22.9444, 40.6401], zoom: 16.5 }));
     await page.waitForTimeout(6000);
     const drawn = await page.evaluate(
@@ -91,8 +90,8 @@ describe.skipIf(!running)("the map in a browser", () => {
     const anyone = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["streets"] }).length,
     );
-    // The button carries the name a reader knows rather than the register's code:
-    // the panel said OTE while the data behind it said Telekom until that changed.
+    // the button shows the brand, not the register code (it said OTE while the data said
+    // Telekom, until that was fixed)
     await page.getByRole("button", { name: "ΔΕΗ Fiber", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(
@@ -103,8 +102,8 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("keeps an operator that files no speeds at all", async () => {
-    // Inalan reaches 112,739 addresses and files a speed for none of them. A filter that
-    // tests for a number rather than for service would hide the lot.
+    // Inalan reaches 112,739 addresses and files a speed for none of them, so a filter
+    // testing for a number would hide them all
     await page.getByRole("button", { name: "Inalan", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(

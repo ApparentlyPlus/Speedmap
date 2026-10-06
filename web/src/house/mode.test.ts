@@ -7,8 +7,7 @@ import { modeOf } from "./mode";
 
 describe("the picture an offer gets", () => {
   it("draws copper and fiber the same way", () => {
-    // Different things to sell, the same thing to look at: both arrive along a line in the
-    // ground, and that is what the drawing is about.
+    // different products, same picture: both arrive along a line in the ground
     expect(modeOf("fiber")).toBe("landline");
     expect(modeOf("copper")).toBe("landline");
   });
@@ -25,8 +24,8 @@ describe("the picture an offer gets", () => {
   });
 
   it("falls back to the commonest rather than to nothing", () => {
-    // A family the catalogue grows later should draw something plausible, not crash the
-    // scene or leave an empty canvas where the address ought to be.
+    // a family the catalogue adds later should still draw something, not crash the scene or
+    // leave an empty canvas
     expect(modeOf("something new")).toBe("landline");
   });
 });
