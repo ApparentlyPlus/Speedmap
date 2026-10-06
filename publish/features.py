@@ -6,6 +6,7 @@ Python dicts on the way to a file.
 
 from __future__ import annotations
 
+import gzip
 import os
 import pathlib
 import tempfile
@@ -19,6 +20,14 @@ from publish import fields
 # pivot is generated, so adding an operator is a schema edit. It's one grouped pass over
 # street_provider, hash-joined: twelve correlated subqueries per street came to a million
 # index probes over 80,000 streets.
+# Streets carry their own id from DETAIL_FROM up, where one can be clicked and lit. Below
+# it a street is under a pixel wide, and one z6 tile held 56,439 of them as separate features
+# with only 642 distinct sets of attributes between them: the browser triangulated and styled
+# every one. Down there they're written without id and nprov, ordered so identical ones sit
+# together, and tippecanoe merges each run into one feature. The colour and every operator
+# field survive, so the map looks and filters the same.
+DETAIL_FROM = 10
+
 STREETS = """
 with reach as (
     select sp.street_id, count(*) as nprov
@@ -29,6 +38,7 @@ with reach as (
 )
 select json_build_object(
     'type', 'Feature',
+    'tippecanoe', json_build_object('minzoom', {detail_from}),
     'geometry', st_asgeojson(st_transform(s.geom::geometry, 4326), 6)::json,
     'properties', json_build_object(
         'id', s.id,
@@ -45,6 +55,34 @@ where s.geom is not null
 -- two crossing streets swap which is on top. A rebuild with no data change once moved
 -- several hundred pixels that way.
 order by s.id
+"""
+
+# The same streets for the zooms below DETAIL_FROM, without id and nprov. Slowest first, so
+# the faster lines draw on top, and identical attribute sets come out next to each other for
+# tippecanoe to merge. Tied on everything else, the street id keeps the order stable.
+STREETS_OVERVIEW = """
+with reach as (
+    select sp.street_id
+           {aggregates}
+    from street_provider sp
+    join provider p on p.id = sp.provider_id
+    group by sp.street_id
+),
+drawn as (
+    select s.id, s.best_mbps, s.geom,
+           json_build_object('best_mbps', s.best_mbps {operators}) as properties
+    from street s
+    left join reach r on r.street_id = s.id
+    where s.geom is not null
+)
+select json_build_object(
+    'type', 'Feature',
+    'tippecanoe', json_build_object('maxzoom', {detail_from} - 1),
+    'geometry', st_asgeojson(st_transform(geom::geometry, 4326), 6)::json,
+    'properties', properties
+)::text
+from drawn
+order by best_mbps nulls first, properties::text, id
 """
 
 # one feature per municipality, for zooms where a street is a fraction of a pixel
@@ -178,7 +216,15 @@ def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> in
 
 
 def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    return write(conn, STREETS.format(aggregates=aggregates(), operators=operators()), out)
+    sql = STREETS.format(aggregates=aggregates(), operators=operators(), detail_from=DETAIL_FROM)
+    return write(conn, sql, out)
+
+
+def streets_overview(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
+    sql = STREETS_OVERVIEW.format(
+        aggregates=aggregates(), operators=operators(), detail_from=DETAIL_FROM
+    )
+    return write(conn, sql, out)
 
 
 # coastline smoothing, in degrees (about 20 m)
@@ -209,12 +255,13 @@ def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
     if row is None or row[0] is None:
         raise SystemExit("no municipalities: the country has no outline")
     out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_suffix(out.suffix + ".part")
-    tmp.write_text(
-        '{"type":"Feature","properties":{},"geometry":' + row[0] + "}",
-        encoding="utf-8",
-    )
-    tmp.replace(out)
+    body = ('{"type":"Feature","properties":{},"geometry":' + row[0] + "}").encode("utf-8")
+    # A gzip copy beside it for Caddy's precompressed: 1.4 MB of coordinates, fetched on every
+    # page open before the first tile, compress to about a quarter.
+    for path, data in ((out, body), (out.with_name(out.name + ".gz"), gzip.compress(body, 9))):
+        tmp = path.with_name(path.name + ".part")
+        tmp.write_bytes(data)
+        tmp.replace(path)
     return out.stat().st_size
 
 

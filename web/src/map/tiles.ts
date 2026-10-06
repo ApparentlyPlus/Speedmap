@@ -10,12 +10,15 @@ export const VERSION = 1 as const;
  * a single best paints a street in one operator's colour while claiming another's.
  */
 export type Street = {
-  /** the street row this was built from */
-  readonly id: number;
+  /**
+   * the street row this was built from. Absent below zoom 10, where streets are under a
+   * pixel wide and features with identical fields are merged into one
+   */
+  readonly id: number | null;
   /** the fastest anyone reaches here; null is not filed, never zero */
   readonly best_mbps: Mbps | null;
-  /** how many operators reach this street at all, filed speed or not */
-  readonly nprov: number;
+  /** how many operators reach this street at all, filed speed or not. Absent below zoom 10 */
+  readonly nprov: number | null;
   readonly p_telekom: Mbps | null;
   readonly p_vodafone: Mbps | null;
   readonly p_nova: Mbps | null;
