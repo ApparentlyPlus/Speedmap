@@ -1,7 +1,7 @@
-"""How long an answer is worth keeping, which depends on what the answer was.
+"""How long an answer stays trusted, which depends on the answer.
 
-A gigabit address is settled. A slow one is where someone is digging. A failure is not an
-answer and is retried in hours.
+A gigabit address is settled. A slow one is where someone's about to dig. A failure isn't an
+answer, and is retried within hours.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ USABLE = Decimal(100)
 SETTLED = timedelta(days=730)
 LIKELY = timedelta(days=183)
 CHANGING = timedelta(days=91)
-# Absence is the least stable answer there is: one trench overturns it.
+# absence is the least stable answer there is: one trench overturns it
 VOLATILE = timedelta(days=30)
 FAILED = timedelta(hours=6)
 

@@ -47,14 +47,14 @@ def test_a_filing_is_held_to_its_technology(
 
 
 def test_gigabit_adsl_cannot_win() -> None:
-    """Five real register rows file ADSL at >= 1 Gbps. They are stored as filed and clamped here."""
+    """Five real register rows file ADSL at >= 1 Gbps. Stored as filed, clamped here."""
     value, was_clamped = clamp(mbps("1000"), ADSL)
     assert value == ADSL
     assert was_clamped
 
 
 def test_clamping_is_reported_not_hidden() -> None:
-    """The card must be able to say the operator filed something impossible."""
+    """The card has to be able to say the operator filed something impossible."""
     assert expected("copper", mbps("1000"), ceiling=ADSL).clamped is True
     assert expected("copper", mbps("10"), ceiling=ADSL).clamped is False
 
@@ -63,7 +63,7 @@ def test_clamping_is_reported_not_hidden() -> None:
 
 
 def test_no_tests_is_no_confidence() -> None:
-    """Not low confidence. There is nothing to be confident about."""
+    """Zero, which is different from low. There's nothing to be confident about."""
     assert confidence(None) == 0.0
     assert confidence(0) == 0.0
 
@@ -93,7 +93,7 @@ def test_fiber_delivers_what_it_says() -> None:
 
 
 def test_copper_is_held_down_by_measurement() -> None:
-    """Advertised 100 where the cell measures 40 is not 100."""
+    """Advertised 100 in a cell measuring 40 comes out below 100."""
     result = expected("copper", mbps("100"), ceiling=VDSL, median_mbps=mbps("40"), tests=30)
     assert result.mbps == mbps("50")
     assert result.measured is True
@@ -113,7 +113,7 @@ def test_copper_without_a_measurement_is_declared_only() -> None:
 
 
 def test_mobile_without_a_measurement_has_no_expectation() -> None:
-    """An advertised mobile figure is a best case the customer will not see indoors."""
+    """An advertised mobile figure is a best case nobody sees indoors."""
     result = expected("wireless", mbps("300"))
     assert result.mbps is None
 
@@ -132,7 +132,7 @@ def test_satellite_is_discounted_from_its_headline() -> None:
 
 
 def test_an_impossible_filing_is_clamped_before_tempering() -> None:
-    """ADSL filed at a gigabit, in a cell measuring 8 Mbps, is 10 Mbps and not 24."""
+    """ADSL filed at a gigabit, in a cell measuring 8 Mbps, comes out at 10 Mbps."""
     result = expected("copper", mbps("1000"), ceiling=ADSL, median_mbps=mbps("8"), tests=30)
     assert result.clamped is True
     assert result.mbps == mbps("10.0")
@@ -161,7 +161,7 @@ def test_a_thin_measurement_does_not_overturn_the_filed_band() -> None:
 
 
 def test_a_thick_measurement_overturns_it_completely() -> None:
-    """At twenty five tests the tile is the answer and the filing is not consulted."""
+    """At 25 tests the tile is the answer and the filing is ignored."""
     result = expected(
         "mobile", mbps("1000"), median_mbps=mbps("35.7"),
         tests=FULL_CONFIDENCE_TESTS, filed_mbps=mbps("300"),
@@ -182,13 +182,13 @@ def test_more_tests_never_move_the_answer_back_toward_the_filing() -> None:
 
 
 def test_a_filed_band_with_nothing_to_temper_against_is_the_measurement() -> None:
-    """Mobile off the grid files no band, and a tile is then all there is."""
+    """Mobile off the grid files no band, so the tile is all there is."""
     result = expected("mobile", mbps("1000"), median_mbps=mbps("50"), tests=2)
     assert result.mbps == mbps("50") * Decimal("0.8")
 
 
 def test_copper_is_held_toward_what_it_is_sold_as() -> None:
-    """Two tests measuring 20 do not make a 100 Mbps line a 25 Mbps line."""
+    """Two tests measuring 20 don't turn a 100 Mbps line into a 25 Mbps one."""
     thin = expected("copper", mbps("100"), ceiling=mbps("100"), median_mbps=mbps("20"), tests=2)
     thick = expected(
         "copper", mbps("100"), ceiling=mbps("100"), median_mbps=mbps("20"),
@@ -211,6 +211,6 @@ def test_tempering_against_nothing_changes_nothing() -> None:
 def test_tempering_never_leaves_the_two_witnesses(
     seen: Decimal, filed: Decimal, weight: float
 ) -> None:
-    """The answer is always between what was measured and what was filed, never outside."""
+    """The answer always lies between what was measured and what was filed."""
     result = tempered(seen, filed, weight)
     assert min(seen, filed) - Decimal("0.001") <= result <= max(seen, filed) + Decimal("0.001")

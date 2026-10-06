@@ -1,7 +1,6 @@
-"""Ask Vodafone what it will sell at a set of coordinates.
+"""Ask Vodafone what it sells at a set of coordinates.
 
-Alone among the three retail operators this one is keyed on a point rather than on its own
-spelling of a street.
+The only one of the three retailers keyed on a point, with no spelling of the street needed.
 """
 
 from __future__ import annotations
@@ -25,19 +24,19 @@ ONBOARDING = SPEC.url("warm")
 QUALIFY = SPEC.text("qualify")
 PROXY = SPEC.text("proxy")
 
-# Their identifier for a retail consumer, as their own onboarding sends it.
+# their id for a retail consumer, as their onboarding sends it
 RETAIL_PARTY = SPEC.text("retail_party")
 
-# What they call a technology, in our vocabulary. A hundred megabits over copper is
-# vectored by definition, which is why the two VDSL rungs do not map to one code.
+# Their technology names in our vocabulary. 100 Mbps over copper is vectored by
+# definition, which is why the two VDSL rungs map to different codes.
 TECHNOLOGY = SPEC.mapping("technology")
 
-# Categories that qualify without naming a service to go with it.
+# categories that qualify without naming a service
 BARE_CATEGORY = SPEC.mapping("bare")
 
 
 def mbps(value: object) -> Decimal | None:
-    """A promised speed, or None when the operator quoted nothing usable."""
+    """A promised speed, or None if nothing usable was quoted."""
     if value is None:
         return None
     try:
@@ -56,11 +55,18 @@ def characteristics(entries: object) -> dict[str, object]:
     }
 
 
+def faster(offer: Offer, than: Offer) -> bool:
+    """Whether one quote beats another. Any figure beats none."""
+    if offer.max_down_mbps is None:
+        return False
+    return than.max_down_mbps is None or offer.max_down_mbps > than.max_down_mbps
+
+
 def offers(payload: dict[str, Any]) -> tuple[Offer, ...]:
     """Every technology the answer qualifies, in our vocabulary.
 
-    A category we have no code for is dropped rather than guessed: their IPTV is not
-    broadband, and a technology they add later is a change we should notice, not absorb.
+    Categories we have no code for are dropped. Their IPTV isn't broadband, and a technology
+    they add later is a change we want to notice.
     """
     found: dict[str, Offer] = {}
     items = payload.get("serviceQualificationItem")
@@ -80,12 +86,17 @@ def offers(payload: dict[str, Any]) -> tuple[Offer, ...]:
                 continue
             named = True
             spec = characteristics(entry.get("serviceCharacteristic"))
-            found[technology] = Offer(
+            offer = Offer(
                 technology=technology,
                 max_down_mbps=mbps(spec.get("maxPromisedSpeedDownload")),
                 avg_down_mbps=mbps(spec.get("averagePromisedSpeedDownload")),
                 avg_up_mbps=mbps(spec.get("averagePromisedSpeedUpload")),
             )
+            # Four FTTH rungs share one code. The last listed used to win, so an answer naming
+            # 1000 then 100 was kept as a 100 Mbps line. Now the fastest wins.
+            held = found.get(technology)
+            if held is None or faster(offer, held):
+                found[technology] = offer
 
         if named:
             continue
@@ -99,7 +110,7 @@ def offers(payload: dict[str, Any]) -> tuple[Offer, ...]:
 
 
 def cabinet(payload: dict[str, Any]) -> dict[str, object]:
-    """The exchange and street cabinet the line hangs off, which is why copper varies."""
+    """The exchange and cabinet the line hangs off, which is why copper speeds vary."""
     items = payload.get("serviceQualificationItem")
     for item in items if isinstance(items, list) else []:
         if not isinstance(item, dict):
@@ -115,7 +126,7 @@ def cabinet(payload: dict[str, Any]) -> dict[str, object]:
 
 
 def read(payload: dict[str, Any]) -> Probed:
-    """The answer, parsed. Pure, so the shape is tested without asking anyone."""
+    """Parse the answer. Pure, so the shape can be tested offline."""
     found = offers(payload)
     return Probed(
         serviceable=bool(found),
@@ -126,7 +137,7 @@ def read(payload: dict[str, Any]) -> Probed:
 
 @dataclass
 class Vodafone:
-    """A session against their onboarding flow, reused across checks."""
+    """A session on their onboarding flow, reused across checks."""
 
     code: str = "VODAFONE"
     client: httpx.Client | None = None
@@ -147,7 +158,7 @@ class Vodafone:
                 **SPEC.mapping("headers"),
             },
         )
-        # The proxy will not act without the cookie the onboarding page sets.
+        # the proxy won't act without the cookie the onboarding page sets
         client.get(ONBOARDING, headers={"Accept": "text/html"})
         self.client = client
         return client
@@ -193,7 +204,7 @@ class Vodafone:
         }
 
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
-        """The connection is unused: a point is the whole query, which is the point of it."""
+        """The connection goes unused: a point is the whole query."""
         response = self.session().post(
             f"{PROXY}{QUALIFY}", json=self.request(target)
         )

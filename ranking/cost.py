@@ -1,19 +1,19 @@
-"""Normalise a tariff to what it actually costs per month."""
+"""Normalise a tariff to what it really costs per month."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
 
-# Everything is blended over the same window, so a two-year lock and a rolling monthly
-# contract can be compared. Twenty four months is the usual Greek contract length.
+# One window for everything, so a two-year lock and a rolling monthly can be compared.
+# 24 months is the usual Greek contract.
 WINDOW_MONTHS = 24
 
 
 @dataclass(frozen=True)
 class Price:
-    """A tariff as filed. None means not known, never zero: a scraper that failed to find
-    the setup fee has not established that there isn't one."""
+    """A tariff as filed. None means unknown, never zero: a scraper that missed the setup fee
+    hasn't shown there isn't one."""
 
     monthly_eur: Decimal
     setup_eur: Decimal | None = None
@@ -25,19 +25,19 @@ class Price:
 
 @dataclass(frozen=True)
 class MonthlyCost:
-    """The blend, kept in parts so a card can show why a cheap headline is not cheap."""
+    """The blend, kept in parts so a card can show why a cheap headline isn't cheap."""
 
     total: Decimal
     recurring: Decimal
     upfront: Decimal
-    # Whether every part of the upfront was published. False makes the total a floor: the
-    # monthly is known and something one-off is not, so the real figure is this or more.
+    # Whether every one-off was published. If not, the total is a floor: the monthly is known
+    # and a one-off isn't, so the real figure is this or more.
     complete: bool = True
 
 
 def promo_window(price: Price) -> int:
-    """Promo months counted inside the window. A promo longer than the window is the whole
-    window: charging the post-promo rate for negative months would make the offer cheaper."""
+    """Promo months inside the window. A promo longer than the window fills it: charging the
+    post-promo rate for negative months would make the offer cheaper."""
     if price.promo_months is None or price.promo_monthly_eur is None:
         return 0
     return min(max(price.promo_months, 0), WINDOW_MONTHS)
@@ -46,8 +46,7 @@ def promo_window(price: Price) -> int:
 def upfront(price: Price) -> tuple[Decimal, bool]:
     """Setup plus hardware spread over the window, and whether both were published.
 
-    An unpublished part counts as nothing and is reported as missing rather than suppressing
-    the whole price.
+    A missing part counts as zero and is flagged, so one unknown fee doesn't hide the whole price.
     """
     known = price.setup_eur is not None and price.hardware_eur is not None
     setup = price.setup_eur if price.setup_eur is not None else Decimal(0)
@@ -56,10 +55,7 @@ def upfront(price: Price) -> tuple[Decimal, bool]:
 
 
 def blended(price: Price) -> MonthlyCost:
-    """What the offer costs per month across the window.
-
-    Always a figure, because the monthly rate is always known, plan_price requires it.
-    """
+    """Monthly cost across the window. Always a figure, since plan_price requires the monthly rate."""
     spread, known = upfront(price)
 
     promo = promo_window(price)

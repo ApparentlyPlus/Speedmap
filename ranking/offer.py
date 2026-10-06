@@ -1,7 +1,8 @@
-"""Assemble what is actually buyable at one address, priced and speed-tempered.
+"""Everything buyable at one address, priced, with an expected speed.
 
-Three kinds of thing end up here and they qualify differently. A line qualifies because the
-operator files coverage at this address.
+Three kinds of plan qualify differently. A line qualifies when the operator files coverage
+here or its checker said yes. Airtime qualifies where the operator's mobile grid reaches.
+Satellite qualifies everywhere.
 """
 
 from __future__ import annotations
@@ -18,34 +19,58 @@ from ranking.measured import Measured, for_family, nearby
 from ranking.rank import Option
 from ranking.speed import expected
 
-# Sold from everywhere there is sky, so it is never filtered out by coverage.
+# sold anywhere there's sky, so coverage never filters it out
 EVERYWHERE = frozenset({"satellite"})
 
-# Bought as airtime and pointed at a router, so what qualifies it is the mobile grid.
+# airtime pointed at a router, so the mobile grid is what qualifies it
 AIRTIME = "MOBILE"
 
 PLANS = """
+-- each operator's last scrape date, computed once instead of per plan row
+with scraped as (
+    select other.provider_id, max(pp.observed_on) as latest
+    from plan_price pp
+    join plan other on other.id = pp.plan_id
+    where pp.source = 'catalogue'
+    group by other.provider_id
+)
 select pr.code, pr.display_name, pl.name, pl.technology, pl.family, pl.down_mbps,
        pl.needs_hardware, pl.data_cap_gb, t.max_plausible_mbps,
        pc.monthly_eur, pc.setup_eur, pc.hardware_eur,
        pc.promo_months, pc.promo_monthly_eur,
        v.avg_down_mbps,
-       sb.min_mbps
+       sb.min_mbps,
+       coalesce(nb.max_mbps, sb.max_mbps)
 from plan pl
 join provider pr on pr.id = pl.provider_id
 join plan_current pc on pc.plan_id = pl.id
 join technology t on t.code = pl.technology
-left join availability v
-       on v.address_id = %(address)s and v.provider_id = pl.provider_id
-      and v.technology = pl.technology and v.serviceable
+-- Vodafone's checker says fixed wireless reaches here but never which generation, so the
+-- answer is stored as FWA while the plans are FWA_4G and FWA_5G. Matched on code alone, a
+-- yes never unlocked a single wireless plan. An exact code match wins when both exist.
+left join lateral (
+    select v.address_id, v.avg_down_mbps
+    from availability v
+    where v.address_id = %(address)s and v.provider_id = pl.provider_id and v.serviceable
+      and (v.technology = pl.technology
+           or (v.technology = 'FWA' and pl.technology in ('FWA_4G', 'FWA_5G')))
+    order by v.technology = pl.technology desc
+    limit 1
+) v on true
 left join address_coverage ac
        on ac.address_id = %(address)s and ac.provider_id = pl.provider_id
       and ac.technology = pl.technology
 left join speed_band sb on sb.id = ac.speed_band_id
-where pl.technology = %(airtime)s
+left join speed_band nb on nb.id = ac.normal_band_id
+left join scraped on scraped.provider_id = pl.provider_id
+where (pl.technology = %(airtime)s
    or pl.family = any(%(everywhere)s)
    or v.address_id is not null
-   or ac.address_id is not null
+   or ac.address_id is not null)
+  -- A plan missing from its operator's latest scrape was withdrawn. Its last price stays in
+  -- plan_price as history, and was being offered as current forever. Scraped catalogues only,
+  -- since hand-recorded pages are dated a section at a time.
+  and (pc.source <> 'catalogue' or pc.observed_on >= scraped.latest)
 """
 
 
@@ -60,10 +85,10 @@ class Reckoned:
 
 
 def capped(reached: Decimal | None, advertised: Decimal | None) -> Decimal | None:
-    """A fast street does not make a slow plan fast.
+    """A fast street doesn't make a slow plan fast.
 
-    Their 5G router sold at 50 Mbps delivers 50 wherever it stands, and a tile measuring 260
-    is about the cell rather than the contract.
+    A 5G router sold at 50 Mbps delivers 50 wherever it sits. A tile measuring 260 is about the
+    cell, and the contract still says 50.
     """
     if reached is None or advertised is None:
         return reached
@@ -79,9 +104,9 @@ def speed(
     measured: Measured | None,
     ceiling_here: Decimal | None = None,
 ) -> Reckoned:
-    """What this offer should be expected to deliver here, and on what grounds.
+    """What this offer should deliver here, and on what evidence.
 
-    Three kinds of evidence, in order of how specific they are to this address.
+    Three kinds, most specific to this address first: an operator quote, a measurement, the filing.
     """
     if quote is not None:
         return Reckoned(capped(quote, advertised), basis="quoted")
@@ -91,10 +116,10 @@ def speed(
             family, advertised, ceiling,
             median_mbps=measured.down_mbps, tests=measured.tests, filed_mbps=filed,
         )
-        # Only claim a measurement where one was used.
+        # only call it measured when a measurement was used
         if speed_of.mbps is not None and speed_of.measured:
-            # A tile is every operator in it at once. One operator filing a slower band
-            # here is saying its own mast is worse than the place, and it knows.
+            # A tile mixes every operator in it. One filing a slower band here is saying its
+            # own mast is worse than the area, and it would know.
             held = capped(speed_of.mbps, ceiling_here)
             return Reckoned(
                 capped(held, advertised), basis="measured",
@@ -103,14 +128,13 @@ def speed(
 
     speed_of = expected(family, advertised, ceiling, median_mbps=filed)
     basis = "filed" if filed is not None else "advertised"
-    return Reckoned(capped(speed_of.mbps, advertised), basis=basis)
+    return Reckoned(capped(capped(speed_of.mbps, ceiling_here), advertised), basis=basis)
 
 
 def owned(needs_hardware: str | None, hardware_eur: Decimal | None) -> Decimal | None:
-    """What the equipment costs, which for most plans is nothing because there is none.
+    """What the equipment costs, nothing for most plans because there isn't any.
 
-    A plan that names no equipment has none to pay for, so zero here is what the catalogue
-    says rather than what we assumed it meant.
+    A plan naming no equipment has none to pay for, so this zero comes from the catalogue.
     """
     if needs_hardware is None:
         return Decimal(0)
@@ -118,7 +142,7 @@ def owned(needs_hardware: str | None, hardware_eur: Decimal | None) -> Decimal |
 
 
 def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]:
-    """Everything buyable here, with a cost and an expectation attached to each."""
+    """Everything buyable here, each with a cost and an expected speed."""
     reach = mobile(conn, address_id)
     point = conn.execute(
         "select st_y(geom::geometry), st_x(geom::geometry) from address where id = %s",
@@ -134,12 +158,15 @@ def options(conn: psycopg.Connection[TupleRow], address_id: int) -> list[Option]
     options_out: list[Option] = []
     for (code, shown, name, technology, family, advertised, needs_hardware, cap, ceiling,
          monthly, setup, hardware, promo_months, promo_monthly,
-         quote, filed) in rows:
+         quote, filed, held_to) in rows:
         here = filed
-        ceiling_here = None
+        # A line filed as normally carrying less than the plan's speed delivers that less, as
+        # the map already shows: the street is painted at the cap, and this card was promising
+        # the plan's full figure on the same line. Fixed lines only.
+        ceiling_here = held_to if str(family) not in ("wireless", "satellite") else None
         if technology == AIRTIME:
-            # Airtime is only worth anything where the operator's own network reaches, and
-            # the grid is the only thing that knows whether it does.
+            # airtime is worthless where the operator's own network doesn't reach, and only the
+            # grid knows where it does
             covers = reach.get(str(code))
             if covers is None:
                 continue

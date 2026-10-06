@@ -1,7 +1,7 @@
-"""Ask the operators that need asking, and keep what they say.
+"""Ask the operators that are due, and keep what they say.
 
-The three are asked at once because they do not know about each other and a person waiting
-should not pay for that three times over.
+All three at once: they don't depend on each other, and a reader waiting shouldn't pay for
+three round trips in a row.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from psycopg.types.json import Jsonb
 from probe.adapter import Adapter, NotAskableError, Probed, Target
 from probe.ttl import FAILED, VOLATILE, ttl
 
-# Three operators, three sessions, one wait.
+# three operators, three sessions, one wait
 WIDTH = 3
 
 LAST = """
@@ -55,21 +55,35 @@ on conflict (address_id, provider_id, technology) do update set
     raw = excluded.raw
 """
 
+# A conclusive answer is everything the operator sells here now. A line they dropped, or an
+# address they now refuse, used to stay serviceable until the old answer expired, up to two
+# years later, because nothing ever wrote a no. It's recorded now, with a refusal's lifetime.
+RETIRE = """
+update availability v
+set serviceable = false, observed_at = %(at)s, expires_at = %(until)s
+from provider p
+where p.code = %(code)s and v.provider_id = p.id
+  and v.address_id = %(address)s
+  and v.source = 'isp-live'
+  and v.serviceable
+  and v.technology <> all(%(offered)s)
+"""
+
 
 @dataclass(frozen=True)
 class Reply:
-    """What came back from asking one operator, or why nothing did."""
+    """What came back from one operator, or why nothing did."""
 
     provider: str
     result: Probed | None
     error: str | None = None
-    # False when the address could not be put to this operator at all, we hold no spelling for
-    # the street, or their own list has no such street.
+    # False when we couldn't put the address to them at all: no spelling for the street, or
+    # their list has no such street.
     askable: bool = True
 
 
 def best(result: Probed) -> Decimal | None:
-    """The fastest thing offered, which is what the answer's lifetime is keyed on."""
+    """The fastest offer, which sets how long the answer is trusted."""
     quoted = [o.max_down_mbps for o in result.offers if o.max_down_mbps is not None]
     return max(quoted) if quoted else None
 
@@ -77,8 +91,8 @@ def best(result: Probed) -> Decimal | None:
 def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: datetime) -> bool:
     """Whether this operator may be asked again yet.
 
-    A failure is left alone for a few hours: asking a broken endpoint on every request is
-    how a rate limit turns into a ban, and the answer will not have improved in between.
+    A failure gets a few hours' rest. Hitting a broken endpoint on every request is how a rate
+    limit becomes a ban, and the answer won't have improved in between.
     """
     row = conn.execute(LAST, {"address": address_id, "code": code}).fetchone()
     if row is None:
@@ -93,12 +107,11 @@ def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: dat
 
 
 def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) -> Reply:
-    """One operator, with its failure caught: one being down must not take the others."""
+    """One operator, failures caught so one being down can't take the others with it."""
     try:
         return Reply(provider=adapter.code, result=adapter.check(conn, target))
     except NotAskableError as gap:
-        # Not a failure of theirs. The adapter looked, found it had nothing to look the
-        # address up by, and said so, which is the only correct thing it could have done.
+        # our gap: the adapter had nothing to look the address up by, and said so
         return Reply(provider=adapter.code, result=None, error=str(gap), askable=False)
     except Exception as error:
         return Reply(provider=adapter.code, result=None, error=str(error))
@@ -111,10 +124,9 @@ def store(
     now: datetime,
     keep_raw: bool = False,
 ) -> int:
-    """Record the attempt always, and the answer only when there was one.
+    """Always record the attempt, and the answer when there was one.
 
-    The body is kept when it was asked for, a canary, whose point is to be compared over
-    time.
+    The raw body is kept on request, which canaries make so it can be compared over time.
     """
     result = reply.result
     conclusive = result is not None and result.conclusive
@@ -132,6 +144,14 @@ def store(
     })
     if result is None or not conclusive:
         return 0
+
+    conn.execute(RETIRE, {
+        "address": address_id,
+        "code": reply.provider,
+        "at": now,
+        "until": now + VOLATILE,
+        "offered": [offer.technology for offer in result.offers],
+    })
 
     until = now + ttl(best(result), serviceable=result.serviceable)
     kept = 0
@@ -158,13 +178,13 @@ def refresh(
     now: datetime,
     keep_raw: bool = False,
 ) -> dict[str, Reply]:
-    """Ask every operator that is due, at once, and keep what comes back."""
+    """Ask every due operator at once and keep what comes back."""
     todo = [a for a in adapters if due(conn, target.address_id, a.code, now)]
     if not todo:
         return {}
 
-    # A separate connection per worker would be the alternative, and two of the adapters
-    # only read a row of spelling: the asking is network-bound and the reads are not.
+    # One shared connection: psycopg serialises its use across threads, and the adapters only
+    # read a row of spelling. The waiting is all network.
     with ThreadPoolExecutor(max_workers=min(WIDTH, len(todo))) as pool:
         replies = list(pool.map(lambda a: ask(conn, a, target), todo))
 
@@ -175,7 +195,7 @@ def refresh(
 
 
 def target_for(conn: psycopg.Connection[TupleRow], address_id: int) -> Target | None:
-    """One address in every form an operator might want to be given it."""
+    """One address in every form an operator might want it."""
     row = conn.execute(
         "select a.id, st_y(a.geom::geometry), st_x(a.geom::geometry), a.street, a.street_no, "
         "coalesce(m.name, ''), coalesce(a.municipality_id, 0), a.street_fold, a.locality, "

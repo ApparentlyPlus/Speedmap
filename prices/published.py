@@ -1,6 +1,6 @@
-"""Tariffs from providers that publish no catalogue an adapter can read.
+"""Tariffs recorded by hand, for providers with no catalogue an adapter can read.
 
-Vodafone answers with JSON and Nova quotes with an eligibility check, so both are fetched.
+Vodafone answers with JSON and Nova quotes through an eligibility check, so both are fetched.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from prices.catalogue import Tariff
 
 PUBLISHED = Path(__file__).parent / "published.yaml"
 
-# Which family a technology belongs to, so a plan lands in the same vocabulary as coverage.
+# technology to family, so a plan lands in the same vocabulary as coverage
 FAMILY = {
     "FTTH": "fiber",
     "DOCSIS": "coax",
@@ -55,15 +55,28 @@ def tariff(plan: dict[str, Any]) -> Tariff:
     )
 
 
-def load(path: Path = PUBLISHED) -> dict[str, tuple[list[Tariff], date]]:
-    """Every recorded catalogue, by provider, with the day it was read."""
+def sections(path: Path = PUBLISHED) -> list[tuple[str, list[Tariff], date]]:
+    """Every recorded page: the provider, its plans, and the day that page was read.
+
+    Providers put lines and airtime on different pages, read on different days, so the date
+    belongs to the page. Pooled by provider, the first page's date landed on every plan.
+    """
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return [
+        (
+            # a section is a page, and names the company when it differs from the section name
+            str(entry.get("provider", section)),
+            [tariff(plan) for plan in entry["plans"]],
+            entry["observed_on"],
+        )
+        for section, entry in document.items()
+    ]
+
+
+def load(path: Path = PUBLISHED) -> dict[str, tuple[list[Tariff], date]]:
+    """Every recorded catalogue by provider, with the latest day it was read."""
     found: dict[str, tuple[list[Tariff], date]] = {}
-    for section, entry in document.items():
-        # A provider publishes its lines and its airtime on different pages, so a section is
-        # a page rather than a company, and names the company when the two differ.
-        provider = str(entry.get("provider", section))
-        plans = [tariff(plan) for plan in entry["plans"]]
-        held, observed_on = found.get(provider, ([], entry["observed_on"]))
-        found[provider] = (held + plans, observed_on)
+    for provider, plans, observed_on in sections(path):
+        held, seen = found.get(provider, ([], observed_on))
+        found[provider] = (held + plans, max(seen, observed_on))
     return found

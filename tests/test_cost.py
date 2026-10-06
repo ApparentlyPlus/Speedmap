@@ -27,7 +27,7 @@ def test_a_flat_tariff_costs_what_it_says() -> None:
 
 
 def test_a_promo_is_spread_across_the_window() -> None:
-    """6 months at 20 then 18 at 30 is 27.50 a month, not 20 and not 30."""
+    """6 months at 20 then 18 at 30 is 27.50 a month, neither 20 nor 30."""
     price = Price(
         monthly_eur=euros("30"), setup_eur=FREE, hardware_eur=FREE,
         promo_months=6, promo_monthly_eur=euros("20"),
@@ -58,9 +58,9 @@ def test_a_cheaper_headline_can_cost_more() -> None:
 
 
 def test_an_unknown_setup_fee_makes_the_total_a_floor_not_a_blank() -> None:
-    """A scraper that failed to find the fee has not established there isn't one.
+    """A scraper that failed to find the fee hasn't shown there isn't one.
 
-    That reasoning is why the unknown is reported rather than assumed away.
+    So the unknown is reported, and never assumed away.
     """
     cost = blended(Price(monthly_eur=euros("30"), hardware_eur=FREE))
     assert cost.total == euros("30")

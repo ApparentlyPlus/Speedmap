@@ -1,7 +1,7 @@
 """Record today's catalogue from every provider that publishes one.
 
-A provider that cannot be read is reported and skipped: a missing catalogue must not empty
-the ones already recorded, and yesterday's price is a better answer than none.
+One that can't be read is reported and skipped. A missing catalogue mustn't empty the ones
+already recorded, and yesterday's price beats none.
 """
 
 from __future__ import annotations
@@ -39,9 +39,9 @@ def main(argv: list[str] | None = None) -> int:
             conn.commit()
             print(f"  {provider}: {written} plans priced")
 
-        # Recorded by hand against a page or a rate card, and dated by when it was read
-        # rather than by today: a figure from June is not evidence about September.
-        for provider, (tariffs, observed_on) in published.load().items():
+        # Recorded by hand off a page or rate card, and dated by when it was read: a June figure
+        # says nothing about September.
+        for provider, tariffs, observed_on in published.sections():
             written = write(conn, provider, tariffs, observed_on, source="published")
             conn.commit()
             print(f"  {provider}: {written} plans published {observed_on}")

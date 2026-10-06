@@ -1,7 +1,7 @@
-"""Ask Cosmote what it will sell at an address.
+"""Ask Telekom (Cosmote's checker) what it sells at an address.
 
-They want their own hierarchy, and it is not ours: only 164 of their 506 municipalities
-share a name with a Καλλικράτης one, because theirs are the pre-Καλλικράτης list.
+They want their own hierarchy: only 164 of their 506 municipalities share a name with a
+Καλλικράτης one, because theirs is the pre-Καλλικράτης list.
 """
 
 from __future__ import annotations
@@ -25,11 +25,11 @@ BASE = SPEC.text("base")
 ELIGIBILITY = SPEC.text("warm")
 AVAILABILITY = SPEC.text("availability")
 
-# What their answer says when it will not decide online.
+# what their answer says when it won't decide online
 INCONCLUSIVE = SPEC.text("inconclusive")
 
-# Speed names the medium, as it does in their own plan codes: vectored copper stops short of 200
-# Mbps, and a hundred over copper is vectored by definition.
+# Speed names the medium, as in their plan codes: vectored copper stops short of 200 Mbps,
+# and 100 over copper is vectored by definition.
 RUNGS = SPEC.rungs()
 
 
@@ -48,10 +48,10 @@ def mbps(value: str) -> Decimal | None:
 
 
 class SpeedTable(HTMLParser):
-    """The estimate table, which they key by nominal speed.
+    """Their estimate table, keyed by nominal speed.
 
-    One tbody per rung, id "speed100" and so on. Its second row is download and its third
-    upload, each of them a label followed by maximum, usual and minimum.
+    One tbody per rung (id "speed100" and so on). Row two is download, row three upload, each
+    a label then maximum, usual and minimum.
     """
 
     def __init__(self) -> None:
@@ -88,8 +88,8 @@ class SpeedTable(HTMLParser):
 
 
 def line(rows: list[list[str]], label: str) -> list[str] | None:
-    """The row for one direction. The first four-cell row is the header, not a measurement:
-    its cells read Μέγιστη, Συνήθης, Ελάχιστη, which parse as no speed at all."""
+    """The row for one direction. The first four-cell row is the header (Μέγιστη, Συνήθης,
+    Ελάχιστη), which parses as no speed at all."""
     for row in rows:
         if len(row) >= 4 and row[0].upper().startswith(label):
             return row
@@ -97,7 +97,7 @@ def line(rows: list[list[str]], label: str) -> list[str] | None:
 
 
 def offers(html: str) -> tuple[Offer, ...]:
-    """Every rung the estimate table quotes, fastest first within each technology."""
+    """Every rung the table quotes, keeping the fastest per technology."""
     table = SpeedTable()
     table.feed(html)
 
@@ -121,7 +121,7 @@ def offers(html: str) -> tuple[Offer, ...]:
 
 
 def read(html: str) -> Probed:
-    """The answer, parsed. Pure, so the shape is tested without asking anyone."""
+    """Parse the answer. Pure, so the shape can be tested offline."""
     if INCONCLUSIVE in html:
         return Probed(serviceable=False, conclusive=False, raw={"reason": "needs investigation"})
     found = offers(html)
@@ -131,7 +131,7 @@ def read(html: str) -> Probed:
 
 @dataclass
 class Cosmote:
-    """A session against their eligibility page, reused across checks."""
+    """A session on their eligibility page, reused across checks."""
 
     code: str = "TELEKOM"
     client: httpx.Client | None = None
@@ -155,10 +155,10 @@ class Cosmote:
         return client
 
     def addressed(self, named: Naming) -> str:
-        """Their spelling of a street, which carries its type in brackets.
+        """Their spelling of a street, with its type in brackets.
 
-        Without it the answer is that the address needs looking into by hand, whatever else
-        the request gets right. Case and accent do not matter to them. The brackets do.
+        Without the brackets they answer that the address needs checking by hand, whatever else
+        is right. Case and accents don't matter to them.
         """
         if named.street_type is None:
             return named.street
@@ -177,9 +177,8 @@ class Cosmote:
         }
 
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
-        """Only a street the scrape actually walked. The rest cannot be guessed at.
-
-        Tried, and measured against their live checker rather than reasoned about.
+        """Only streets the scrape walked. We tried guessing the rest against their live
+        checker, and it didn't work.
         """
         named = naming(conn, target.municipality_id, target.street_fold)
         if named is None:
