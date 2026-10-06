@@ -1,4 +1,4 @@
-"""Greek folding: accents, final sigma, and the type words that must not be stripped."""
+"""Greek folding: accents, final sigma, and the type words that have to survive."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def test_whitespace_is_collapsed() -> None:
 
 
 def test_apostrophe_variants_unify() -> None:
-    """The register mixes quote characters; Α' and Α’ are the same ordinal."""
+    """The register mixes quote characters, and Α' and Α’ are the same ordinal."""
     assert fold("Α’ ΠΑΡΟΔΟΣ") == fold("Α' ΠΑΡΟΔΟΣ") == "Α' ΠΑΡΟΔΟΣ"
 
 
@@ -81,7 +81,7 @@ def test_type_words_are_dropped(raw: str, expected: str) -> None:
     ],
 )
 def test_identity_words_survive(raw: str) -> None:
-    """ΠΑΡΟΔΟΣ ends in ΟΔΟΣ: substring stripping would merge distinct streets."""
+    """ΠΑΡΟΔΟΣ ends in ΟΔΟΣ, so stripping substrings would merge distinct streets."""
     assert street_key(raw) == fold(raw)
 
 
@@ -131,8 +131,8 @@ def test_folding_never_empties_a_non_blank_name(text: str) -> None:
 def test_fold_leaves_no_combining_marks(text: str) -> None:
     """Unless the marks are all there is.
 
-    A name of nothing but combining marks has no accent-free form, and folding it to the
-    empty string would produce a key that matches every row in the table.
+    A name made only of combining marks has no accent-free form, and folding it to an empty
+    string would make a key that matches every row.
     """
     import unicodedata
 
@@ -164,11 +164,11 @@ def test_a_query_with_no_number_is_left_alone() -> None:
 
 
 def test_a_lone_number_is_a_street_name() -> None:
-    """Greece files streets named 8 and 100%. Taking the only token away leaves nothing to
-    search for, and an empty key matches every row in the table."""
+    """Greece has streets named 8 and 100%. Taking the only token away leaves nothing to
+    search, and an empty key matches every row."""
     assert split_number("8") == ("8", None)
 
 
 def test_only_the_last_token_counts() -> None:
-    """25ΗΣ ΜΑΡΤΙΟΥ is a date in a name, not a house number."""
+    """25ΗΣ ΜΑΡΤΙΟΥ is a date inside a name, and no house number."""
     assert split_number("25ΗΣ ΜΑΡΤΙΟΥ 52") == ("25ΗΣ ΜΑΡΤΙΟΥ", "52")

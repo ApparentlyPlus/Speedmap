@@ -15,7 +15,7 @@ from db.connect import connect
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
-# Fixed key so two concurrent runners serialise instead of racing.
+# fixed key, so two runners at once take turns instead of racing
 LOCK_KEY = 8104729
 
 BOOTSTRAP = """

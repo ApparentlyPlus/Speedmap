@@ -1,13 +1,10 @@
 -- Pin each address to the nearest road of its name in its municipality.
 --
--- Nearest rather than first. A name can cover several roads, and the register's address
--- carries a position, so the question has an answer to be had. `<->` reads the gist index
--- on street.geom and the candidate set is the handful of components sharing the name, which
--- keeps this a short KNN.
+-- Nearest, since a name can cover several roads and the address has a position. `<->` reads
+-- the gist index on street.geom over the few components sharing the name, a short KNN.
 --
--- Addresses whose name matches no road are set to null rather than skipped: a left join,
--- so a road that has since been renamed or removed takes its addresses' pin with it
--- instead of leaving them pointing at a street that no longer answers to that name.
+-- No match sets null (hence the left join), so a renamed or removed road takes its addresses'
+-- pins with it.
 update address a
 set street_id = found.street_id
 from (
@@ -18,7 +15,8 @@ from (
         from street s
         where s.municipality_id = a2.municipality_id
           and s.name_fold = a2.street_fold
-        order by s.geom <-> a2.geom
+        -- id breaks ties, so a door between two runs of its name lands on the same one each time
+        order by s.geom <-> a2.geom, s.id
         limit 1
     ) near on true
 ) found

@@ -19,7 +19,7 @@ from ingest.register import BY_NAME, LOOKUPS, Dataset, RegisterClient, Row
 
 
 class GeometryCrsError(RuntimeError):
-    """A geometry arrived in a projection we were not expecting."""
+    """A geometry arrived in an unexpected projection."""
 
 
 @dataclass(frozen=True)
@@ -153,6 +153,14 @@ def load(conn: psycopg.Connection[TupleRow], client: RegisterClient, dataset: Da
         print(f"  {dataset.name}: {loaded} rows", end="\r", file=sys.stderr)
         if max_pages is not None and page_number >= max_pages:
             break
+    else:
+        # Finished, so the next run starts from the top. The resume key is for interrupted runs.
+        # Left behind after a full one, the quarterly refresh only fetched rows added since and
+        # never re-read a changed row.
+        conn.execute(
+            "update register_fetch set last_key = null where dataset = %s", (dataset.name,)
+        )
+        conn.commit()
 
     print(f"\r  {dataset.name}: {loaded} rows loaded ")
     return loaded
