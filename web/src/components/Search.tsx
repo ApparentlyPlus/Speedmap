@@ -1,6 +1,6 @@
 /**
- * The one field on the landing page, and what it suggests. Opens on the second keystroke: one
- * letter matches a third of the country and teaches nothing.
+ * The landing page's one field and its suggestions. Opens on the second keystroke, since a
+ * single letter matches a third of the country.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -9,14 +9,13 @@ import { search, type Result } from "../api/client";
 import { strings, type Language } from "../i18n";
 import { Suggestion } from "./Suggestion";
 
-/** One letter is not a query. Two is enough to be worth asking about. */
+/** Two letters is the first query worth asking. */
 const MIN_QUERY = 2;
 
-/** Long enough that a typist does not generate a request per letter, short enough to feel
- * like it is keeping up. */
+/** Long enough to skip a request per letter, short enough to feel like it keeps up. */
 const SETTLE_MS = 120;
 
-/** Air below the suggestions, so the last row never sits on the edge of the screen. */
+/** Space below the list, so the last row never touches the screen edge. */
 const MARGIN = 20;
 
 type State =
@@ -28,9 +27,12 @@ type State =
 export function Search({
   language,
   onPick,
+  onType,
 }: {
   readonly language: Language;
   readonly onPick: (result: Result) => void;
+  /** Called on the first keystroke so whatever a pick needs can start loading. */
+  readonly onType?: () => void;
 }): React.ReactElement {
   const text = strings(language);
   const [query, setQuery] = useState("");
@@ -39,7 +41,7 @@ export function Search({
   const shell = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLUListElement>(null);
 
-  /** How much room is left under the field, measured rather than assumed. */
+  /** Room left under the field, measured. */
   const measure = useCallback((): void => {
     const below = shell.current?.getBoundingClientRect().bottom;
     if (below === undefined || panel.current === null) return;
@@ -71,7 +73,7 @@ export function Search({
       search(asked, stop.signal)
         .then((results) => setState({ kind: "answered", results }))
         .catch((error: unknown) => {
-          // An aborted request is this effect being replaced, not a failure to report.
+          // an abort is this effect being replaced, nothing to report
           if (error instanceof DOMException && error.name === "AbortError") return;
           setState({ kind: "failed" });
         });
@@ -104,7 +106,10 @@ export function Search({
           spellCheck={false}
           placeholder={text.searchPlaceholder}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            onType?.();
+            setQuery(event.target.value);
+          }}
           aria-expanded={open}
           aria-controls="suggestions"
           role="combobox"

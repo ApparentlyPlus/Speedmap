@@ -1,6 +1,7 @@
 /**
- * One address. Renders from cache at once, then grows as the operators answer in parallel. The
- * machinery is not narrated: the reader cannot act on "asking" or "no reply".
+ * One address. Renders from cache straight away, then fills in as the operators answer in
+ * parallel. No narration of the machinery: "asking" or "no reply" isn't something a reader
+ * can act on.
  */
 
 import { useEffect, useState } from "react";
@@ -17,10 +18,10 @@ import { House } from "./House";
 import { Offer } from "./Offer";
 import { Waiting } from "./Waiting";
 
-/** Verdicts where asking would learn nothing. A refusal counts until it expires. */
+/** Verdicts where asking again would teach us nothing. A refusal holds until it expires. */
 const SETTLED = new Set(["fresh", "inferred", "refused"]);
 
-/** A band can hold twelve near-identical plans. The ranker already put the best first. */
+/** A group can hold a dozen near-identical plans. The ranker already put the best first. */
 const SHOWN = 3;
 
 type Group = {
@@ -28,10 +29,10 @@ type Group = {
   readonly options: readonly Options["options"][number][];
 };
 
-/** The same three sentences, said once each instead of twenty times. */
+/** Group headings, said once each and not twenty times. */
 function groups(options: Options["options"]): readonly Group[] {
-  // Two groups, not three. The third held offers with no cost at all, and there are none: a
-  // missing setup fee leaves the monthly rate standing and only makes the total a floor.
+  // Two groups. A third used to hold offers with no cost, and there aren't any: a missing
+  // setup fee still leaves the monthly rate, it just makes the total a floor.
   const enough = options.filter((o) => o.enough);
   const slower = options.filter((o) => !o.enough);
   return (
@@ -56,7 +57,7 @@ export function Place({
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [chosen, setChosen] = useState<string | null>(null);
   const [where, setWhere] = useState<{ lon: number; lat: number } | null>(null);
-  /** The street this door is on, for the light that runs along it. */
+  /** The door's street, for the light along it. */
   const [shape, setShape] = useState<Geometry | null>(null);
   const [road, setRoad] = useState<number | null>(null);
 
@@ -71,13 +72,19 @@ export function Place({
       const due = first.operators.filter((o) => !SETTLED.has(o.known));
       if (due.length === 0) return;
 
-      // Each lands when it lands, and each refreshes the list on its own.
+      // Each operator lands when it lands and refreshes the list. The most recently requested
+      // list is the freshest, so an older one that happens to arrive late gets dropped.
+      let asked = 0;
+      let shown = 0;
       await Promise.all(
         due.map(async (operator) => {
           await probe(result.id, operator.provider, stop.signal).catch(() => null);
           if (stop.signal.aborted) return;
+          const mine = ++asked;
           const fresher = await options(result.id, stop.signal).catch(() => null);
-          if (fresher !== null && !stop.signal.aborted) setKnown(fresher);
+          if (fresher === null || stop.signal.aborted || mine < shown) return;
+          shown = mine;
+          setKnown(fresher);
         }),
       );
     })();
@@ -85,8 +92,8 @@ export function Place({
     return () => stop.abort();
   }, [result.id]);
 
-  // The point to fly the map to. Its own request: the options take as long as the slowest
-  // operator, and the map should not wait on an operator to know where it is.
+  // Where to fly the map, on its own request. Options wait on the slowest operator and the
+  // map shouldn't.
   useEffect(() => {
     const stop = new AbortController();
     setShape(null);
@@ -106,7 +113,7 @@ export function Place({
     return () => stop.abort();
   }, [result.id]);
 
-  /** One selected offer drives the drawing. */
+  /** The selected offer drives the drawing. */
   const offers = known?.options ?? [];
   const selected =
     offers.find((o) => `${o.provider}-${o.plan}` === chosen) ?? offers[0] ?? null;

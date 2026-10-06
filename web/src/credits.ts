@@ -1,6 +1,4 @@
-/**
- * Who made the data under the map.
- */
+/** Who made the data under the map. */
 
 export type Credit = {
   readonly id: string;

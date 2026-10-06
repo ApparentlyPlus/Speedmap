@@ -1,4 +1,4 @@
-/** The signal, as light flowing along a path. Particles were the wrong primitive. */
+/** The signal as light flowing along a path. Particles were the wrong primitive. */
 import * as THREE from "three";
 
 const VERT = `
@@ -78,8 +78,8 @@ export function flow(points: readonly Point[], options: FlowOptions = {}): Flow 
       uSpeed: { value: options.speed ?? 0.3 },
       uDensity: { value: options.density ?? 3 },
       uBright: { value: options.bright ?? 1.6 },
-      // A path that starts at a visible emitter, a dish on a roof, should be bright where
-      // it leaves it. One that arrives from off-screen can afford to ease in.
+      // A path that leaves a visible emitter (a dish on the roof) should be bright right
+      // there. One coming in from off screen can ease in.
       uFadeIn: { value: options.fadeIn ?? 0.1 },
     },
   });
@@ -99,23 +99,21 @@ export function flow(points: readonly Point[], options: FlowOptions = {}): Flow 
   };
 }
 
-/** A ring that expands and fades: what a signal leaving an aerial looks like. */
+/** An expanding, fading ring, the way a signal leaves an aerial. */
 export function ring(colour: string): THREE.Mesh {
-  // Left in its own plane rather than laid flat: it is turned to face the camera each frame,
-  // and a ring already rotated into the ground would then be turned twice.
+  // left upright: it gets turned to face the camera every frame, and one already laid
+  // flat would be turned twice
   const geometry = new THREE.RingGeometry(0.92, 1.0, 72);
   const material = new THREE.MeshBasicMaterial({
     color: colour, transparent: true, opacity: 0.4,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     depthWrite: false,
-    /**
-     * Not depth tested at all. Sorting is per object, not per fragment, and a ring centred on
-     * the router passes through the house, part of it in front, part behind.
-     */
+    // No depth test. Sorting is per object, and a ring centred on the router passes through
+    // the house, part in front and part behind.
     depthTest: false,
   });
   const mesh = new THREE.Mesh(geometry, material);
-  // After the house, so "in front" is what it resolves to where they overlap.
+  // after the house, so overlaps resolve to "in front"
   mesh.renderOrder = 4;
   return mesh;
 }

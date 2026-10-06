@@ -1,7 +1,4 @@
-/**
- * The API, with its shapes taken from its own schema. Nothing here declares what a response
- * looks like.
- */
+/** The API. Response shapes come from its own OpenAPI schema, never declared here. */
 
 import type { components } from "./schema";
 
@@ -13,7 +10,7 @@ export type Probed = components["schemas"]["Probed"];
 export type StreetDetail = components["schemas"]["StreetDetail"];
 export type AddressDetail = components["schemas"]["AddressDetail"];
 
-/** Same origin in production behind Caddy, and proxied to the same place in development. */
+/** Same origin behind Caddy in production, proxied the same way in development. */
 const BASE = "/api";
 
 export class ApiError extends Error {
@@ -82,8 +79,8 @@ export function probe(
 }
 
 /**
- * Ask for a number the register never filed, on a street it did. The street is known and the
- * door is not, which is the common case rather than the odd one.
+ * Make an address the register never filed, on a street it did. A known street with an
+ * unknown door is the common case.
  */
 export function askFor(
   streetId: number,

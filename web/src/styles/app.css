@@ -1,7 +1,7 @@
-/* A near-black ground, matte surfaces, hairlines, and type. Nothing glows. */
+/* Near-black ground, matte surfaces, hairlines and type. Nothing glows. */
 
 :root {
-  /* Neutral throughout. A slate-blue grey reads as a colour choice. This reads as absence. */
+  /* Neutral throughout. A slate-blue grey would read as a colour choice, this reads as absence. */
   --ground: #08080a;
   --raised: #101013;
   --raised-high: #161619;
@@ -14,16 +14,15 @@
   --accent: #fff;
   --accent-far: #e4e4e7;
 
-  /* The only two ways a surface is bounded. A rule divides, a line encloses. Both are the
-   * same hairline, because a design with one border weight has one border weight. */
+  /* A rule divides, a line encloses. Same hairline for both: one border weight, used everywhere. */
   --rule: rgb(255 255 255 / 7%);
   --rule-lit: rgb(255 255 255 / 14%);
 
-  /* Plain black, for depth without colour. Nothing on the page casts a coloured shadow. */
+  /* Plain black for depth. Nothing casts a coloured shadow. */
   --lift: 0 10px 30px rgb(0 0 0 / 50%);
   --lift-high: 0 18px 44px rgb(0 0 0 / 60%);
 
-  /* Long enough to read as a filament warming rather than a fade. */
+  /* Long enough to read as a filament warming up. */
   --warmup: 1500ms;
 
   --radius: 12px;
@@ -35,8 +34,8 @@
 }
 
 /*
- * One focus treatment for the whole page. Keyboard only: a mouse user who just clicked a card
- * does not need to be told which card they clicked.
+ * One focus style for the whole page, keyboard only. Someone who just clicked a card with the
+ * mouse doesn't need telling which card it was.
  */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -47,7 +46,7 @@
   background: rgb(255 255 255 / 30%);
 }
 
-/* The default thumb is a light grey slab against a near-black page. */
+/* The default thumb is a light grey slab on a near-black page. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -111,8 +110,8 @@ body {
   height: 100%;
   opacity: 0.34;
   pointer-events: none;
-  /* Dimmed towards the middle so the type is never read against a line, and towards the
-   * edges so the field has no border of its own making. */
+  /* Dimmed in the middle so no line runs behind the type, and at the edges so the field has
+   * no border of its own. */
   mask-image: radial-gradient(ellipse 78% 62% at 50% 42%, transparent 8%, #000 62%);
   animation: lights-on calc(var(--warmup) * 1.4) ease-out both;
 }
@@ -122,7 +121,8 @@ body {
   z-index: -1;
   inset: auto 0 -18% 0;
   height: 96vh;
-  /* faint bloom that reaches the type. One ellipse either lights the floor and nothing */
+  /* Three ellipses: a broad glow, a hot core, a faint bloom up to the type. One alone either lit
+   * only the floor or washed flat over the text. */
   background:
     radial-gradient(ellipse 78% 62% at 50% 100%, rgb(255 255 255 / 13%), transparent 70%),
     radial-gradient(ellipse 38% 44% at 50% 100%, rgb(255 255 255 / 7%), transparent 66%),
@@ -132,7 +132,7 @@ body {
   animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Rising as it brightens, so the light arrives from somewhere rather than simply appearing. */
+/* Rises as it brightens, so the light arrives from somewhere. */
 @keyframes lights-on {
   from {
     opacity: 0;
@@ -145,11 +145,11 @@ body {
   }
 }
 
-/* Optical centre, not true centre: a block centred at 50% reads low. */
+/* Optical centre. A block centred at 50% reads low. */
 .landing-centre {
   position: relative;
   width: min(560px, calc(100% - 48px));
-  /* Both ends carry the offset, or the lift would fight the optical centre. */
+  /* Both ends carry the offset, or the lift fights the optical centre. */
   animation: rise 900ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
 }
 
@@ -165,7 +165,7 @@ body {
   }
 }
 
-/* The signature small label: tiny, spaced, quiet. Says what this is without a heading. */
+/* The small spaced label that says what something is, standing in for a heading. */
 .eyebrow {
   margin: 0 0 18px;
   color: var(--ink-faint);
@@ -206,7 +206,7 @@ body {
   clip-path: inset(50%);
 }
 
-/* The field is the shell, not the input. */
+/* The shell is the field, the input inside it is bare. */
 .search-shell {
   display: grid;
   position: relative;
@@ -254,13 +254,13 @@ body {
   color: var(--ink-faint);
 }
 
-/* The browser's own clear button is a blue cross in the middle of a dark field. */
+/* The browser's clear button is a blue cross in a dark field. Hidden. */
 .search-field::-webkit-search-cancel-button,
 .search-field::-webkit-search-decoration {
   appearance: none;
 }
 
-/* Focus states the colour once, as a line. It does not need to be announced twice. */
+/* Focus shows once, as a line. */
 .search-shell:focus-within {
   border-color: rgb(255 255 255 / 62%);
   background: rgb(255 255 255 / 5%);
@@ -279,7 +279,8 @@ body {
   background: var(--raised);
   box-shadow: var(--lift-high);
   list-style: none;
-  /* because a phone keyboard takes half the screen and no fraction of vh knows that. The */
+  /* Height measured by Search.tsx (--room): a phone keyboard takes half the screen, and no
+   * fraction of vh knows that. */
   max-height: min(var(--room, 46dvh), 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -336,7 +337,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* A lit point, not a swatch: it is the same ramp the network behind the page is drawn in. */
+/* A lit point on the same ramp the background network is drawn in. */
 .suggestion-dot {
   grid-row: 1 / span 2;
   grid-column: 2;
@@ -345,7 +346,7 @@ body {
   border-radius: 50%;
 }
 
-/* A door being made, and the one case where that fails. */
+/* A door being made, and the case where that fails. */
 .making {
   margin: 18px 0 0;
   color: var(--ink-faint);
@@ -359,7 +360,7 @@ body {
   color: #f87171;
 }
 
-/* The register never filed this one, so it is offered rather than held. */
+/* Unfiled door, offered but not held yet. */
 .suggestion-ask {
   color: var(--ink-dim);
 }
@@ -380,28 +381,27 @@ body {
   color: var(--accent);
 }
 
-/* The lit room, arrived at rather than animated into. Someone who asked for less motion
- * still gets the light. They just do not watch it come on. */
+/* The room lights up as you arrive. With reduced motion it's still lit, it just doesn't
+ * animate on. */
 @media (prefers-reduced-motion: reduce) {
     * {
        transition-duration: 0ms !important;
        animation-duration: 1ms !important;
        animation-delay: 0ms !important;
-    /* Without this a looping animation becomes a strobe at 1ms a lap. */
+    /* without this a looping animation strobes at 1 ms a lap */
     animation-iteration-count: 1 !important;
   }
 }
 
 /*
- * The address, and what can be had at it. Scrolls, unlike the landing, so the block is placed
- * rather than centred.
+ * The address and what you can get there. It scrolls, unlike the landing, so the block is
+ * placed, not centred. The network drops back further here.
  */
-/* The network drops back further here. */
 .landing-open .network {
   opacity: 0.13;
 }
 
-/* The result: the map is the page, and everything else floats over it. */
+/* The result: the map is the page, everything else floats over it. */
 .landing-open {
   display: block;
   padding: 0;
@@ -415,7 +415,7 @@ body {
 }
 
 /*
- * No panel. A box around the whole answer says the answer is a thing sitting on a page, when it
+ * No panel. A box around the answer would make it a thing sitting on a page, and the answer
  * is the page.
  */
 .place {
@@ -433,8 +433,8 @@ body {
   animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* The drawing sits above the list rather than beside it: it is what the address looks like,
- * and the list is what can be bought there. */
+/* The drawing goes above the list: it's what the address looks like, the list is what you
+ * can buy there. */
 .place-scene {
   border-bottom: 1px solid var(--rule);
   overflow: hidden;
@@ -518,7 +518,7 @@ body {
   margin-bottom: 10px;
 }
 
-/* A numbered marker with a rule running out of it, said once over the cards it covers. */
+/* A numbered marker with a rule running out of it, once per group of cards. */
 .group-head {
   display: flex;
   gap: 12px;
@@ -542,7 +542,7 @@ body {
   background: var(--rule);
 }
 
-/* The rest of the band, on request. */
+/* The rest of the group, on request. */
 .expand {
   display: flex;
   gap: 8px;
@@ -587,7 +587,7 @@ body {
   list-style: none;
 }
 
-/* One offer: who is selling, how fast, what it costs. */
+/* One offer: seller, speed, price. */
 .offer {
   border: 1px solid var(--rule);
   border-radius: 12px;
@@ -607,13 +607,13 @@ body {
   background: rgb(255 255 255 / 3.2%);
 }
 
-/* The one being drawn beside the list. */
+/* The one drawn beside the list. */
 .offer-chosen {
   border-color: rgb(255 255 255 / 34%);
   background: rgb(255 255 255 / 5.5%);
 }
 
-/* The one the ranker put first. */
+/* The ranker's first pick. */
 .offer-best {
   border-color: rgb(255 255 255 / 30%);
   background: rgb(255 255 255 / 4.5%);
@@ -639,8 +639,8 @@ body {
   border-bottom: 1px solid var(--rule);
 }
 
-/* One box, every mark centred in it, so a glyph and a wordmark start the row in the
- * same place and no logo hangs off the left of the card. */
+/* One box with every mark centred, so a glyph and a wordmark start at the same place and no
+ * logo hangs off the card's left edge. */
 .logo {
   flex: none;
   width: 40px;
@@ -682,7 +682,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* The brand named, in its own colour, once. Outlined, so it states rather than shouts. */
+/* The brand, once, in its own colour. Outlined so it states and doesn't shout. */
 .offer-brand {
   flex: none;
   padding: 4px 10px;
@@ -696,7 +696,7 @@ body {
   text-transform: uppercase;
 }
 
-/* The number the reader came for, in a well of its own. */
+/* The number people came for, in its own well. */
 .offer-rate {
   display: flex;
   gap: 10px;
@@ -800,7 +800,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* The answer's outline while the answer is on its way. */
+/* Skeleton of the answer while it loads. */
 .ghost {
   border: 1px solid var(--rule);
   background: rgb(255 255 255 / 1.6%);
@@ -837,7 +837,7 @@ body {
   }
 }
 
-/* Closed by the same rule that opens the answer, so the page has two edges and not one. */
+/* Closed by the rule that opens the answer, so the page has two edges. */
 .disclaimer {
   display: flex;
   flex-wrap: wrap;
@@ -870,8 +870,8 @@ body {
 
 @media (width <= 560px) {
   /*
-   * The card takes the bottom of the screen and the map keeps the top, so the address is still
-   * somewhere before it is a list of prices.
+   * The card takes the bottom of the screen and the map the top, so the address is a place
+   * before it's a list of prices.
    */
   .place {
     inset: auto 8px 8px 8px;
@@ -894,7 +894,7 @@ body {
     font-size: 20px;
   }
 
-  /* The map is only the top quarter here, so it is framed closer in. */
+  /* The map is just the top quarter here, so it's framed closer. */
   .anchored {
     inset: 0 0 auto 0;
     height: 34dvh;
@@ -917,13 +917,13 @@ body {
     font-size: 19px;
   }
 
-  /* The pill would cost the plan name half its room on a phone. The mark already says it. */
+  /* On a phone the pill would eat half the plan name's room, and the logo already says it. */
   .offer-brand {
     display: none;
   }
 }
 
-/* The map. Full bleed, with one panel floating over it. */
+/* The map. Full bleed, with one panel floating on it. */
 .atlas {
   display: block;
   position: relative;
@@ -975,8 +975,8 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* The same index the landing searches: two search boxes that disagreed about what exists
- * would be two products. */
+/* Same index as the landing search. Two search boxes disagreeing about what exists would
+ * look like two products. */
 .atlas-search input {
   width: 100%;
   margin: 6px 0 2px;
@@ -1035,7 +1035,7 @@ body {
   letter-spacing: 0.04em;
 }
 
-/* Present for a screen reader, absent for everyone else. */
+/* For screen readers only. */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -1086,8 +1086,8 @@ body {
   color: var(--ink-dim);
 }
 
-/* The chosen one wears its own colour, which is also the colour its streets are about to
- * be filtered to. */
+/* The chosen operator wears its own colour, the colour its streets are about to be
+ * filtered to. */
 .atlas-operator-on {
   border-color: color-mix(in srgb, var(--brand, #fff) 60%, transparent);
   background: color-mix(in srgb, var(--brand, #fff) 12%, transparent);
@@ -1114,7 +1114,7 @@ body {
   border-radius: 2px;
 }
 
-/* What runs under one street: the cabinets it crosses, not a quote for a door on it. */
+/* What runs under one street: the cabinets it crosses, no quote for a door. */
 .atlas-picked {
   position: relative;
   margin-top: 14px;
@@ -1198,7 +1198,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Which silence this is. */
+/* Which kind of empty this is. */
 .atlas-state {
   margin: 14px 0 0;
   min-height: 2.6em;
@@ -1211,7 +1211,7 @@ body {
   color: #f87171;
 }
 
-/* MapLibre's own controls, brought into the page rather than left as the library's. */
+/* MapLibre's controls, restyled to match the page. */
 .maplibregl-ctrl-group {
   border: 1px solid var(--rule) !important;
   border-radius: 10px !important;
@@ -1360,7 +1360,7 @@ body {
   grid-template-rows: 1fr;
 }
 
-/* The compact rows in the map panel are built for a 210px column. This card is twice that. */
+/* The map panel's compact rows are built for a 210 px column, and this card is twice that. */
 .road-offers {
   display: grid;
   gap: 1px;
@@ -1420,7 +1420,7 @@ body {
   }
 }
 
-/* Who built the line, under the name of whoever sells it. */
+/* Who built the line, under the seller's name. */
 .road-infra,
 .atlas-offer-infra {
   color: var(--ink-faint);
@@ -1428,7 +1428,7 @@ body {
 
 
 
-/* The prefecture overlay, which is a switch and not a choice. */
+/* The per-municipality overlay, a switch and not a choice. */
 .atlas-toggle {
   display: flex;
   gap: 8px;
@@ -1465,8 +1465,8 @@ body {
   background: color-mix(in srgb, #fff 16%, transparent);
 }
 
-/* The tick, drawn rather than shipped: one glyph is not worth an icon font, and a unicode
- * check renders differently on every platform this has to look right on. */
+/* The tick is drawn in CSS. One glyph doesn't justify an icon font, and a unicode check
+ * renders differently on every platform. */
 .atlas-toggle input:checked::after {
   content: "";
   display: block;
@@ -1483,7 +1483,7 @@ body {
   outline-offset: 2px;
 }
 
-/* The corner link. Small enough to ignore, present enough to satisfy the licences. */
+/* The corner link: easy to ignore, visible enough to satisfy the licences. */
 .credit {
   position: fixed;
   z-index: 2;

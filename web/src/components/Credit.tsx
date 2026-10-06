@@ -1,4 +1,4 @@
-/** The one click between a map and the people who made the data under it. */
+/** The corner link to the credits. */
 
 import { strings, type Language } from "../i18n";
 
