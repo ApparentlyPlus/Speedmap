@@ -1,7 +1,7 @@
 """Load Ookla's quarterly open data for Greece.
 
-Every other source here is an operator describing itself. This one is people measuring what
-they got, and it is the only thing that can contradict a filing.
+Every other source here is an operator describing itself. This is people measuring what they
+got, and it's the only thing that can contradict a filing.
 """
 
 from __future__ import annotations
@@ -27,8 +27,8 @@ SOURCE = (
     "/{year}-{month:02d}-01_performance_{kind}_tiles.parquet"
 )
 
-# Enough to hold the mainland, Crete, the Dodecanese and Corfu. Tiles are 600 m, so a
-# generous box costs a few thousand rows and a tight one loses an island.
+# Holds the mainland, Crete, the Dodecanese and Corfu. Tiles are 600 m, so a generous box
+# costs a few thousand rows and a tight one loses an island.
 WEST, SOUTH, EAST, NORTH = 19.3, 34.7, 29.7, 41.8
 
 KINDS = ("fixed", "mobile")
@@ -71,10 +71,10 @@ def published(kind: str, year: int, quarter: int) -> bool:
 
 
 def latest(today: date) -> tuple[int, int]:
-    """The most recent quarter they have published.
+    """The latest quarter they've published.
 
-    They publish a quarter some weeks after it ends, so walking back from the current one is
-    the only way to know without being told.
+    They publish some weeks after a quarter ends, and walking back from the current one is
+    the only way to find out.
     """
     year, quarter = today.year, (today.month - 1) // 3 + 1
     for _ in range(8):
@@ -87,10 +87,7 @@ def latest(today: date) -> tuple[int, int]:
 
 
 def download(kind: str, year: int, quarter: int, into: Path) -> Path:
-    """Fetch a quarter if it is not already here.
-
-    The file is a few hundred megabytes and is read locally rather than over HTTP.
-    """
+    """Fetch a quarter unless it's already here. A few hundred MB, read locally."""
     path = into / f"ookla_{kind}_{year}Q{quarter}.parquet"
     if path.exists():
         return path
@@ -101,7 +98,7 @@ def download(kind: str, year: int, quarter: int, into: Path) -> Path:
         with partial.open("wb") as out:
             for chunk in r.iter_bytes():
                 out.write(chunk)
-    # Renamed only once whole, so an interrupted download is never read as a quarter.
+    # renamed once complete, so an interrupted download never passes for a quarter
     shutil.move(partial, path)
     return path
 
@@ -117,7 +114,7 @@ def cells(path: Path, kind: str, year: int, quarter: int) -> Iterator[Cell]:
             quadkey=str(quadkey),
             family=kind,
             observed_on=observed_on,
-            # Ookla files kilobits. Everything else here is megabits.
+            # Ookla files kilobits, everything else here is megabits
             down_mbps=down / 1000.0,
             up_mbps=up / 1000.0,
             latency_ms=None if latency is None else int(latency),
@@ -128,7 +125,7 @@ def cells(path: Path, kind: str, year: int, quarter: int) -> Iterator[Cell]:
 
 
 def write(conn: psycopg.Connection[TupleRow], found: Iterator[Cell]) -> int:
-    """Add a quarter. Earlier ones are kept: a tile getting slower is worth being able to see."""
+    """Add a quarter. Earlier ones stay, so a tile getting slower stays visible."""
     conn.execute(
         "create temp table stage_speed_cell (like speed_cell excluding indexes) on commit drop"
     )

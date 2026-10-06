@@ -69,7 +69,7 @@ def test_the_fastest_plan_names_the_technology() -> None:
 
 
 def test_an_unknown_code_is_ignored_rather_than_guessed() -> None:
-    """A code we have never seen is a catalogue change, not a speed to invent."""
+    """An unseen code is a catalogue change. No speed gets invented for it."""
     assert best_plan("FBR_10G,FBR_50M", CATALOGUE) == (50.0, "VDSL")
     assert best_plan("FBR_10G", CATALOGUE) is None
     assert best_plan("", CATALOGUE) is None
@@ -183,7 +183,7 @@ def test_a_number_above_the_ceiling_is_unknown_not_refused(
 
 
 def test_the_step_is_re_runnable(scrape: psycopg.Connection[TupleRow]) -> None:
-    """Every step runs again after a fresh scrape, so it must update rather than accumulate."""
+    """Every step runs again after a fresh scrape, so it updates and never accumulates."""
     build(scrape, [checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11)], "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     scrape.commit()
     build_cosmote(scrape)
@@ -192,7 +192,7 @@ def test_the_step_is_re_runnable(scrape: psycopg.Connection[TupleRow]) -> None:
 
 
 def test_adding_addresses_is_separable(scrape: psycopg.Connection[TupleRow]) -> None:
-    """The gazetteer half must stand alone: the answers depend on it, not the reverse."""
+    """The gazetteer half stands alone, and the answers depend on it."""
     from tests.test_build import municipality_step, seed_dimos
 
     seed_dimos(scrape)

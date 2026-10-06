@@ -48,7 +48,7 @@ def test_edited_migration_is_drift() -> None:
 
 
 def test_migrate_refuses_to_run_over_drift(db: psycopg.Connection[TupleRow]) -> None:
-    """An applied file edited after the fact must stop the run, not diverge quietly."""
+    """An applied file edited afterwards stops the run instead of diverging quietly."""
     original = discover()[0]
     db.execute(
         "update schema_migration set checksum = 'tampered' where version = %s",

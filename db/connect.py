@@ -1,4 +1,4 @@
-"""Connection helpers. Every worker opens its own connection, so there is no pool here yet."""
+"""Connection helpers. Each worker opens its own connection, so no pool here yet."""
 
 from __future__ import annotations
 

@@ -5,30 +5,29 @@ from __future__ import annotations
 import re
 import unicodedata
 
-# Greek uppercase legitimately drops accents, so folding must match: ΑΧΑΡΝΩΝ, not ΑΧΑΡΝΏΝ.
-# str.upper() already maps final sigma, so ς and σ fold together without help.
+# Greek uppercase drops accents, so folding has to as well: ΑΧΑΡΝΩΝ, never ΑΧΑΡΝΏΝ.
+# str.upper() already handles final sigma, so ς and σ fold together on their own.
 
-# Ordinals are written Α' ΠΑΡΟΔΟΣ, and the register mixes apostrophe characters freely.
+# ordinals are written Α' ΠΑΡΟΔΟΣ, with whatever apostrophe the filer had to hand
 APOSTROPHES = "\u2019\u2018\u00b4\u0384\u02bc"
 
-# Type words: they say what kind of thing this is, not which one, so search ignores them.
+# type words say what kind of street it is and not which one, so search ignores them
 TYPE_WORDS = frozenset({"ΟΔΟΣ", "ΟΔΟΥ", "ΛΕΩΦΟΡΟΣ", "ΛΕΩΦΟΡΟΥ", "ΛΕΩΦ"})
 
-# Names that must survive folding intact. Asserted in the tests, not used by the code.
-# ΠΑΡΟΔΟΣ and ΑΔΙΕΞΟΔΟΣ both end in ΟΔΟΣ and both name a place of their own.
+# Names that must survive folding. Only the tests use this. ΠΑΡΟΔΟΣ and ΑΔΙΕΞΟΔΟΣ both
+# end in ΟΔΟΣ and both name places of their own.
 IDENTITY_WORDS = frozenset({"ΠΑΡΟΔΟΣ", "ΠΑΡΟΔΟΥ", "ΠΛΑΤΕΙΑ", "ΑΔΙΕΞΟΔΟΣ", "ΑΔΙΕΞΟΔΟΥ"})
 
 
 def strip_marks(text: str) -> str:
-    """Drop combining marks, so tonos and dialytika stop distinguishing otherwise equal names."""
+    """Drop combining marks, so tonos and dialytika stop separating otherwise equal names."""
     return "".join(c for c in unicodedata.normalize("NFD", text) if not unicodedata.combining(c))
 
 
 def fold(text: str) -> str:
-    """Accent-free, uppercase, single-spaced. The generic key used for any register text.
+    """Accent-free, uppercase, single-spaced. The generic key for any register text.
 
-    A name made only of combining marks folds away to nothing, because that is all stripping
-    marks can do with it.
+    A name made only of combining marks folds to nothing, so it's kept uppercased instead.
     """
     folded = strip_marks(text).upper()
     for mark in APOSTROPHES:
@@ -40,18 +39,18 @@ def fold(text: str) -> str:
 def street_key(name: str) -> str:
     """fold(), with type words dropped as whole tokens."""
     kept = [t for t in fold(name).split(" ") if t.rstrip(".") not in TYPE_WORDS]
-    # A name that is nothing but type words keeps them: an empty key matches everything.
+    # all type words? keep them, since an empty key matches everything
     return " ".join(kept) if kept else fold(name)
 
 
-# A house number as the register writes them: digits, sometimes a letter after (12Α, 8Β).
+# a house number as the register writes it: digits, sometimes a letter (12Α, 8Β)
 HOUSE_NUMBER = re.compile(r"^\d+[Α-ΩA-Z]?$")
 
 
 def split_number(folded: str) -> tuple[str, str | None]:
-    """A folded query split into the street part and the house number it ends with.
+    """Split a folded query into the street and the house number it ends with.
 
-    The search index holds the street and the locality and never the number.
+    The index holds street and locality, never the number.
     """
     tokens = folded.split(" ")
     if len(tokens) > 1 and HOUSE_NUMBER.fullmatch(tokens[-1]):

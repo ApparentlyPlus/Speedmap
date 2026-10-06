@@ -1,10 +1,9 @@
--- The register files one company under four names. A derived table holds one.
+-- The register files one company under four names, and derived tables hold one.
 --
--- OTE, OTE UltraFast and the two rural concessions are all Telekom to anybody buying a
--- line. The alias rows stay in `provider` because `register_id` is how raw_* is joined, and
--- every step that writes a derived table resolves through `credited_to` before storing an
--- id. A provider with a `credited_to` appearing in a derived table means one of those steps
--- was written without it, and the symptom is a company's coverage quietly split in four.
+-- OTE, OTE UltraFast and the two rural concessions are all Telekom to anyone buying a line.
+-- The alias rows stay in `provider` because raw_* joins on `register_id`, and every step
+-- writing a derived table resolves through `credited_to` first. An aliased provider showing
+-- up in a derived table means a step forgot, and a company's coverage is quietly split in four.
 select 'address_coverage' as source, p.code, count(*) as rows
 from address_coverage ac
 join provider p on p.id in (ac.provider_id, ac.infra_provider_id)

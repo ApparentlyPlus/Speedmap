@@ -1,7 +1,7 @@
-"""Fold the operator's availability scrape into the address index and the answer cache.
+"""Fold the Telekom availability scrape into the address index and the answer cache.
 
-The scrape walked house numbers upward from the start of each street and stopped after five
-consecutive numbers with no service.
+The scrape walked house numbers up from the start of each street and stopped after five
+numbers in a row with no service.
 """
 
 from __future__ import annotations
@@ -23,13 +23,13 @@ from probe.ttl import (
 
 CHUNK = 50_000
 
-# Which of two filings of one address to keep. The scrape geocoded most rows by
-# interpolating along a street. A rooftop is an actual building and wins.
+# Which of two filings of one address to keep. Most rows were geocoded by interpolating
+# along the street. A rooftop is a real building, so it wins.
 PRECISION = {"rooftop": 0, "interpolated": 1, "street": 2, "locality": 3}
 UNRANKED = len(PRECISION)
 
-# The operator's dimoi are not Καλλικράτης and their names do not resolve: street names repeat
-# nationwide, so a vote over names maps almost nothing.
+# Their dimoi aren't Καλλικράτης ones and the names don't resolve. Street names repeat
+# nationwide, so voting on names maps almost nothing. We place each area by its points.
 AREA = """
 create temp table cosmote_area on commit drop as
 select distinct on (c.dimos, coalesce(c.area, ''))
@@ -38,11 +38,11 @@ from raw_cosmote c
 join municipality m on st_contains(m.geom_2d, c.geom::geometry)
 where c.geocode_precision in ('rooftop', 'interpolated')
 group by c.dimos, coalesce(c.area, ''), m.id
-order by c.dimos, coalesce(c.area, ''), count(*) desc
+order by c.dimos, coalesce(c.area, ''), count(*) desc, m.id
 """
 
-# Only the rungs the scrape's own codes name. Their unlimited airtime quotes no speed at
-# all, and a plan without one cannot say what a scraped code was worth.
+# Only the rungs the scrape's codes name. Unlimited airtime quotes no speed, so it can't say
+# what a scraped code was worth.
 CATALOGUE = """
 select pl.external_key, pl.down_mbps, pl.technology
 from plan pl join provider pr on pr.id = pl.provider_id
@@ -81,7 +81,7 @@ create temp table stage_cosmote_address (
 ) on commit drop
 """
 
-# Postcode is absent from the scrape, so these rows carry none.
+# the scrape has no postcodes
 ADD_ADDRESS = """
 insert into address (
     postcode, street, street_fold, street_no, locality, municipality_id,
@@ -115,7 +115,7 @@ create temp table stage_cosmote_resolved (
 ) on commit drop
 """
 
-# Kept so a probe can be told the operator's own spelling of this street.
+# kept so a probe can use the operator's own spelling of the street
 RESOLVE = """
 update raw_cosmote c
 set municipality_id = r.municipality_id, street_fold = r.street_fold
@@ -125,8 +125,8 @@ where r.id = c.id
     or c.street_fold is distinct from r.street_fold)
 """
 
-# The ceiling is the last number the scrape recorded, up to five short of the last it actually
-# asked: the numbers between were refused and so were never written down.
+# The ceiling is the last number the scrape recorded, up to five short of the last it
+# asked: the ones in between were refused and never written down.
 MARK_SCANNED = """
 update address a set checked_to = s.scanned_to
 from (
@@ -134,10 +134,12 @@ from (
     from stage_cosmote_scan group by municipality_id, street_fold
 ) s
 where a.municipality_id = s.municipality_id and a.street_fold = s.street_fold
+  -- only where it moved, or every build rewrites a million addresses with what they hold
+  and a.checked_to is distinct from s.scanned_to
 """
 
-# The scrape only ever recorded a serviceable answer, so serviceable is true throughout. How long
-# each is trusted depends on what it says: see the probe loop for the rule.
+# The scrape only recorded serviceable answers, so serviceable is always true. How long each
+# is trusted depends on the speed, using the probe loop's rule.
 CACHE = """
 insert into availability (
     address_id, provider_id, technology, max_down_mbps, serviceable,
@@ -156,7 +158,7 @@ select distinct on (s.address_id)
     jsonb_build_object('plans', s.plans)
 from stage_cosmote s
 cross join (select id from provider where code = 'TELEKOM') p
-order by s.address_id, s.observed_at desc, s.max_down_mbps desc
+order by s.address_id, s.observed_at desc, s.max_down_mbps desc, s.technology
 on conflict (address_id, provider_id, technology) do update set
     max_down_mbps = excluded.max_down_mbps,
     serviceable = excluded.serviceable,
@@ -165,28 +167,39 @@ on conflict (address_id, provider_id, technology) do update set
     observed_at = excluded.observed_at,
     expires_at = excluded.expires_at,
     raw = excluded.raw
+-- The scrape is one day's snapshot. A live answer since then is newer, and every rebuild
+-- used to overwrite it with the scrape.
+where availability.observed_at <= excluded.observed_at
+  -- skip unchanged rows too, or a build rewrites a million answers with themselves
+  and (availability.technology, availability.max_down_mbps, availability.serviceable,
+       availability.source, availability.assertion, availability.observed_at,
+       availability.expires_at, availability.raw)
+      is distinct from
+      (excluded.technology, excluded.max_down_mbps, excluded.serviceable,
+       excluded.source, excluded.assertion, excluded.observed_at,
+       excluded.expires_at, excluded.raw)
 """
 
 
 def keys(street: str, locality: str | None) -> tuple[str, str, str]:
-    """street_fold, search_key and latin_key, built as the register path builds them."""
+    """street_fold, search_key and latin_key, built the same way as the register path."""
     folded = street_key(street)
     search = f"{folded} {fold(locality)}" if locality else folded
     return folded, search, from_greek(search)
 
 
 def best_plan(plans: str, catalogue: dict[str, tuple[float, str]]) -> tuple[float, str] | None:
-    """The fastest plan the operator offers here, which is what names the technology.
+    """The fastest plan offered here, which names the technology.
 
-    Vectored copper stops short of 200 Mbps, so the top rung says what is in the ground. An
-    unknown code is ignored rather than guessed: a new one is a catalogue change.
+    Vectored copper stops short of 200 Mbps, so the top rung says what's in the ground. An
+    unknown code is skipped: a new one means the catalogue changed.
     """
     known = [catalogue[code] for code in plans.split(",") if code in catalogue]
     return max(known) if known else None
 
 
 def add_addresses(conn: psycopg.Connection[TupleRow]) -> int:
-    """The addresses the operator serves that the register never filed."""
+    """Addresses the operator serves that the register never filed."""
     held = {(m, f, n) for m, f, n in conn.execute(HELD)}
     best: dict[tuple[int, str, str], tuple[int, tuple[object, ...]]] = {}
 
@@ -221,7 +234,7 @@ def add_addresses(conn: psycopg.Connection[TupleRow]) -> int:
 
 
 def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
-    """The answers themselves, and how far the asking reached on each street."""
+    """The answers, plus how far up each street the asking reached."""
     catalogue = {
         code: (float(mbps), technology)
         for code, mbps, technology in conn.execute(CATALOGUE).fetchall()
@@ -248,7 +261,7 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
         resolved: list[tuple[object, ...]] = []
         for row_id, municipality_id, street, street_no, plans, observed_at in read:
             folded = street_key(street)
-            # Every row raises the ceiling, matched or not: the scan reached it either way.
+            # every row raises the ceiling, matched or not, since the scan got that far
             reached = ceiling.get((municipality_id, folded), street_no)
             ceiling[(municipality_id, folded)] = max(reached, street_no)
             resolved.append((row_id, municipality_id, folded))
@@ -260,8 +273,8 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
                 continue
             mbps, technology = best
             staged.append((address_id, technology, mbps, observed_at, plans))
-        # The chunk is read in full before the copy opens: a select and a copy cannot share
-        # one connection, and interleaving them deadlocks on ClientRead.
+        # Read the whole chunk before opening the copy. A select and a copy can't share one
+        # connection, and interleaving them deadlocks on ClientRead.
         if resolved:
             with conn.cursor().copy(
                 "copy stage_cosmote_resolved (id, municipality_id, street_fold) from stdin"
@@ -287,8 +300,8 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
         conn.execute(MARK_SCANNED)
 
     conn.execute(RESOLVE)
-    # The thresholds live with the probe loop, which applies the same rule to a live
-    # answer: a scraped gigabit and a probed one are settled for the same two years.
+    # Thresholds come from the probe loop so a scraped gigabit and a probed one are both
+    # trusted for two years.
     conn.execute(CACHE, {
         "gigabit": GIGABIT, "fast": FAST, "usable": USABLE,
         "settled": SETTLED, "likely": LIKELY, "changing": CHANGING, "volatile": VOLATILE,

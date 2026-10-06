@@ -1,4 +1,4 @@
-"""Group OSM ways into streets: one row per connected run of a named road per municipality."""
+"""Group OSM ways into streets: one row per connected run of a named road in a municipality."""
 
 from __future__ import annotations
 
@@ -22,20 +22,16 @@ create temp table stage_street (
 
 SOURCE = "select osm_id, name from raw_osm_street"
 
-# How far apart two pieces of road may be and still be the same street, in degrees. About
-# 55 m at Greek latitudes. That steps over a square, a roundabout or the central reservation
-# of a dual carriageway. Two roads a block apart stay two roads.
-#
-# The rule is transitive, which is what makes it work on a long road: a road is a chain of
-# ways, and each link only has to reach the next one.
+# How far apart two pieces of road can be and still be one street, in degrees: about 55 m
+# here. Enough to step over a square, a roundabout or a dual carriageway's central strip.
+# Two roads a block apart stay two roads. It's transitive, which is what makes long roads
+# work: each way only has to reach the next.
 NEAR_DEGREES = 0.0005
 
-# One row per connected run, keyed so a rebuild lands on the same rows it did last time.
-#
-# The cluster numbers ST_ClusterDBSCAN hands out depend on the order it read the ways in,
-# and that order is not promised. They are thrown away and replaced by a rank over the
-# westernmost point of each run, so the same OSM extract always produces the same components
-# under the same numbers, and therefore the same street ids.
+# One row per connected run, keyed so a rebuild lands on the same rows. ST_ClusterDBSCAN's
+# cluster numbers depend on the order it reads ways, which isn't promised, so they're
+# replaced by a rank over each run's westernmost point. Same extract, same component
+# numbers, same street ids.
 GROUPED = """
 create temp table stage_group on commit drop as
 with placed as (
@@ -51,8 +47,7 @@ clustered as (
              over (partition by sort_key, municipality_id) as run
     from placed
 ),
--- Where each run begins, worked out here rather than inside the rank below: a window
--- function may not appear in another window function's order by.
+-- each run's start, computed here because a window function can't sit in another's order by
 anchored as (
     select clustered.*,
            min(st_xmin(geom)) over w as run_x,
@@ -79,8 +74,8 @@ from ordered
 group by sort_key, municipality_id, component
 """
 
-# array_agg ordered by the same key on every column, so the stored name, its fold and its
-# latin form all come from one way rather than from three different ones.
+# Every column's array_agg uses the same order, so the name, its fold and its latin form all
+# come from one way.
 MERGE = """
 insert into street (
     name, name_fold, latin_key, sort_key, municipality_id, component, highway, ways, geom
@@ -96,8 +91,8 @@ on conflict (sort_key, municipality_id, component) do update set
     geom = excluded.geom
 """
 
-# A road removed from the extract must leave, and so must a run that has since joined the
-# one next to it: a component number that is no longer produced is no longer a street.
+# Drop roads gone from the extract, and runs that have since merged into a neighbour: a
+# component number no longer produced is no longer a street.
 PRUNE = """
 delete from street st
 where not exists (
@@ -119,8 +114,8 @@ def keyed(rows: list[tuple[int, str]]) -> Iterator[StageRow]:
 
 def build_street_index(conn: psycopg.Connection[TupleRow]) -> int:
     conn.execute(STAGE)
-    # Read before the copy opens: a select and a copy cannot share one connection, and the
-    # copy would sit waiting for rows the select cannot deliver.
+    # Read before opening the copy. A select and a copy can't share a connection, and the copy
+    # would wait forever for rows the select can't deliver.
     source = cast(list[tuple[int, str]], conn.execute(SOURCE).fetchall())
     with conn.cursor().copy(
         "copy stage_street (osm_id, name_fold, latin_key, sort_key) from stdin"
