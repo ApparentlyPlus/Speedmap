@@ -60,8 +60,8 @@ def test_the_real_order_would_be_caught_if_it_were_wrong() -> None:
 
 
 def test_the_scrape_is_optional_and_says_what_is_lost() -> None:
-    """It is months of someone's asking and several gigabytes. A clone cannot reproduce it,
-    and should be told what it is doing without rather than left to wonder."""
+    """Months of asking and several gigabytes, which a clone can't reproduce. It should be
+    told what it's doing without, so nobody is left wondering."""
     scrape = named("scrape")
     assert scrape.optional
     assert "326,249" in scrape.missing

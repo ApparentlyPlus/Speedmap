@@ -1,6 +1,6 @@
 [Unit]
 Description=speedmap.gr read API
-# The API answers from Postgres and has nothing to say without it.
+# the API answers from Postgres and has nothing to say without it
 After=network-online.target postgresql.service
 Wants=network-online.target
 Requires=postgresql.service
@@ -10,12 +10,14 @@ Type=exec
 User=speedmap
 WorkingDirectory=/opt/speedmap
 EnvironmentFile=/opt/speedmap/.env
-ExecStart=/opt/speedmap/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000
+# No access log. A journal line per keystroke of every search would be most of what this
+# service writes, on an SD card. Errors still get logged, and Caddy can log access.
+ExecStart=/opt/speedmap/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000 --no-access-log
 Restart=always
 RestartSec=5
 Slice=speedmap.slice
 
-# It reads a database and writes nothing to disk. Nothing else needs to be reachable.
+# reads a database, writes nothing to disk, needs nothing else reachable
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
