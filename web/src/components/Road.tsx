@@ -6,8 +6,7 @@ import type { Geometry } from "geojson";
 import { street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
-import { Anchored } from "./Anchored";
-import { Credit } from "./Credit";
+import { Split } from "./Split";
 import { Waiting } from "./Waiting";
 
 export function Road({
@@ -44,83 +43,79 @@ export function Road({
   const bare = found !== null && found.offers.length === 0;
 
   return (
-    <>
-      <Anchored
-        lon={middle?.[0] ?? null}
-        lat={middle?.[1] ?? null}
-        shape={(found?.shape as unknown as Geometry | undefined) ?? null}
-        streetId={found?.id ?? null}
-      />
-      <Credit language={language} />
+    <Split
+      where={middle === null ? null : { lon: middle[0], lat: middle[1] }}
+      shape={(found?.shape as unknown as Geometry | undefined) ?? null}
+      streetId={found?.id ?? null}
+      language={language}
+    >
+      <button className="back split-back" type="button" onClick={onBack}>
+        <span aria-hidden="true">←</span> {text.back}
+      </button>
+      {/* no house: a street isn't one door */}
+      <header className="split-title split-road-head">
+        <h1 className="split-name">{result.name}</h1>
+        <p className="split-where">{result.municipality}</p>
+      </header>
 
-      <section className="place place-road" data-covers-map>
-        <div className="place-body">
-          <header className="place-head">
-            <button className="back" type="button" onClick={onBack}>
-              <span aria-hidden="true">←</span> {text.back}
-            </button>
-            <h1 className="place-name">{result.name}</h1>
-            <p className="place-where">{result.municipality}</p>
-          </header>
+      <hr className="split-rule" />
 
-          {found === null && !failed && <Waiting />}
+      {found === null && !failed && <Waiting />}
 
-          {(failed || bare) && (
-            <div className="bare">
-              <span className="bare-mark" aria-hidden="true" />
-              <p className="bare-said">{text.notIndexed}</p>
-              <p className="bare-why">{text.notIndexedWhy}</p>
-            </div>
-          )}
-
-          {found !== null && found.offers.length > 0 && (
-            <>
-              <h2 className="group-head">
-                <span className="group-index">/01</span>
-                {text.streetHead}
-                <span className="group-rule" aria-hidden="true" />
-              </h2>
-              <ul className="road-offers">
-                {found.offers.map((offer) => (
-                  <li className="road-offer" key={`${offer.provider}-${offer.technology}`}>
-                    <span
-                      className="road-dot"
-                      style={{ background: brandOf(offer.provider).colour }}
-                    />
-                    <span className="road-name">{offer.provider_name}</span>
-                    <span className="road-tech">
-                      {offer.technology}
-                      {/* who built the line, when that isn't the seller: three retailers over one cabinet
-                          is one line resold, and read as three networks without this */}
-                      {offer.infra_provider !== null &&
-                        offer.infra_provider !== offer.provider && (
-                          <span className="road-infra">
-                            {" "}
-                            · {text.over} {offer.infra_provider}
-                          </span>
-                        )}
-                    </span>
-                    {/* Retail speed held to the filing, which is what the street is painted with. The
-                        register's band read "not filed" on seven fiber lines in ten. */}
-                    <span className="road-speed">
-                      {offer.sold_mbps === null || offer.sold_mbps === undefined
-                        ? text.unfiled
-                        : `${Number(offer.sold_mbps)} Mbps`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          {found !== null && found.offers.length > 0 && (
-            <footer className="disclaimer">
-              <p>{text.disclaimer}</p>
-            </footer>
-          )}
+      {(failed || bare) && (
+        <div className="bare">
+          <span className="bare-mark" aria-hidden="true" />
+          <p className="bare-said">{text.notIndexed}</p>
+          <p className="bare-why">{text.notIndexedWhy}</p>
         </div>
-      </section>
-    </>
+      )}
+
+      {found !== null && found.offers.length > 0 && (
+        <>
+          <h2 className="group-head">
+            <span className="group-index">/01</span>
+            {text.streetHead}
+            <span className="group-rule" aria-hidden="true" />
+          </h2>
+          <ul className="road-offers">
+            {found.offers.map((offer) => (
+              <li className="road-offer" key={`${offer.provider}-${offer.technology}`}>
+                <span
+                  className="road-dot"
+                  style={{ background: brandOf(offer.provider).colour }}
+                />
+                <span className="road-name">{offer.provider_name}</span>
+                <span className="road-tech">
+                  {offer.technology}
+                  {/* who built the line, when that isn't the seller: three retailers over one
+                      cabinet is one line resold, and read as three networks without this */}
+                  {offer.infra_provider !== null &&
+                    offer.infra_provider !== offer.provider && (
+                      <span className="road-infra">
+                        {" "}
+                        · {text.over} {offer.infra_provider}
+                      </span>
+                    )}
+                </span>
+                {/* Retail speed held to the filing, which is what the street is painted with. The
+                    register's band read "not filed" on seven fiber lines in ten. */}
+                <span className="road-speed">
+                  {offer.sold_mbps === null || offer.sold_mbps === undefined
+                    ? text.unfiled
+                    : `${Number(offer.sold_mbps)} Mbps`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {found !== null && found.offers.length > 0 && (
+        <footer className="disclaimer">
+          <p>{text.disclaimer}</p>
+        </footer>
+      )}
+    </Split>
   );
 }
 

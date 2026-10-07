@@ -11,8 +11,9 @@
 import { useEffect, useState } from "react";
 
 import { languageOf, type Language } from "../i18n";
+import { Answer } from "../components/Answer";
+import { Split } from "../components/Split";
 import { SCENARIOS, SHAPE, STREET_ID, WHERE } from "./fixtures";
-import { Split } from "./Split";
 import "../styles/lab.css";
 
 export function Lab(): React.ReactElement {
@@ -38,16 +39,21 @@ export function Lab(): React.ReactElement {
 
   return (
     <>
+      {/* the same two pieces as a real answer, fed fixtures instead of the API */}
       <Split
         key={`${scenario.key}-${language}`}
-        name={scenario.name}
-        place={scenario.place}
-        answer={scenario.answer}
-        shape={found ? SHAPE : null}
         where={found ? WHERE : null}
+        shape={found ? SHAPE : null}
         streetId={found ? STREET_ID : null}
         language={language}
-      />
+      >
+        <Answer
+          name={scenario.name}
+          place={scenario.place}
+          answer={scenario.answer}
+          language={language}
+        />
+      </Split>
 
       <div className="lab-bar">
         {SCENARIOS.map((one, index) => (
