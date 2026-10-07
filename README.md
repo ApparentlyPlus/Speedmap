@@ -189,7 +189,7 @@ The dev server proxies the API so both run same-origin, matching production behi
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, ESLint over the frontend, 736 Python tests and 56 frontend tests. Thirteen of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those thirteen cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
+`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, ESLint over the frontend, 737 Python tests and 56 frontend tests. Thirteen of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those thirteen cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
 
 `make audit` is separate and runs the nine SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
 
