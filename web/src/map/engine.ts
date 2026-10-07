@@ -3,7 +3,7 @@
  * the library, so they're set once. The defaults don't suit a page with four archives.
  */
 
-import { addProtocol, setWorkerCount } from "maplibre-gl";
+import { addProtocol, setWorkerCount, type Map as Maplibre } from "maplibre-gl";
 import { FetchSource, PMTiles, Protocol, type RangeResponse, type Source } from "pmtiles";
 
 /**
@@ -59,4 +59,24 @@ export function engine(): void {
     }
     return pmtiles.tile(params, abort);
   });
+}
+
+/**
+ * Runs `then` once the map has had its first load, straight away if it already has. Returns
+ * the undo, for an effect's cleanup.
+ *
+ * Not isStyleLoaded(). That's also false while any tile is in flight, and the event the pages
+ * then waited on had already fired: an operator picked mid-pan stayed unpicked until the next
+ * zoom, and an answer landing mid-load never got its descent. `_loaded` is MapLibre's own
+ * record of the load event, and is in its typings.
+ */
+export function whenLoaded(map: Maplibre, then: () => void): () => void {
+  if (map._loaded) {
+    then();
+    return () => undefined;
+  }
+  map.once("load", then);
+  return () => {
+    map.off("load", then);
+  };
 }
