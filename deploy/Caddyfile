@@ -63,8 +63,16 @@ speedmap.gr {
 
 	log {
 		output file /var/log/caddy/speedmap.log
-		# the query string holds what people searched for, which is a street they live on
-		format json
+		# The query string holds what people searched for, which is a street they live on, so
+		# q is dropped before the line is written. It used to be logged whole.
+		format filter {
+			fields {
+				request>uri query {
+					delete q
+				}
+			}
+			wrap json
+		}
 	}
 }
 
