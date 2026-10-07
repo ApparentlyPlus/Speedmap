@@ -116,7 +116,7 @@ MapLibre GL reading PMTiles archives by range request. Three vector layers, cut 
 
 `speedmap.pmtiles`
 
-- `streets`: one feature per street, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator can't sell. A field carries `role: infrastructure` in `schema/tiles.yaml` when its operator retails nothing, and the panel reads that instead of keeping its own list.
+- `streets`: one feature per street from zoom 10, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator can't sell. Below zoom 10 streets that look the same are merged into one feature, without id, and cut at a quarter of the detail. A field carries `role: infrastructure` in `schema/tiles.yaml` when its operator retails nothing, and the panel reads that instead of keeping its own list.
 - `regions`: one feature per municipality, for zooms below 11 where a street is a fraction of a pixel.
 
 `cells.pmtiles`
@@ -157,7 +157,7 @@ What a clone reproduces, and what it does not:
 | Measured speeds | Ookla's open S3 bucket | Yes |
 | Tariffs | `prices/published.yaml` and the operators' pages | Yes |
 | The Cosmote address scrape | Months of asking, several gigabytes | No. The stage skips and says what is lost: 326,249 addresses, and two checkers that can then only be asked about streets it walked |
-| `bin/tippecanoe` | Vendored, and gitignored along with everything else binary | No. Install it, or `make tiles` says which tool is missing |
+| `bin/tippecanoe`, `bin/tile-join` | Vendored, and gitignored along with everything else binary | No. Install tippecanoe, which ships both, or `make tiles` says which tool is missing |
 | `greece.pmtiles`, `buildings.pmtiles` | planetiler, over an OSM extract and Overture footprints | No, and nothing here builds them. The map draws its streets without them and logs which archive is absent |
 
 A clone therefore reaches a loaded database and its own coverage tiles. The land underneath

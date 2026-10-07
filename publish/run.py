@@ -44,6 +44,13 @@ REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
 REGIONS_STOP = 10
 FILTER = json.dumps({fields.REGIONS_LAYER: ["<=", "$zoom", REGIONS_STOP]})
 
+# Coordinates per tile edge below DETAIL_FROM, as a power of two: 1024 where tippecanoe's
+# default is 4096. A tile is drawn about 512 pixels wide, so that is still two to a pixel. The
+# z6 tile over Athens went from 202,355 vertices to 90,594, all of which the browser
+# triangulated on every zoom out. Above DETAIL_FROM a street can be lit on its own and stays at
+# full detail.
+LOW_DETAIL = 10
+
 # Measured squares, in an archive of their own. MapLibre doesn't fetch a source no visible
 # layer reads, so the coverage map downloads none of them.
 CELLS_ARCHIVE = "cells.pmtiles"
@@ -70,14 +77,19 @@ def layer(name: str, path: pathlib.Path, rules: tuple[str, ...]) -> list[str]:
     ]
 
 
-def cut(staged: pathlib.Path, layers: list[str], rules: list[str]) -> subprocess.Popen[bytes]:
+def cut(
+    staged: pathlib.Path,
+    layers: list[str],
+    rules: list[str],
+    zooms: tuple[int, int] = (MIN_ZOOM, MAX_ZOOM),
+) -> subprocess.Popen[bytes]:
     """One tippecanoe run, one archive. Returns the running process."""
     return subprocess.Popen(
         [
             tool("tippecanoe"),
             "--output", str(staged),
-            "--minimum-zoom", str(MIN_ZOOM),
-            "--maximum-zoom", str(MAX_ZOOM),
+            "--minimum-zoom", str(zooms[0]),
+            "--maximum-zoom", str(zooms[1]),
             # Attributes are the contract, so tippecanoe may not drop any it thinks are dull,
             # which it otherwise does to save room.
             "--no-tile-size-limit",
@@ -130,23 +142,49 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
         print(f"regions: {made['regions'].result()} features")
         print(f"outline: {made['outline'].result() / 1_000_000:.1f} MB -> {edge}")
 
-    # The two archives share nothing, so they're cut at once. Same inputs and flags each, so
-    # the same two archives.
-    coverage = work / "coverage.pmtiles"
-    streets_cut = cut(
-        coverage,
-        [
-            *layer(fields.STREETS_LAYER, streets, STREET_RULES),
-            # The same layer name, so the style reads one source layer at every zoom.
-            *layer(fields.STREETS_LAYER, overview, MERGE),
-            *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
-        ],
-        ["--feature-filter", FILTER],
+    # Tippecanoe takes one detail for every zoom below the top, so the coverage archive is cut
+    # in two, coarse zooms and fine, and joined. The three cuts share nothing and run at once.
+    # Same inputs and flags each, so the same archives.
+    split = features.DETAIL_FROM
+    coarse = work / "coarse.pmtiles"
+    fine = work / "fine.pmtiles"
+    measured = work / "measured.pmtiles"
+    finish(
+        cut(
+            coarse,
+            [
+                # The same layer name as the fine streets, so the style reads one source layer
+                # at every zoom.
+                *layer(fields.STREETS_LAYER, overview, MERGE),
+                *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
+            ],
+            [
+                "--feature-filter", FILTER,
+                "--low-detail", str(LOW_DETAIL), "--full-detail", str(LOW_DETAIL),
+            ],
+            (MIN_ZOOM, split - 1),
+        ),
+        cut(
+            fine,
+            [
+                *layer(fields.STREETS_LAYER, streets, STREET_RULES),
+                *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
+            ],
+            ["--feature-filter", FILTER],
+            (split, MAX_ZOOM),
+        ),
+        cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), []),
     )
 
-    measured = work / "measured.pmtiles"
-    cells_cut = cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), [])
-    finish(streets_cut, cells_cut)
+    # The zooms don't overlap, so the join only copies tiles across
+    coverage = work / "coverage.pmtiles"
+    subprocess.run(
+        [
+            tool("tile-join"), "--quiet", "--no-tile-size-limit",
+            "--output", str(coverage), str(coarse), str(fine),
+        ],
+        check=True,
+    )
 
     out.parent.mkdir(parents=True, exist_ok=True)
     # atomic within one filesystem, which is why the work directory sits beside the output
