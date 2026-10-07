@@ -66,8 +66,14 @@ export function tiles(directories: readonly string[]): Plugin {
         response.setHeader("Content-Length", size);
         return fs.createReadStream(file).pipe(response);
       }
-      const start = range[1] === "" ? 0 : Number(range[1]);
-      const end = range[2] === "" ? size - 1 : Math.min(Number(range[2]), size - 1);
+      // bytes=-N is the last N bytes, not the first N
+      const start = range[1] === "" ? Math.max(0, size - Number(range[2])) : Number(range[1]);
+      const end = range[1] === "" || range[2] === "" ? size - 1 : Math.min(Number(range[2]), size - 1);
+      if (start > end) {
+        response.statusCode = 416;
+        response.setHeader("Content-Range", `bytes */${size}`);
+        return response.end();
+      }
       response.statusCode = 206;
       response.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
       response.setHeader("Content-Length", end - start + 1);
