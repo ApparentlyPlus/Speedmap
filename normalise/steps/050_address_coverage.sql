@@ -21,8 +21,10 @@ with fresh as (
         from address a
         join coverage_area ca on st_contains(ca.geom_2d, a.geom::geometry)
     ) src
-    -- every column, so ties break the same way every build
-    order by address_id, provider_id, technology, matched_by, speed_band_id desc nulls last,
+    -- Every column, so ties break the same way every build. A filing at the door beats the
+    -- cabinet the door sits in. That used to rest on matched_by's spelling, and 'area' sorts first.
+    order by address_id, provider_id, technology, matched_by = 'point' desc,
+             speed_band_id desc nulls last,
              normal_band_id desc nulls last, infra_provider_id nulls last,
              avail_date nulls last, family
 ),
