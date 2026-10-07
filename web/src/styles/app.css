@@ -533,6 +533,11 @@ body {
   scrollbar-width: none;
 }
 
+/* The sheet's handle exists on narrow screens only (see the media query below). */
+.split-handle {
+  display: none;
+}
+
 /* Above the house, out of the way of the pair below it. */
 .split-back {
   flex: none;
@@ -678,36 +683,104 @@ body {
     --covers: 1.1;
   }
 
+  /*
+   * Measured from the top in dvh rather than in shares of the ground, so the thinning is always
+   * the 10dvh above the panel. In shares it stretched with the panel, and pulled up over the
+   * screen the top twelfth of it still showed the map.
+   */
   .split-panel-ground {
     inset: -10dvh 0 0 0;
     background: linear-gradient(
-      to top,
-      var(--ground) 0%,
-      var(--ground) 83.33%,
-      rgb(8 8 10 / 99.67%) 84.52%,
-      rgb(8 8 10 / 97.67%) 85.71%,
-      rgb(8 8 10 / 93.05%) 86.90%,
-      rgb(8 8 10 / 85.53%) 88.10%,
-      rgb(8 8 10 / 75.36%) 89.29%,
-      rgb(8 8 10 / 63.21%) 90.48%,
-      rgb(8 8 10 / 50.00%) 91.67%,
-      rgb(8 8 10 / 36.79%) 92.86%,
-      rgb(8 8 10 / 24.64%) 94.05%,
-      rgb(8 8 10 / 14.47%) 95.24%,
-      rgb(8 8 10 / 6.95%) 96.43%,
-      rgb(8 8 10 / 2.33%) 97.62%,
-      rgb(8 8 10 / 0.33%) 98.81%,
-      rgb(8 8 10 / 0.00%) 100.00%
+      to bottom,
+      rgb(8 8 10 / 0%) 0,
+      rgb(8 8 10 / 0.33%) 0.71dvh,
+      rgb(8 8 10 / 2.33%) 1.43dvh,
+      rgb(8 8 10 / 6.95%) 2.14dvh,
+      rgb(8 8 10 / 14.47%) 2.86dvh,
+      rgb(8 8 10 / 24.64%) 3.57dvh,
+      rgb(8 8 10 / 36.79%) 4.29dvh,
+      rgb(8 8 10 / 50.00%) 5.00dvh,
+      rgb(8 8 10 / 63.21%) 5.71dvh,
+      rgb(8 8 10 / 75.36%) 6.43dvh,
+      rgb(8 8 10 / 85.53%) 7.14dvh,
+      rgb(8 8 10 / 93.05%) 7.86dvh,
+      rgb(8 8 10 / 97.67%) 8.57dvh,
+      rgb(8 8 10 / 99.67%) 9.29dvh,
+      var(--ground) 10dvh,
+      var(--ground) 100%
     );
   }
 
   .split-panel-ground::after {
-    mask-image: linear-gradient(to top, transparent 81%, #000 87%, #000 96%, transparent 100%);
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 2.4dvh,
+      #000 7.8dvh,
+      transparent 11.4dvh
+    );
   }
 
   .split-panel-body {
     height: 100%;
-    padding: 6px 22px 28px;
+    padding: 28px 22px 28px;
+  }
+
+  /*
+   * Pulled up, the panel takes the screen and the map goes under it. It follows the finger
+   * while held (--lift, from Split) and settles on one of the two when let go.
+   */
+  .split-panel {
+    transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .split-panel[data-raised="true"] {
+    height: 100dvh;
+  }
+
+  .split-panel[data-dragging] {
+    height: calc(50dvh + var(--lift, 0px));
+    transition: none;
+  }
+
+  .split-handle {
+    display: flex;
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    left: 50%;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 30px;
+    padding: 0;
+    transform: translateX(-50%);
+    border: 0;
+    background: none;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  /* The panel's own quiet ink, barely there: a hint, not a control asking to be pressed. */
+  .split-handle svg {
+    width: 22px;
+    height: 9px;
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.45;
+    transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .split-panel[data-raised="true"] .split-handle svg {
+    transform: rotate(180deg);
+  }
+
+  /* the corner link would sit on the raised panel */
+  .split:has(.split-panel[data-raised="true"]) .credit {
+    display: none;
   }
 
   .split-head {

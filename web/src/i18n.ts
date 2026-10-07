@@ -25,6 +25,7 @@ type Strings = {
   readonly anyOperator: string;
   readonly filters: string;
   readonly tilt: string;
+  readonly sheet: string;
   readonly legend: Readonly<Record<string, string>>;
   readonly measuredHere: string;
   readonly down: string;
@@ -97,6 +98,7 @@ const el: Strings = {
   anyOperator: "Όλοι",
   filters: "Φίλτρα και υπόμνημα",
   tilt: "Κλίση. Διπλό πάτημα για βορρά",
+  sheet: "Αποτελέσματα σε όλη την οθόνη",
   legend: { coverage: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
   measuredHere: "Μετρήσεις εδώ",
   down: "Λήψη",
@@ -188,6 +190,7 @@ const en: Strings = {
   anyOperator: "Anyone",
   filters: "Filters and legend",
   tilt: "Tilt. Double tap for north",
+  sheet: "Results on the whole screen",
   legend: { coverage: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
   measuredHere: "Measured here",
   down: "Down",
