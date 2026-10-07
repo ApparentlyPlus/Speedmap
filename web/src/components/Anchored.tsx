@@ -7,7 +7,7 @@ import maplibregl, {
 } from "maplibre-gl";
 import type { Geometry, Position } from "geojson";
 
-import { engine } from "../map/engine";
+import { engine, whenLoaded } from "../map/engine";
 import { BUILDINGS, BUILDING_LAYERS, LIMITS, hushed, ramps, style } from "../map/style";
 import {
   GLOW,
@@ -429,15 +429,14 @@ export function Anchored({
       running = requestAnimationFrame(frame);
     };
 
-    if (map.isStyleLoaded()) add();
-    else map.once("load", add);
+    const unwait = whenLoaded(map, add);
 
     return () => {
       stopped = true;
       cancelAnimationFrame(running);
       document.removeEventListener("visibilitychange", wake);
       watcher.disconnect();
-      map.off("load", add);
+      unwait();
       window.clearTimeout(giveUp);
       if (onSourceData !== null) map.off("sourcedata", onSourceData);
       // a removed map has nothing left to clean

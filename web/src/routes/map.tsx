@@ -10,7 +10,7 @@ import type { Geometry } from "geojson";
 import { address, search, street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { Credit } from "../components/Credit";
-import { engine } from "../map/engine";
+import { engine, whenLoaded } from "../map/engine";
 import { Tilt } from "../map/tilt";
 import { strings, type Language } from "../i18n";
 import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
@@ -359,14 +359,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       }
     };
 
-    if (map.isStyleLoaded()) {
-      apply();
-      return;
-    }
-    map.once("styledata", apply);
-    return () => {
-      map.off("styledata", apply);
-    };
+    return whenLoaded(map, apply);
   }, [provider, view, regions]);
 
   // light up the selected street, or nothing
@@ -386,14 +379,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       }
     };
 
-    if (map.isStyleLoaded()) {
-      apply();
-      return;
-    }
-    map.once("styledata", apply);
-    return () => {
-      map.off("styledata", apply);
-    };
+    return whenLoaded(map, apply);
   }, [chosen]);
 
   return (
