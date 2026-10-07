@@ -87,15 +87,27 @@ function clear(map: Maplibre): { top: number; right: number; bottom: number; lef
    * Find the cover by its data attribute. A class selector only matched one layout, so the
    * split panel went unnoticed and the street was centred behind it.
    */
-  const card = document.querySelector("[data-covers-map]")?.getBoundingClientRect();
+  const card = document.querySelector<HTMLElement>("[data-covers-map]");
+  if (card === null) return pad;
+
+  /*
+   * The layout box, not the drawn one. The panel slides in as the map is built, and measured
+   * mid-slide it put the pivot 14 px off for the life of the screen.
+   *
+   * --covers is how much of the panel hides the map, as a share of its size across the join.
+   * Its ground thins out at the open edge, and the map shows from where the thinning starts:
+   * framed beside the whole panel, the street turned well to one side of the space it had.
+   */
+  const covers = Number(getComputedStyle(card).getPropertyValue("--covers")) || 1;
+  const across = card.offsetWidth >= box.width * 0.75;
 
   // The card overlaps the map in both layouts: across the bottom on narrow screens, down
   // the left on wide ones. Only the narrow case used to be handled.
-  if (card === undefined) return pad;
-  if (card.width >= box.width * 0.75) {
-    pad.bottom = Math.min(box.bottom - card.top + 16, box.height * 0.6);
+  if (across) {
+    const top = card.offsetTop + card.offsetHeight * (1 - covers);
+    pad.bottom = Math.min(box.bottom - top + edge, box.height * 0.6);
   } else {
-    pad.left = Math.min(card.right - box.left + edge, box.width * 0.6);
+    pad.left = Math.min(card.offsetLeft + card.offsetWidth * covers + edge, box.width * 0.6);
   }
   return pad;
 }
