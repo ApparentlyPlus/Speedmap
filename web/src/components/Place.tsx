@@ -64,6 +64,10 @@ export function Place({
 
   // Where to fly the map, on its own request. Options wait on the slowest operator and the
   // map shouldn't.
+  //
+  // The door and its street go to the map together. Handed the door first, the map set off
+  // toward it at street zoom, and the street arriving a moment later started the descent from
+  // wherever that had got to: the fall from the whole country was lost to a race.
   useEffect(() => {
     const stop = new AbortController();
     setShape(null);
@@ -71,10 +75,14 @@ export function Place({
     address(result.id, stop.signal)
       .then(async (found) => {
         if (stop.signal.aborted) return;
+        const id = found.street_id;
+        const known =
+          id === null || id === undefined
+            ? null
+            : await street(id, stop.signal).catch(() => null);
+        if (stop.signal.aborted) return;
         setWhere({ lon: found.lon, lat: found.lat });
-        if (found.street_id === null || found.street_id === undefined) return;
-        const known = await street(found.street_id, stop.signal).catch(() => null);
-        if (known !== null && !stop.signal.aborted) {
+        if (known !== null) {
           setShape(known.shape as unknown as Geometry);
           setRoad(known.id);
         }
