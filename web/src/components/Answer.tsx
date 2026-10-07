@@ -37,8 +37,15 @@ export function Answer({
   const [open, setOpen] = useState(false);
 
   const offers = answer?.options ?? [];
-  const selected =
-    offers.find((o) => `${o.provider}-${o.plan}` === chosen) ?? offers[0] ?? null;
+  // Until a plan is picked the house shows the fastest line here, not the top of the list.
+  // The list is ranked by what's worth buying, often a cheaper 100 Mbps plan, and the house
+  // drew copper at an address with gigabit fiber. Ties go to the higher-ranked plan.
+  const fastest = offers.reduce<(typeof offers)[number] | null>(
+    (best, o) =>
+      best === null || Number(o.expected_mbps ?? 0) > Number(best.expected_mbps ?? 0) ? o : best,
+    null,
+  );
+  const selected = offers.find((o) => `${o.provider}-${o.plan}` === chosen) ?? fastest;
   const speed =
     selected?.expected_mbps === null || selected?.expected_mbps === undefined
       ? mbps(0)
