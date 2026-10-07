@@ -70,6 +70,23 @@
   pointer-events: none;
 }
 
+/*
+ * Grain over the fade, faint enough not to see. The ground thins from #08080a to a dark map, a
+ * dozen or so shades, so each shade is a flat stripe many pixels wide and the eye reads its edges
+ * as lines. Chrome dithers the gradient, but its first dithered columns sit a shade below the
+ * solid ground, so the fade opened with a dark seam that showed exactly where it started. Up to
+ * two 255ths of white per pixel (lab/grain.png, two random bits summed per pixel) breaks the
+ * stripes up. It covers the fade only, so the solid ground keeps its exact colour.
+ */
+.split-panel-ground::after {
+  position: absolute;
+  inset: 0;
+  background-image: url("../lab/grain.png");
+  background-size: 64px 64px;
+  content: "";
+  mask-image: linear-gradient(to right, transparent 66%, #000 76%, #000 92%, transparent 100%);
+}
+
 /* Text stops well before the ground does, or a line's last word would sit on the map. */
 .split-panel-body {
   display: flex;
@@ -247,6 +264,10 @@
       rgb(8 8 10 / 0.1%) 98.19%,
       rgb(8 8 10 / 0.0%) 100.0%
     );
+  }
+
+  .split-panel-ground::after {
+    mask-image: linear-gradient(to top, transparent 60%, #000 70%, #000 92%, transparent 100%);
   }
 
   .split-panel-body {
