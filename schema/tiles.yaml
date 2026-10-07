@@ -115,3 +115,19 @@ layers:
       tests:
         type: integer
         description: measurements behind the figure; drawn as opacity, never as deletion
+
+# The two archives built elsewhere, by planetiler, cut down to what the style reads. Each
+# label carried about eighty translations and each building every Overture attribute, all
+# fetched and decoded on every zoom in. tools/slim_basemap.py keeps these layers and fields and
+# drops the rest. web/src/map/style.test.ts fails if the style reads anything not listed.
+basemap:
+  greece.pmtiles:
+    landcover: []
+    park: []
+    water: []
+    transportation: [class]
+    transportation_name: [name, "name:el"]
+    place: [class, name, "name:el"]
+  buildings.pmtiles:
+    # The height fallback reads the feature id, which isn't a field and is always kept
+    building: [height, num_floors, min_height]

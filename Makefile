@@ -72,6 +72,10 @@ web-build: # build the frontend for deployment
 tiles: fonts # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
 	$(PY) -m publish.run
 
+.PHONY: slim
+slim: # cut the basemap and buildings down to what the style reads, after copying them into tiles/
+	$(PY) -m tools.slim_basemap
+
 .PHONY: fonts
 fonts: # fetch the label glyphs once, to be served beside the tiles
 	$(PY) -m tools.fonts

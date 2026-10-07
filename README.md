@@ -158,7 +158,7 @@ What a clone reproduces, and what it does not:
 | Tariffs | `prices/published.yaml` and the operators' pages | Yes |
 | The Cosmote address scrape | Months of asking, several gigabytes | No. The stage skips and says what is lost: 326,249 addresses, and two checkers that can then only be asked about streets it walked |
 | `bin/tippecanoe`, `bin/tile-join` | Vendored, and gitignored along with everything else binary | No. Install tippecanoe, which ships both, or `make tiles` says which tool is missing |
-| `greece.pmtiles`, `buildings.pmtiles` | planetiler, over an OSM extract and Overture footprints | No, and nothing here builds them. The map draws its streets without them and logs which archive is absent |
+| `greece.pmtiles`, `buildings.pmtiles` | planetiler, over an OSM extract and Overture footprints | No, and nothing here builds them. The map draws its streets without them and logs which archive is absent. After copying a build in, `make slim` cuts each down to the layers and fields the style reads, listed in `schema/tiles.yaml` |
 
 A clone therefore reaches a loaded database and its own coverage tiles. The land underneath
 them comes from somewhere else.

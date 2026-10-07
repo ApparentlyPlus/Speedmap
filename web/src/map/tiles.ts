@@ -147,3 +147,23 @@ export const CELLS_FIELDS = [
   "up_mbps",
   "tests",
 ] as const;
+
+/**
+ * What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then
+ * layer, then the fields of it the style reads.
+ */
+export const BASEMAP: Readonly<
+  Record<string, Readonly<Record<string, readonly string[]>>>
+> = {
+  "greece.pmtiles": {
+    landcover: [],
+    park: [],
+    water: [],
+    transportation: ["class"],
+    transportation_name: ["name", "name:el"],
+    place: ["class", "name", "name:el"],
+  },
+  "buildings.pmtiles": {
+    building: ["height", "num_floors", "min_height"],
+  },
+};
