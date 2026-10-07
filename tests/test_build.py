@@ -580,6 +580,28 @@ def test_a_point_match_beats_an_area_match(buildable: psycopg.Connection[TupleRo
     assert [(str(t), str(m)) for t, m in matched] == [("FTTH", "point"), ("VECT_VDSL", "area")]
 
 
+def test_the_door_wins_when_both_routes_find_one_line(buildable: psycopg.Connection[TupleRow]) -> None:
+    """The same operator and technology by both routes keeps the filing at the door.
+
+    The routing never produces this today, since copper only goes to cabinets. The tie used to
+    be settled by matched_by's spelling, and "area" sorts first.
+    """
+    lon, lat = INSIDE
+    seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ", lon=lon, lat=lat)
+    build_addresses(buildable)
+    seed_cabinet(buildable, "cab1")
+    seed_service(buildable, 1, "c1", technolo=4)
+    seed_service(buildable, 2, "cab1", technolo=3)
+    run(buildable, coverage_step() + area_step())
+    buildable.execute(
+        "insert into coverage_area (source, source_ref, provider_id, technology, family, assertion, geom) "
+        "select source, 'planted', provider_id, 'FTTH', 'fiber', assertion, geom from coverage_area"
+    )
+    buildable.commit()
+    run(buildable, offer_step())
+    assert offers(buildable) == [("METADOSIS", "FTTH", "point"), ("METADOSIS", "VECT_VDSL", "area")]
+
+
 def test_several_operators_at_one_address(buildable: psycopg.Connection[TupleRow]) -> None:
     """59.57% of addresses have three operators. Collapsing them would hide the competition."""
     seed_point(buildable, "c1", "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
