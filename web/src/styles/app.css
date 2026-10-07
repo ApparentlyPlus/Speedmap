@@ -1227,12 +1227,65 @@ body {
   filter: invert(1);
 }
 
+/* Where the panel is wide enough, the filters are simply part of it. */
+.atlas-more {
+  display: contents;
+}
+
+.atlas-more-toggle {
+  display: none;
+}
+
 @media (width <= 560px) {
   .atlas-panel {
     top: 12px;
     left: 12px;
     width: calc(100% - 24px);
     max-height: 46%;
+  }
+
+  .atlas-name {
+    margin: 4px 0 8px;
+  }
+
+  .atlas-more-toggle {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    padding: 8px 2px 2px;
+    border: 0;
+    border-top: 1px solid var(--rule);
+    background: none;
+    color: var(--ink-faint);
+    font: inherit;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .atlas-more-toggle::after {
+    content: "+";
+  }
+
+  .atlas-more-toggle[aria-expanded="true"]::after {
+    content: "−";
+  }
+
+  .atlas-more-now {
+    flex: 1;
+    color: var(--accent);
+    text-align: right;
+  }
+
+  .atlas-more[data-open="false"] {
+    display: none;
+  }
+
+  /* Its reserved line keeps a wide panel from jumping. Here it was blank map under a thumb. */
+  .atlas-state-ready {
+    display: none;
   }
 }
 
