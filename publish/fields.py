@@ -120,3 +120,19 @@ LAYERS: Final = (
     "regions",
     "cells",
 )
+
+# What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then
+# layer, then the fields of it the style reads.
+BASEMAP: Final[dict[str, dict[str, tuple[str, ...]]]] = {
+    "greece.pmtiles": {
+        "landcover": (),
+        "park": (),
+        "water": (),
+        "transportation": ("class",),
+        "transportation_name": ("name", "name:el"),
+        "place": ("class", "name", "name:el"),
+    },
+    "buildings.pmtiles": {
+        "building": ("height", "num_floors", "min_height"),
+    },
+}

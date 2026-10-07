@@ -93,6 +93,20 @@ def python_source(schema: dict[str, Any]) -> str:
         lines += [")", ""]
 
     lines += ["LAYERS: Final = (", *[f'    "{name}",' for name in schema["layers"]], ")", ""]
+
+    lines += [
+        "# What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then",
+        "# layer, then the fields of it the style reads.",
+        "BASEMAP: Final[dict[str, dict[str, tuple[str, ...]]]] = {",
+    ]
+    for archive, layers in schema["basemap"].items():
+        lines += [f'    "{archive}": {{']
+        for name, kept in layers.items():
+            # a one-field tuple needs its comma
+            inner = ", ".join(f'"{field}"' for field in kept) + ("," if len(kept) == 1 else "")
+            lines += [f'        "{name}": ({inner}),']
+        lines += ["    },"]
+    lines += ["}", ""]
     return "\n".join(lines)
 
 
@@ -157,6 +171,21 @@ def typescript_source(schema: dict[str, Any]) -> str:
             lines += [f'  "{code}",' for code in wholesale]
             lines += ["];", ""]
 
+    lines += [
+        "/**",
+        " * What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then",
+        " * layer, then the fields of it the style reads.",
+        " */",
+        "export const BASEMAP: Readonly<",
+        "  Record<string, Readonly<Record<string, readonly string[]>>>",
+        "> = {",
+    ]
+    for archive, layers in schema["basemap"].items():
+        lines += [f'  "{archive}": {{']
+        for name, kept in layers.items():
+            lines += [f'    {name}: [{", ".join(f"{chr(34)}{field}{chr(34)}" for field in kept)}],']
+        lines += ["  },"]
+    lines += ["};", ""]
     return "\n".join(lines)
 
 

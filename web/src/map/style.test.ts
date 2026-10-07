@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { RAMP, UNSERVED } from "../tokens";
 import { ASIDE, BASE, BUILDINGS, SOURCE, hushed, only, streetLayers, style } from "./style";
-import { STREETS_BY_PROVIDER } from "./tiles";
+import { BASEMAP, STREETS_BY_PROVIDER } from "./tiles";
 
 
 describe("the style MapLibre is given", () => {
@@ -56,6 +56,65 @@ describe("no reachable zoom is empty", () => {
   it("lights the buildings from somewhere", () => {
     // no light, and every extrusion is one flat tone
     expect(style().light).toBeDefined();
+  });
+});
+
+/** Every field a value reads with get or has, at any depth. */
+function reads(value: unknown, into: Set<string> = new Set()): Set<string> {
+  if (Array.isArray(value)) {
+    const [op, field] = value as unknown[];
+    // a third argument means another object's field, not the feature's
+    if ((op === "get" || op === "has") && typeof field === "string" && value.length === 2) {
+      into.add(field);
+    }
+    for (const part of value) reads(part, into);
+  } else if (value !== null && typeof value === "object") {
+    for (const part of Object.values(value)) reads(part, into);
+  }
+  return into;
+}
+
+/** Each layer reading a layer or field of an archive built elsewhere that slimming drops. */
+function unkept(spec: StyleSpecification): string[] {
+  const wrong: string[] = [];
+  for (const layer of spec.layers) {
+    if (!("source" in layer) || !("source-layer" in layer)) continue;
+    const source = spec.sources[layer.source];
+    const url = source !== undefined && "url" in source ? (source.url ?? "") : "";
+    const kept = BASEMAP[url.split("/").pop() ?? ""];
+    if (kept === undefined) continue;
+    const fields = kept[layer["source-layer"] as string];
+    if (fields === undefined) {
+      wrong.push(`${layer.id}: layer ${String(layer["source-layer"])}`);
+      continue;
+    }
+    const { filter, layout, paint } = layer as Record<string, unknown>;
+    for (const field of reads([filter, layout, paint])) {
+      if (!fields.includes(field)) wrong.push(`${layer.id}: field ${field}`);
+    }
+  }
+  return wrong;
+}
+
+describe("the archives built elsewhere, slimmed", () => {
+  // tools/slim_basemap.py drops what schema/tiles.yaml doesn't list. A style reading a
+  // dropped field gets nothing and draws its fallback without a word.
+  it("keep every layer and field the style reads", () => {
+    expect(unkept(style())).toEqual([]);
+  });
+
+  it("keep every layer and field the result map's style reads", () => {
+    expect(unkept(hushed(style()))).toEqual([]);
+  });
+
+  it("are checked by a test that can fail", () => {
+    const spec = style();
+    const label = spec.layers.find((layer) => layer.id === "place-label");
+    expect(label).toBeDefined();
+    const english = { ...label, id: "english", layout: { "text-field": ["get", "name:en"] } };
+    const elsewhere = { ...label, id: "peaks", "source-layer": "mountain_peak" };
+    const broken = { ...spec, layers: [...spec.layers, english, elsewhere] } as StyleSpecification;
+    expect(unkept(broken)).toEqual(["english: field name:en", "peaks: layer mountain_peak"]);
   });
 });
 
