@@ -26,17 +26,20 @@ from publish import features, fields
 MIN_ZOOM = 4  # no reachable zoom may be empty
 MAX_ZOOM = 14
 
-# Streets are what the map is for, so they're never dropped to save room. Coarse zooms
-# coalesce them instead.
-STREET_RULES = ("--drop-densest-as-needed", "--coalesce-densest-as-needed")
+# Tippecanoe's options apply to the whole archive, whichever layer they're written after. These
+# used to sit beside their layers as if they were per layer, and the streets carried
+# --drop-densest-as-needed and --coalesce-densest-as-needed that never fired: both only act once
+# a tile is over a limit, and the regions' --no-feature-limit had lifted the last one. Removing
+# them changed none of the 34,664 tiles from zoom 10 to 14.
+#
+# Streets are what the map is for, and with no limit on features or bytes none are dropped.
+# --coalesce merges neighbours whose attributes are identical, which only the overview streets
+# ever are, since everything else carries its own id.
+COVERAGE_RULES = ("--no-feature-limit",)
+OVERVIEW_RULES = ("--coalesce",)
 
-# Merges neighbouring features whose attributes are identical. Only the overview streets ever
-# are: everything else carries its own id.
-MERGE = ("--coalesce",)
+# Squares can be thinned out at the country zooms. Nobody reads one cell there.
 CELL_RULES = ("--drop-densest-as-needed",)
-
-# 333 polygons, the only thing drawn at zooms where the whole country fits
-REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
 
 # Where regions stop, because streets have taken over. web/src/map/style.ts fades them out
 # at the same zoom.
@@ -69,8 +72,8 @@ def tool(name: str) -> str:
     return found
 
 
-def layer(name: str, path: pathlib.Path, rules: tuple[str, ...]) -> list[str]:
-    return ["--named-layer", f"{name}:{path}", *rules]
+def layer(name: str, path: pathlib.Path) -> list[str]:
+    return ["--named-layer", f"{name}:{path}"]
 
 
 def cut(
@@ -151,10 +154,11 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
             [
                 # The same layer name as the fine streets, so the style reads one source layer
                 # at every zoom.
-                *layer(fields.STREETS_LAYER, overview, MERGE),
-                *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
+                *layer(fields.STREETS_LAYER, overview),
+                *layer(fields.REGIONS_LAYER, regions),
             ],
             [
+                *COVERAGE_RULES, *OVERVIEW_RULES,
                 "--feature-filter", FILTER,
                 "--low-detail", str(LOW_DETAIL), "--full-detail", str(LOW_DETAIL),
             ],
@@ -163,13 +167,13 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
         cut(
             fine,
             [
-                *layer(fields.STREETS_LAYER, streets, STREET_RULES),
-                *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
+                *layer(fields.STREETS_LAYER, streets),
+                *layer(fields.REGIONS_LAYER, regions),
             ],
-            ["--feature-filter", FILTER],
+            [*COVERAGE_RULES, "--feature-filter", FILTER],
             (split, MAX_ZOOM),
         ),
-        cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), []),
+        cut(measured, layer(fields.CELLS_LAYER, cells), list(CELL_RULES)),
     )
 
     # The zooms don't overlap, so the join only copies tiles across
