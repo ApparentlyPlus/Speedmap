@@ -32,6 +32,11 @@ PACE = 2.0
 # answers this close to expiry get refreshed now, not at midnight tomorrow
 SOON = "1 day"
 
+# An address asked this recently and still due got nothing that refreshed it: the checker
+# was down, couldn't place it, or wouldn't decide. Its premises kept it at the head of the
+# queue, so the same doors took the night's budget every night and the rest were never reached.
+REST = "7 days"
+
 # Where more people live, more people will ask. premises is the register's count of homes
 # behind a point, so it orders the queue by how many people the answer is for.
 DUE = """
@@ -39,6 +44,10 @@ select a.id
 from address a
 join availability v on v.address_id = a.id
 where v.expires_at <= %(before)s + %(soon)s::interval
+  and not exists (
+      select 1 from probe_attempt pa
+      where pa.address_id = a.id and pa.attempted_at > %(before)s - %(rest)s::interval
+  )
 group by a.id
 order by coalesce(max(a.premises), 1) desc, min(v.expires_at)
 limit %(budget)s
@@ -47,7 +56,7 @@ limit %(budget)s
 
 def stale(conn: psycopg.Connection[TupleRow], now: datetime, budget: int) -> list[int]:
     """Addresses most worth re-asking, most lived-in first."""
-    rows = conn.execute(DUE, {"before": now, "soon": SOON, "budget": budget}).fetchall()
+    rows = conn.execute(DUE, {"before": now, "soon": SOON, "rest": REST, "budget": budget}).fetchall()
     return [int(row[0]) for row in rows]
 
 

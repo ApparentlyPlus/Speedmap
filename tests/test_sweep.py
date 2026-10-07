@@ -90,6 +90,20 @@ def test_the_budget_is_what_one_run_costs(queue: psycopg.Connection[TupleRow]) -
     assert len(stale(queue, NOW, 2)) == 2
 
 
+def test_an_address_asked_lately_waits_its_turn(queue: psycopg.Connection[TupleRow]) -> None:
+    """An ask that refreshed nothing doesn't keep the address at the head of every night."""
+    place(queue, 1, 500, NOW - timedelta(days=1))
+    place(queue, 2, 5, NOW - timedelta(days=1))
+    queue.execute(
+        "insert into probe_attempt (address_id, provider_id, attempted_at, ok, askable) "
+        "select 1, p.id, %s, false, true from provider p where p.code = 'TELEKOM'",
+        (NOW - timedelta(days=2),),
+    )
+    queue.commit()
+    assert stale(queue, NOW, 10) == [2]
+    assert stale(queue, NOW + timedelta(days=6), 10) == [1, 2]
+
+
 def test_a_refreshed_answer_falls_out_of_the_queue(queue: psycopg.Connection[TupleRow]) -> None:
     """The query is the queue: nothing has to remember where the last run stopped."""
     place(queue, 1, 10, NOW - timedelta(days=1))
