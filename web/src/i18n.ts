@@ -51,6 +51,8 @@ type Strings = {
   readonly askThem: string;
   readonly asking: string;
   readonly askFailed: string;
+  /** the whole page, when its script won't load even after a reload */
+  readonly loadFailed: string;
   /** the address screen, when the first answer never came */
   readonly answerFailed: string;
   readonly address: string;
@@ -129,6 +131,7 @@ const el: Strings = {
   askThem: "ρώτα",
   asking: "Ετοιμάζουμε τη διεύθυνση…",
   askFailed: "Δεν μπορέσαμε να ετοιμάσουμε αυτή τη διεύθυνση",
+  loadFailed: "Η σελίδα δεν φόρτωσε. Ανανεώστε σε λίγο",
   answerFailed: "Δεν πήραμε απάντηση για αυτή τη διεύθυνση. Δοκιμάστε ξανά σε λίγο",
   address: "διεύθυνση",
   back: "Νέα αναζήτηση",
@@ -226,6 +229,7 @@ const en: Strings = {
   askThem: "ask",
   asking: "Preparing the address…",
   askFailed: "We could not prepare that address",
+  loadFailed: "The page didn't load. Refresh in a moment",
   answerFailed: "We could not get an answer for this address. Try again in a moment",
   address: "address",
   back: "New search",

@@ -3,7 +3,7 @@
  * optical centre, a little above the true middle, since text centred at 50% reads low.
  */
 
-import { Suspense, lazy, useState } from "react";
+import { Component, Suspense, lazy, useState } from "react";
 
 import { askFor, type Result } from "../api/client";
 import { Network } from "../components/Network";
@@ -59,7 +59,9 @@ export function Landing(): React.ReactElement {
     return (
       <main className="landing landing-open" lang={language}>
         <Network />
-        <Suspense fallback={<Waiting />}>{shown}</Suspense>
+        <Unloaded said={text.loadFailed}>
+          <Suspense fallback={<Waiting />}>{shown}</Suspense>
+        </Unloaded>
       </main>
     );
   }
@@ -85,4 +87,23 @@ export function Landing(): React.ReactElement {
       </div>
     </main>
   );
+}
+
+/**
+ * The answer screens' chunk failing even after main.tsx reloaded for it. Without this the
+ * rejection took down the whole tree and left a blank page.
+ */
+class Unloaded extends Component<
+  { readonly said: string; readonly children: React.ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override render(): React.ReactNode {
+    return this.state.failed ? <p className="load-failed">{this.props.said}</p> : this.props.children;
+  }
 }

@@ -360,6 +360,14 @@ body {
   color: #f87171;
 }
 
+/* No script at all: plain text in the middle, since none of the page's own layout loaded. */
+.load-failed {
+  margin: 40vh auto 0;
+  color: var(--ink-dim);
+  font-size: 14px;
+  text-align: center;
+}
+
 /* Unfiled door, offered but not held yet. */
 .suggestion-ask {
   color: var(--ink-dim);
