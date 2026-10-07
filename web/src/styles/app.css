@@ -1182,6 +1182,37 @@ body {
   margin: 0;
 }
 
+.report:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.report-form {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.report-note {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--rule-lit);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.report-said {
+  margin: 0;
+  color: var(--ink-dim);
+}
+
 .report {
   padding: 0;
   border: 0;

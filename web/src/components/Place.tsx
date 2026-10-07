@@ -101,7 +101,10 @@ export function Place({
 
   return (
     <Split where={where} shape={shape} streetId={road} language={language}>
-      <Answer name={name} place={place} answer={known} language={language} onBack={onBack} failed={failed} />
+      <Answer
+        name={name} place={place} answer={known} language={language} onBack={onBack}
+        failed={failed} addressId={result.id}
+      />
     </Split>
   );
 }
