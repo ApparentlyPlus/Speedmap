@@ -27,7 +27,8 @@ speedmap.gr {
 	handle /tiles/* {
 		header Cache-Control "public, max-age=604800"
 		header Access-Control-Allow-Origin "*"
-		root * /srv/speedmap/tiles
+		# handle keeps the /tiles prefix, so this is the directory above the archives
+		root * /srv/speedmap
 		file_server {
 			precompressed
 		}
