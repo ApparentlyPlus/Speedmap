@@ -51,6 +51,8 @@ type Strings = {
   readonly askThem: string;
   readonly asking: string;
   readonly askFailed: string;
+  /** the address screen, when the first answer never came */
+  readonly answerFailed: string;
   readonly address: string;
   readonly back: string;
   readonly nothingHere: string;
@@ -123,6 +125,7 @@ const el: Strings = {
   askThem: "ρώτα",
   asking: "Ετοιμάζουμε τη διεύθυνση…",
   askFailed: "Δεν μπορέσαμε να ετοιμάσουμε αυτή τη διεύθυνση",
+  answerFailed: "Δεν πήραμε απάντηση για αυτή τη διεύθυνση. Δοκιμάστε ξανά σε λίγο",
   address: "διεύθυνση",
   back: "Νέα αναζήτηση",
   nothingHere: "Δεν βρέθηκε τίποτα για αυτή τη διεύθυνση",
@@ -215,6 +218,7 @@ const en: Strings = {
   askThem: "ask",
   asking: "Preparing the address…",
   askFailed: "We could not prepare that address",
+  answerFailed: "We could not get an answer for this address. Try again in a moment",
   address: "address",
   back: "New search",
   nothingHere: "Nothing found for this address",
