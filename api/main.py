@@ -631,6 +631,9 @@ def ask_for(street_id: int, term: Asking) -> Result:
     The register knows the street and not the number.
     """
     number = fold(term.street_no)
+    # a field of spaces passes the length check and folds to nothing
+    if not number:
+        raise HTTPException(422, "no house number")
     with pool.connection() as conn:
         address_id = propose(conn, street_id, number)
         if address_id is None:
