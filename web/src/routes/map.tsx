@@ -81,6 +81,9 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const text = strings(language);
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Maplibre | null>(null);
+  // Only the latest click or search pick may fill the panel. Two quick clicks used to race and
+  // the slower answer won, and a search pick still raced a click until they shared this.
+  const asked = useRef(0);
   // the camera from the URL the reader arrived on, read before the map rewrites the hash
   const arrived = useRef(window.location.hash);
   const [provider, setProvider] = useState<string | null>(null);
@@ -182,20 +185,17 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       return typeof id === "number" ? id : null;
     };
 
-    // Only the latest click may fill the panel. Two quick clicks used to race, and the
-    // slower answer (often the first street clicked) won.
-    let clicked = 0;
     map.on("click", (event) => {
       const id = streetUnder(event.point);
       if (id === null) return;
       setCell(null);
-      const mine = ++clicked;
+      const mine = ++asked.current;
       street(id)
         .then((found) => {
-          if (mine === clicked) setChosen(found);
+          if (mine === asked.current) setChosen(found);
         })
         .catch(() => {
-          if (mine === clicked) setChosen(null);
+          if (mine === asked.current) setChosen(null);
         });
     });
 
@@ -394,7 +394,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                   className="atlas-hit"
                   onClick={() => {
                     setCell(null); // select first, then travel (see travelTo for why)
-                    void travelTo(mapRef.current, result, setChosen);
+                    const mine = ++asked.current;
+                    void travelTo(mapRef.current, result, setChosen, () => mine === asked.current);
                     setQuery("");
                     setResults([]);
                   }}
@@ -674,13 +675,16 @@ async function travelTo(
   map: Maplibre | null,
   result: Result,
   pick: (found: StreetDetail | null) => void,
+  latest: () => boolean,
 ): Promise<void> {
   if (map === null) return;
   try {
     if (result.kind !== "street") {
       const door = await address(result.id);
+      if (!latest()) return;
       pick(null);
       await settled();
+      if (!latest()) return;
       map.flyTo({
         center: [door.lon, door.lat],
         zoom: CLOSEST,
@@ -690,9 +694,12 @@ async function travelTo(
       return;
     }
 
+    // asked about something else since, so this trip is cancelled
     const found = await street(result.id);
+    if (!latest()) return;
     pick(found);
     await settled();
+    if (!latest()) return;
 
     const [west, south, east, north] = found.bbox;
     // same cast as Place and Road: the schema types this as an open record, PostGIS fills it
@@ -717,7 +724,7 @@ async function travelTo(
     });
   } catch {
     // a camera that won't move isn't worth an error message
-    pick(null);
+    if (latest()) pick(null);
   }
 }
 
