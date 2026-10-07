@@ -66,6 +66,24 @@ def test_migrate_refuses_to_run_over_drift(db: psycopg.Connection[TupleRow]) -> 
         db.commit()
 
 
+def test_failed_migration_raises_its_own_error(
+    db: psycopg.Connection[TupleRow], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The broken SQL is what surfaces, and the lock is free for the next run.
+
+    The unlock used to run inside the aborted transaction and fail on top of it.
+    """
+    broken = tmp_path / "9999_broken.sql"
+    broken.write_text("select * from no_such_table;")
+    monkeypatch.setattr(
+        "normalise.migrate.discover", lambda: [*discover(), Migration.load(broken)]
+    )
+    with pytest.raises(psycopg.errors.UndefinedTable):
+        migrate(db)
+    assert scalar(db, "select count(*) from pg_locks where locktype = 'advisory'") == 0
+    assert scalar(db, "select count(*) from schema_migration where version = '9999_broken'") == 0
+
+
 def test_extensions_installed(db: psycopg.Connection[TupleRow]) -> None:
     rows = db.execute(
         "select extname from pg_extension where extname in ('postgis', 'pg_trgm', 'unaccent')"
