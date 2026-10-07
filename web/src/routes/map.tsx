@@ -11,6 +11,7 @@ import { address, search, street, type Result, type StreetDetail } from "../api/
 import { brandOf } from "../brands";
 import { Credit } from "../components/Credit";
 import { engine } from "../map/engine";
+import { Tilt } from "../map/tilt";
 import { strings, type Language } from "../i18n";
 import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 import {
@@ -124,13 +125,9 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     });
     // Same width as the stylesheet's narrow layout
     const narrow = window.matchMedia("(width <= 560px)").matches;
-    // A compass on phones only. Tilting there is a two-finger drag that gives up when the
-    // fingers aren't level or drift apart, which in a hand is nearly always. Dragging the
-    // compass up and down tilts with one finger, and a tap puts north and the tilt back.
-    map.addControl(
-      new NavigationControl({ showCompass: narrow, visualizePitch: narrow }),
-      "bottom-right",
-    );
+    map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+    // phones only (see Tilt). Added after, so it sits above the zoom buttons
+    if (narrow) map.addControl(new Tilt(text.tilt), "bottom-right");
     mapRef.current = map;
 
     // A phone held upright is narrower than Greece at FLOOR_ZOOM: Corfu and Rhodes sat off
