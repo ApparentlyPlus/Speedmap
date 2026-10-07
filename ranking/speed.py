@@ -13,8 +13,7 @@ COPPER_TOLERANCE = Decimal("1.25")
 # a router indoors gets less than a phone at the roadside
 INDOOR_PENALTY = Decimal("0.8")
 
-# satellite is sold at its beam peak
-SATELLITE_SHARE = Decimal("0.7")
+SATELLITE_SHARE = Decimal("0.7")  # satellite is sold at its beam peak
 
 # One test is weak evidence, 25 is enough. Logarithmic in between, since the second test
 # tells you far more than the twentieth.

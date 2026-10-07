@@ -56,21 +56,15 @@ def test_an_unplaced_address_has_no_point() -> None:
     assert point_wkt(40.7471, 23.0716) == "POINT(23.0716 40.7471)"
 
 
-def test_a_checked_address_is_stored_with_its_point(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_checked_address_is_stored_with_its_point(scrape: psycopg.Connection[TupleRow]) -> None:
     assert write(scrape, iter([TZELILI])) == 1
     row = scrape.execute(
         "select dimos, street, street_no, plans, kaek, st_srid(geom::geometry) from raw_cosmote"
     ).fetchone()
-    assert row == (
-        "ΛΑΓΚΑΔΑ", "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40, "FBR_100M,FBR_50M,ADSL_24M", "19022ΕΚ00105", 4326,
-    )
+    assert row == ("ΛΑΓΚΑΔΑ", "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40, "FBR_100M,FBR_50M,ADSL_24M", "19022ΕΚ00105", 4326)
 
 
-def test_loading_replaces_rather_than_accumulates(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_loading_replaces_rather_than_accumulates(scrape: psycopg.Connection[TupleRow]) -> None:
     """A scrape is a snapshot: an address the operator stopped serving must disappear."""
     write(scrape, iter([TZELILI]))
     other = Checked(

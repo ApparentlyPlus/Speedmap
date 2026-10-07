@@ -49,10 +49,9 @@ export function Answer({
     null,
   );
   const selected = offers.find((o) => `${o.provider}-${o.plan}` === chosen) ?? fastest;
-  const speed =
-    selected?.expected_mbps === null || selected?.expected_mbps === undefined
-      ? mbps(0)
-      : mbps(Number(selected.expected_mbps));
+  const speed = selected?.expected_mbps === null || selected?.expected_mbps === undefined
+    ? mbps(0)
+    : mbps(Number(selected.expected_mbps));
 
   const shown = open ? offers : offers.slice(0, SHOWN);
   const held = offers.length - shown.length;

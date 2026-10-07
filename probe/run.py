@@ -18,8 +18,7 @@ from psycopg.types.json import Jsonb
 from probe.adapter import Adapter, NotAskableError, Probed, Target
 from probe.ttl import FAILED, VOLATILE, ttl
 
-# three operators, three sessions, one wait
-WIDTH = 3
+WIDTH = 3  # three operators, three sessions, one wait
 
 LAST = """
 select ok, serviceable, attempted_at

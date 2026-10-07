@@ -40,11 +40,7 @@ def test_copper_ceilings_are_recorded(db: psycopg.Connection[TupleRow]) -> None:
     rows = db.execute(
         "select code, max_plausible_mbps from technology where max_plausible_mbps is not null"
     ).fetchall()
-    assert {code: int(ceiling) for code, ceiling in rows} == {
-        "VECT_VDSL": 300,
-        "VDSL": 100,
-        "ADSL": 24,
-    }
+    assert {code: int(ceiling) for code, ceiling in rows} == {"VECT_VDSL": 300, "VDSL": 100, "ADSL": 24}
 
 
 def test_provider_kind_is_constrained(tx: psycopg.Connection[TupleRow]) -> None:
@@ -58,9 +54,7 @@ def test_provider_code_is_unique(tx: psycopg.Connection[TupleRow]) -> None:
         tx.execute("insert into provider (code, display_name, kind) values ('X', 'Y', 'mno')")
 
 
-def test_provider_does_not_build_its_own_network_by_default(
-    tx: psycopg.Connection[TupleRow],
-) -> None:
+def test_provider_does_not_build_its_own_network_by_default(tx: psycopg.Connection[TupleRow]) -> None:
     row = tx.execute(
         "insert into provider (code, display_name, kind) values ('X', 'X', 'incumbent') "
         "returning builds_own_network"
@@ -120,9 +114,7 @@ def test_coverage_speed_may_be_absent(tx: psycopg.Connection[TupleRow]) -> None:
     assert row == (None,)
 
 
-def test_coverage_is_unique_per_source_place_provider_technology(
-    tx: psycopg.Connection[TupleRow],
-) -> None:
+def test_coverage_is_unique_per_source_place_provider_technology(tx: psycopg.Connection[TupleRow]) -> None:
     tx.execute("insert into provider (code, display_name, kind) values ('X', 'X', 'altnet')")
     tx.execute("insert into source (name) values ('test')")
     insert = (
@@ -142,9 +134,7 @@ def test_address_requires_a_position(tx: psycopg.Connection[TupleRow]) -> None:
             "values ('ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'ΑΧΑΡΝΩΝ', 'AXARNON')")
 
 
-def test_duplicate_address_without_a_postcode_is_rejected(
-    tx: psycopg.Connection[TupleRow],
-) -> None:
+def test_duplicate_address_without_a_postcode_is_rejected(tx: psycopg.Connection[TupleRow]) -> None:
     """Uniqueness is nulls not distinct. Under default semantics these wouldn't collide."""
     insert = (
         "insert into address (street, street_fold, street_no, locality, geom, search_key, latin_key) "
@@ -287,9 +277,7 @@ def test_one_provider_may_offer_several_technologies(tx: psycopg.Connection[Tupl
     address_id = make_address(tx)
     tx.execute(cache_row(address_id, technology="FTTH"))
     tx.execute(cache_row(address_id, technology="VDSL"))
-    row = tx.execute(
-        "select count(*) from availability where address_id = %s", (address_id,)
-    ).fetchone()
+    row = tx.execute("select count(*) from availability where address_id = %s", (address_id,)).fetchone()
     assert row == (2,)
 
 
@@ -325,9 +313,7 @@ def test_raw_response_is_kept_for_replay(tx: psycopg.Connection[TupleRow]) -> No
 def test_expiry_index_covers_only_serviceable_rows(db: psycopg.Connection[TupleRow]) -> None:
     """The sweep re-probes live answers. Unserviceable ones aren't worth the index."""
     rows = db.execute("select indexdef from pg_indexes where tablename = 'availability'").fetchall()
-    assert any(
-        "expires_at" in definition and "WHERE serviceable" in definition for (definition,) in rows
-    )
+    assert any("expires_at" in definition and "WHERE serviceable" in definition for (definition,) in rows)
 
 
 RAW_TABLES = [
@@ -353,9 +339,7 @@ def test_raw_table_exists(db: psycopg.Connection[TupleRow], table: str) -> None:
     assert row[0] == table
 
 
-def test_raw_geometries_keep_the_projection_they_arrived_in(
-    db: psycopg.Connection[TupleRow],
-) -> None:
+def test_raw_geometries_keep_the_projection_they_arrived_in(db: psycopg.Connection[TupleRow]) -> None:
     """Copper is Greek Grid and fiber WGS84. Reprojecting on the way in loses the original."""
     rows = db.execute(
         "select f_table_name || '.' || f_geometry_column, srid from geometry_columns "
@@ -410,10 +394,7 @@ def test_open_ended_bands_have_one_unknown_bound(db: psycopg.Connection[TupleRow
     rows = db.execute(
         "select id, min_mbps, max_mbps from speed_band where id in (1, 8) order by id"
     ).fetchall()
-    assert [(r[0], r[1], r[2]) for r in rows] == [
-        (1, None, Decimal("0.2")),
-        (8, Decimal(1000), None),
-    ]
+    assert [(r[0], r[1], r[2]) for r in rows] == [(1, None, Decimal("0.2")), (8, Decimal(1000), None)]
 
 
 def test_bands_tile_the_range_without_gaps(db: psycopg.Connection[TupleRow]) -> None:
@@ -441,9 +422,7 @@ def test_register_technology_ids_are_mapped(db: psycopg.Connection[TupleRow]) ->
 
 def test_wireless_technologies_have_no_wired_register_id(db: psycopg.Connection[TupleRow]) -> None:
     """FWA and satellite are filed elsewhere, so a null register_id is correct here."""
-    rows = db.execute(
-        "select code from technology where register_id is null order by code"
-    ).fetchall()
+    rows = db.execute("select code from technology where register_id is null order by code").fetchall()
     assert [r[0] for r in rows] == ["FWA", "FWA_4G", "FWA_5G", "MOBILE", "SAT"]
 
 
@@ -480,17 +459,13 @@ def test_network_builders_match_the_register(db: psycopg.Connection[TupleRow]) -
 
 def test_a_wholesale_builder_need_not_sell(db: psycopg.Connection[TupleRow]) -> None:
     """FIBERGRID passes 811,123 premises and files no service, and Vodafone sells over its fiber."""
-    row = db.execute(
-        "select builds_own_network from provider where code = 'FIBERGRID'"
-    ).fetchone()
+    row = db.execute("select builds_own_network from provider where code = 'FIBERGRID'").fetchone()
     assert row == (True,)
     row = db.execute("select builds_own_network from provider where code = 'VODAFONE'").fetchone()
     assert row == (False,)
 
 
-def test_coverage_records_builder_and_seller_separately(
-    tx: psycopg.Connection[TupleRow],
-) -> None:
+def test_coverage_records_builder_and_seller_separately(tx: psycopg.Connection[TupleRow]) -> None:
     tx.execute("insert into source (name) values ('test')")
     row = tx.execute(
         "insert into coverage (source, source_ref, provider_id, infra_provider_id, "
@@ -508,9 +483,7 @@ def test_provider_codes_are_latin(db: psycopg.Connection[TupleRow]) -> None:
     assert rows == []
 
 
-def test_address_uniqueness_keys_on_the_resolved_municipality(
-    db: psycopg.Connection[TupleRow],
-) -> None:
+def test_address_uniqueness_keys_on_the_resolved_municipality(db: psycopg.Connection[TupleRow]) -> None:
     """Filed locality text is inconsistent, so it can't be part of identity."""
     row = db.execute(
         "select pg_get_constraintdef(oid) from pg_constraint where conname = 'address_key'"
@@ -534,9 +507,7 @@ def test_prefix_search_uses_the_index(db: psycopg.Connection[TupleRow]) -> None:
     being big enough for the planner to choose the index.
     """
     db.execute("set local enable_seqscan = off")
-    plan = db.execute(
-        "explain select id from address where search_key like 'ΑΧΑΡΝ%' limit 8"
-    ).fetchall()
+    plan = db.execute("explain select id from address where search_key like 'ΑΧΑΡΝ%' limit 8").fetchall()
     db.rollback()
     assert any("address_search_key_prefix" in line for (line,) in plan)
 

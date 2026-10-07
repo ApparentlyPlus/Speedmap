@@ -87,13 +87,9 @@ def state(recent: int, answered: int, last_ok: datetime | None, now: datetime) -
     return HEALTHY if answered / recent >= SHAKY else DEGRADED
 
 
-def health(
-    conn: psycopg.Connection[TupleRow], codes: list[str], now: datetime
-) -> dict[str, Health]:
+def health(conn: psycopg.Connection[TupleRow], codes: list[str], now: datetime) -> dict[str, Health]:
     """One state per operator, worked out from what happened. No stored flag."""
-    rows = conn.execute(
-        SINCE, {"since": now - WINDOW, "codes": codes}
-    ).fetchall()
+    rows = conn.execute(SINCE, {"since": now - WINDOW, "codes": codes}).fetchall()
     states: dict[str, Health] = {}
     for code, recent, answered, last_ok in rows:
         states[str(code)] = Health(

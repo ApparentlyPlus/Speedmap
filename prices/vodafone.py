@@ -104,6 +104,7 @@ def read(payload: dict[str, Any]) -> list[Tariff]:
             sale, listed = priced(offering)
             if known is None or sale is None:
                 continue
+
             technology, family, mbps = known
             # equal prices mean no discount running
             discount = None if listed is None or listed == sale else sale
@@ -152,6 +153,7 @@ def fetch(user_agent: str = settings.user_agent) -> list[Tariff]:
             "isServerToken": True,
             "requestId": "speedmap-catalogue",
         })
+
     if response.status_code != httpx.codes.OK:
         raise CatalogueError(f"catalogue returned {response.status_code}")
     body = response.json()

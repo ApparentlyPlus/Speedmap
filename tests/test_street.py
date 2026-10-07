@@ -49,9 +49,7 @@ def rows(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, int]]:
     return [(str(n), int(w)) for n, w in found]
 
 
-def test_ways_with_one_name_become_one_street(
-    streets: psycopg.Connection[TupleRow],
-) -> None:
+def test_ways_with_one_name_become_one_street(streets: psycopg.Connection[TupleRow]) -> None:
     """OSM splits a road at every junction, and 10 ways are still one street."""
     ways = [Way(n, "Αχιλλέα Τζελίλη", "secondary", INSIDE) for n in (1, 2, 3)]
     assert build(streets, ways) == 1
@@ -77,9 +75,7 @@ def test_parodos_stays_its_own_street(streets: psycopg.Connection[TupleRow]) -> 
     assert build(streets, ways) == 2
 
 
-def test_the_same_name_in_two_municipalities_stays_apart(
-    streets: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_same_name_in_two_municipalities_stays_apart(streets: psycopg.Connection[TupleRow]) -> None:
     """Αγίου Γεωργίου exists in most towns and they are not one street."""
     ways = [
         Way(1, "Αγίου Γεωργίου", "residential", INSIDE),
@@ -88,13 +84,8 @@ def test_the_same_name_in_two_municipalities_stays_apart(
     assert build(streets, ways) == 2
 
 
-def test_a_type_word_does_not_split_a_street(
-    streets: psycopg.Connection[TupleRow],
-) -> None:
-    ways = [
-        Way(1, "Λεωφόρος Αλεξάνδρας", "primary", INSIDE),
-        Way(2, "Αλεξάνδρας", "primary", ALSO_INSIDE),
-    ]
+def test_a_type_word_does_not_split_a_street(streets: psycopg.Connection[TupleRow]) -> None:
+    ways = [Way(1, "Λεωφόρος Αλεξάνδρας", "primary", INSIDE), Way(2, "Αλεξάνδρας", "primary", ALSO_INSIDE)]
     assert build(streets, ways) == 1
 
 
@@ -116,9 +107,7 @@ def test_a_latin_key_is_written(streets: psycopg.Connection[TupleRow]) -> None:
     assert row == ("ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", "AXILLEA TZELILI")
 
 
-def test_a_road_removed_from_the_extract_is_pruned(
-    streets: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_road_removed_from_the_extract_is_pruned(streets: psycopg.Connection[TupleRow]) -> None:
     """not exists, never NOT IN: one null municipality stops NOT IN from pruning anything."""
     build(streets, [Way(1, "Αχιλλέα Τζελίλη", "secondary", INSIDE)])
     write(streets, iter([Way(2, "Άλλη", "residential", INSIDE)]))

@@ -126,9 +126,7 @@ def cells(path: Path, kind: str, year: int, quarter: int) -> Iterator[Cell]:
 
 def write(conn: psycopg.Connection[TupleRow], found: Iterator[Cell]) -> int:
     """Add a quarter. Earlier ones stay, so a tile getting slower stays visible."""
-    conn.execute(
-        "create temp table stage_speed_cell (like speed_cell excluding indexes) on commit drop"
-    )
+    conn.execute("create temp table stage_speed_cell (like speed_cell excluding indexes) on commit drop")
     written = 0
     with conn.cursor().copy(
         "copy stage_speed_cell (quadkey, family, observed_on, avg_down_mbps, avg_up_mbps, "
@@ -140,6 +138,7 @@ def write(conn: psycopg.Connection[TupleRow], found: Iterator[Cell]) -> int:
                 cell.latency_ms, cell.tests, cell.devices, cell.wkt,
             ))
             written += 1
+
     conn.execute(
         "insert into speed_cell select * from stage_speed_cell "
         "on conflict (quadkey, family, observed_on) do update set "

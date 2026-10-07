@@ -14,8 +14,7 @@ from ranking.cost import MonthlyCost
 # paying for, with no technical limit behind it.
 ENOUGH_MBPS = Decimal(100)
 
-# a month of household streaming, in GB
-HOUSEHOLD_GB = 200
+HOUSEHOLD_GB = 200  # a month of household streaming, in GB
 
 # Tie-break between otherwise equal offers. A line in the ground doesn't share capacity with
 # the neighbourhood at seven in the evening. A cell does.
@@ -45,8 +44,7 @@ class Option:
     data_cap_gb: int | None = None
     # where the speed came from, so a card can explain itself
     basis: str = "advertised"
-    # evidence from speed tests only
-    confidence: float = 0.0
+    confidence: float = 0.0  # evidence from speed tests only
     tests: int = 0
 
 

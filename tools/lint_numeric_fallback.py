@@ -22,9 +22,7 @@ from pathlib import Path
 
 SUPPRESS = "allow-fallback:"
 
-EXCLUDE_DIRS = frozenset(
-    {".git", ".venv", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache"}
-)
+EXCLUDE_DIRS = frozenset({".git", ".venv", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache"})
 
 
 @dataclass(frozen=True)

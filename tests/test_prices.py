@@ -104,9 +104,7 @@ def test_a_nova_package_carries_its_contract() -> None:
     assert tariffs[0].family == "fiber"
 
 
-def test_a_price_is_recorded_against_the_day_it_was_seen(
-    catalogue: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_price_is_recorded_against_the_day_it_was_seen(catalogue: psycopg.Connection[TupleRow]) -> None:
     """A comparison made last month has to stay answerable after the tariff moves."""
     tariff = Tariff(external_key="X1", name="Test 100", family="fiber",
                     technology="FTTH", down_mbps=Decimal(100), monthly_eur=Decimal("29.90"))
@@ -167,22 +165,16 @@ def test_a_stated_free_fee_is_zero_and_a_silent_one_is_unknown() -> None:
     assert hcn["HCN_STELLAR"].setup_eur is None
 
 
-def test_the_published_technologies_exist_in_the_database(
-    catalogue: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_published_technologies_exist_in_the_database(catalogue: psycopg.Connection[TupleRow]) -> None:
     from prices.published import load
 
-    known = {
-        str(code) for (code,) in catalogue.execute("select code from technology").fetchall()
-    }
+    known = {str(code) for (code,) in catalogue.execute("select code from technology").fetchall()}
     for tariffs, _ in load().values():
         for tariff in tariffs:
             assert tariff.technology in known
 
 
-def test_the_current_price_view_carries_every_column(
-    catalogue: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_current_price_view_carries_every_column(catalogue: psycopg.Connection[TupleRow]) -> None:
     """It was once written with a star, which is resolved at creation: two later columns
     were invisible through it until someone happened to select one."""
     stored = {

@@ -125,8 +125,8 @@ export interface paths {
          * Report
          * @description Record that something here looks wrong.
          *
-         *     The only write in the API. Rate limiting belongs at the reverse proxy rather than in
-         *     process, where it would be per worker and reset on deploy.
+         *     Rate limiting belongs at the reverse proxy rather than in process, where it would be per
+         *     worker and reset on deploy.
          */
         post: operations["report_reports_post"];
         delete?: never;
@@ -253,10 +253,10 @@ export interface components {
             basis: string;
             /**
              * Confidence
-             * @description evidence from tests alone; a quote has none
+             * @description evidence from tests alone, so a quote has none
              */
             confidence: number;
-            /** @description always a figure; see Cost.complete for whether it is exact */
+            /** @description always a figure. Cost.complete says whether it is exact */
             cost: components["schemas"]["Cost"];
             /**
              * Data Cap Gb
@@ -477,7 +477,7 @@ export interface components {
         Result: {
             /**
              * Best Mbps
-             * @description the fastest known to reach here; null is not filed, not zero
+             * @description the fastest known to reach here. Null is not filed, not zero
              */
             best_mbps: string | null;
             /** Id */
@@ -537,7 +537,7 @@ export interface components {
         StreetDetail: {
             /**
              * Bbox
-             * @description west, south, east, north — a street has no point, only an extent
+             * @description west, south, east, north. A street has no point, only an extent
              */
             bbox: [
                 number,
@@ -657,7 +657,7 @@ export interface operations {
     address_probe_addresses__address_id__probe_post: {
         parameters: {
             query?: {
-                /** @description ask only these; omit to ask every operator that is due */
+                /** @description ask only these, or omit to ask every operator that is due */
                 provider?: string[] | null;
             };
             header?: never;

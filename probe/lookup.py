@@ -96,11 +96,7 @@ def verdicts(
 
     verdicts: dict[str, str] = {}
     for code, serviceable, expires_at, refused, street_no, checked_to, fiber, best in rows:
-        answer = (
-            Answer(serviceable=serviceable, expires_at=expires_at)
-            if expires_at is not None
-            else None
-        )
+        answer = Answer(serviceable=serviceable, expires_at=expires_at) if expires_at is not None else None
         verdicts[str(code)] = verdict(
             answer,
             now=now,

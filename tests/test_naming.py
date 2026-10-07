@@ -65,9 +65,7 @@ def test_a_walked_street_is_exact(scraped: psycopg.Connection[TupleRow]) -> None
     assert found[0].metres is None
 
 
-def test_an_unwalked_street_falls_back_to_the_municipality(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_an_unwalked_street_falls_back_to_the_municipality(scraped: psycopg.Connection[TupleRow]) -> None:
     """Πατησίων isn't in the scrape, and Αθηναίων very much is."""
     walk(scraped, 100, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ")
     found = guesses(scraped)
@@ -78,9 +76,7 @@ def test_an_unwalked_street_falls_back_to_the_municipality(
     assert found[0].street_type == STREET_TYPE
 
 
-def test_candidates_come_back_nearest_first(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_candidates_come_back_nearest_first(scraped: psycopg.Connection[TupleRow]) -> None:
     """Nearest first, which is why the first is worth trying and the tail worth capping."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", lon=24.0501, lat=40.8501)
     walk(scraped, 1, "ΚΑΙΣΑΡΙΑΝΗΣ", "ΑΧΑΡΝΩΝ", area="ΚΑΙΣΑΡΙΑΝΗ", lon=24.0520, lat=40.8520)
@@ -91,18 +87,14 @@ def test_candidates_come_back_nearest_first(
     assert first < second
 
 
-def test_a_guess_carries_a_real_exchange_area(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_guess_carries_a_real_exchange_area(scraped: psycopg.Connection[TupleRow]) -> None:
     """Their area is a telephone district, filed on every scrape row. Putting the
     municipality's own name in its place is what the old guess did, and it resolved nothing."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", area="ΑΘΗΝΑ-ΠΕΔΙΟΝ ΑΡΕΩΣ")
     assert guesses(scraped)[0].area == "ΑΘΗΝΑ-ΠΕΔΙΟΝ ΑΡΕΩΣ"
 
 
-def test_geocoding_noise_is_never_even_proposed(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_geocoding_noise_is_never_even_proposed(scraped: psycopg.Connection[TupleRow]) -> None:
     """The scrape puts a few hundred Athens addresses in Ηγουμενίτσα. Counting would need a
     threshold to argue them away. Proximity never offers them."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ")
@@ -110,9 +102,7 @@ def test_geocoding_noise_is_never_even_proposed(
     assert [n.dimos for n in guesses(scraped)] == ["ΑΘΗΝΑΙΩΝ"]
 
 
-def test_nothing_within_reach_is_not_a_guess(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_nothing_within_reach_is_not_a_guess(scraped: psycopg.Connection[TupleRow]) -> None:
     """Every unwalked address sampled had a walked one within 500 m. One that doesn't won't
     be spelled from a town half an hour away."""
     walk(scraped, 1, "ΑΘΗΝΑΙΩΝ", "ΑΧΑΡΝΩΝ", lon=24.30, lat=40.85)
@@ -123,14 +113,11 @@ def test_nothing_within_reach_is_not_a_guess(
 def test_the_tail_is_capped(scraped: psycopg.Connection[TupleRow]) -> None:
     """One unaskable address can't cost an unbounded number of requests."""
     for n in range(TRIES + 3):
-        walk(scraped, 1, f"ΔΗΜΟΣ{n}", "ΑΧΑΡΝΩΝ", area=f"ΠΕΡΙΟΧΗ{n}",
-             lon=24.05 + n / 10000, lat=40.85)
+        walk(scraped, 1, f"ΔΗΜΟΣ{n}", "ΑΧΑΡΝΩΝ", area=f"ΠΕΡΙΟΧΗ{n}", lon=24.05 + n / 10000, lat=40.85)
     assert len(guesses(scraped)) == TRIES
 
 
-def test_a_municipality_nobody_walked_has_nothing_to_offer(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_municipality_nobody_walked_has_nothing_to_offer(scraped: psycopg.Connection[TupleRow]) -> None:
     """2,771 streets are here, and no amount of guessing reaches them."""
     assert guesses(scraped) == []
     assert naming(scraped, 1, "ΠΑΤΗΣΙΩΝ") is None

@@ -1,6 +1,7 @@
 """JSON over the register. Computes nothing, returns stored state.
 
-Read only, apart from two writes: reader reports, and addresses made because a reader asked.
+Read only, apart from three writes: reader reports, addresses made because a reader asked, and
+what an operator said when one was asked.
 """
 
 from __future__ import annotations
@@ -63,9 +64,7 @@ class Health(BaseModel):
     offers: int = Field(description="rows in address_coverage")
 
 
-def rows(
-    sql: str, params: tuple[object, ...] | dict[str, object] = ()
-) -> list[tuple[Any, ...]]:
+def rows(sql: str, params: tuple[object, ...] | dict[str, object] = ()) -> list[tuple[Any, ...]]:
     with pool.connection() as conn:
         return conn.execute(sql, params).fetchall()
 
@@ -97,9 +96,7 @@ class Report(BaseModel):
 @app.get("/health", response_model=Health, tags=["meta"])
 def health() -> Health:
     """Whether the database answers, and whether it has been built."""
-    row = rows(
-        "select (select count(*) from address), (select count(*) from address_coverage)"
-    )
+    row = rows("select (select count(*) from address), (select count(*) from address_coverage)")
     addresses, offers = row[0]
     return Health(ok=True, addresses=addresses, offers=offers)
 
@@ -135,11 +132,9 @@ STREET_COLUMNS = """
     'street', s.id, s.name, null, s.locality, m.name, null, null, s.best_mbps
 """
 
-# three tiers, widening only while the page isn't full
-TIERS = ("prefix", "word", "fuzzy")
+TIERS = ("prefix", "word", "fuzzy")  # three tiers, widening only while the page isn't full
 
-# streets shown first for a name typed without a number
-STREET_SLOTS = 2
+STREET_SLOTS = 2  # streets shown first for a name typed without a number
 
 # streets a bare number gets offered on (more than two is guessing)
 PROPOSALS = 2
@@ -290,7 +285,7 @@ class Result(BaseModel):
     postcode: str | None
     premises: int | None = Field(description="dwellings passed, null when not filed")
     best_mbps: Decimal | None = Field(
-        description="the fastest known to reach here; null is not filed, not zero"
+        description="the fastest known to reach here. Null is not filed, not zero"
     )
     match: str = Field(description="prefix, word, fuzzy or asked")
     street_id: int | None = Field(
@@ -378,9 +373,7 @@ def searched(
     # a name without a number is a question about the street, so streets go first
     if kind == "any" and term.number is None:
         for tier in TIERS:
-            sql, taken = street_sql(
-                "latin_key" if greeklish else "name_fold", tier, term, STREET_SLOTS
-            )
+            sql, taken = street_sql("latin_key" if greeklish else "name_fold", tier, term, STREET_SLOTS)
             hits += results(ask(sql, taken), tier)
             # stop at the first tier that answered
             if hits:
@@ -553,7 +546,7 @@ class StreetDetail(BaseModel):
     highway: str
     ways: int = Field(description="OSM ways merged into this street")
     bbox: tuple[float, float, float, float] = Field(
-        description="west, south, east, north — a street has no point, only an extent"
+        description="west, south, east, north. A street has no point, only an extent"
     )
     shape: dict[str, Any] = Field(
         description="the street as GeoJSON, for drawing along rather than pointing at"
@@ -650,8 +643,8 @@ def ask_for(street_id: int, term: Asking) -> Result:
 def report(filed: ReportIn) -> Report:
     """Record that something here looks wrong.
 
-    The only write in the API. Rate limiting belongs at the reverse proxy rather than in
-    process, where it would be per worker and reset on deploy.
+    Rate limiting belongs at the reverse proxy rather than in process, where it would be per
+    worker and reset on deploy.
     """
     try:
         with pool.connection() as conn:
@@ -673,9 +666,7 @@ def names(conn: psycopg.Connection[Any], codes: list[str]) -> dict[str, str]:
     Uses the caller's connection. It used to take a second one from the pool while holding the
     first, so four concurrent requests on a pool of four each waited forever.
     """
-    hits = conn.execute(
-        "select code, display_name from provider where code = any(%s)", (codes,)
-    ).fetchall()
+    hits = conn.execute("select code, display_name from provider where code = any(%s)", (codes,)).fetchall()
     return {str(code): str(display) for code, display in hits}
 
 
@@ -707,10 +698,10 @@ class Buyable(BaseModel):
     family: str
     expected_mbps: Decimal | None = Field(description="null when nothing here can say")
     data_cap_gb: int | None = Field(description="null is unlimited, not unknown")
-    cost: Cost = Field(description="always a figure; see Cost.complete for whether it is exact")
+    cost: Cost = Field(description="always a figure. Cost.complete says whether it is exact")
     basis: str = Field(description="quoted, measured, filed or advertised")
     tests: int = Field(description="measurements behind it, zero when it rests on none")
-    confidence: float = Field(description="evidence from tests alone; a quote has none")
+    confidence: float = Field(description="evidence from tests alone, so a quote has none")
     enough: bool = Field(description="covers an ordinary household, on speed and allowance")
     why: str
 
@@ -743,10 +734,7 @@ def cents(amount: object) -> Decimal:
 
 
 def priced(total: object, recurring: object, upfront: object, complete: bool) -> Cost:
-    return Cost(
-        total=cents(total), recurring=cents(recurring), upfront=cents(upfront),
-        complete=complete,
-    )
+    return Cost(total=cents(total), recurring=cents(recurring), upfront=cents(upfront), complete=complete)
 
 
 @app.get("/addresses/{address_id}/options", response_model=Options, tags=["address"])
@@ -814,11 +802,7 @@ class Probed(BaseModel):
     detail: str | None
 
 
-ADAPTERS: dict[str, Callable[[], Adapter]] = {
-    "TELEKOM": Cosmote,
-    "VODAFONE": Vodafone,
-    "NOVA": Nova,
-}
+ADAPTERS: dict[str, Callable[[], Adapter]] = {"TELEKOM": Cosmote, "VODAFONE": Vodafone, "NOVA": Nova}
 
 
 @app.post("/addresses/{address_id}/probe", response_model=list[Probed], tags=["address"])
@@ -826,7 +810,7 @@ def address_probe(
     address_id: int,
     provider: Annotated[
         list[str] | None,
-        Query(description="ask only these; omit to ask every operator that is due"),
+        Query(description="ask only these, or omit to ask every operator that is due"),
     ] = None,
 ) -> list[Probed]:
     """Ask the operators that are due, and keep what they say.
@@ -851,9 +835,7 @@ def address_probe(
     for code in sorted(set(wanted)):
         answer = answers.get(code)
         if answer is None:
-            probed.append(Probed(
-                provider=code, asked=False, reached=False, serviceable=None, detail=None,
-            ))
+            probed.append(Probed(provider=code, asked=False, reached=False, serviceable=None, detail=None))
             continue
         probed.append(Probed(
             provider=code,

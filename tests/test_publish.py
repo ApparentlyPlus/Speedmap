@@ -55,9 +55,7 @@ Feature = dict[str, Any]
 
 
 def read(path: pathlib.Path) -> list[Feature]:
-    parsed: list[Feature] = [
-        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
-    ]
+    parsed: list[Feature] = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     return parsed
 
 
@@ -110,9 +108,7 @@ def test_overview_streets_with_the_same_look_come_out_together(
     assert speeds == sorted(speeds)
 
 
-def test_the_outline_has_a_gzip_twin(
-    drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path
-) -> None:
+def test_the_outline_has_a_gzip_twin(drawn: psycopg.Connection[TupleRow], tmp_path: pathlib.Path) -> None:
     """Served precompressed, so the copy has to be the same document."""
     import gzip
 

@@ -49,10 +49,8 @@ def test_fiber_does_not_claim_to_be_measured() -> None:
 
 def test_a_tile_is_every_operator_in_it_at_once() -> None:
     """One operator filing a slower band here is saying its own mast is worse, and it knows."""
-    strong = speed("wireless", Decimal(1000), None, None, Decimal(300), mobile_at(262, 6),
-                   Decimal(1000))
-    weak = speed("wireless", Decimal(1000), None, None, Decimal(30), mobile_at(262, 6),
-                 Decimal(100))
+    strong = speed("wireless", Decimal(1000), None, None, Decimal(300), mobile_at(262, 6), Decimal(1000))
+    weak = speed("wireless", Decimal(1000), None, None, Decimal(30), mobile_at(262, 6), Decimal(100))
     assert strong.mbps is not None and weak.mbps is not None
     assert weak.mbps < strong.mbps
     assert weak.mbps == Decimal(100)

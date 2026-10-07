@@ -82,8 +82,7 @@ def test_inference_beats_a_stale_answer() -> None:
 
 def test_inference_beats_a_refusal_from_an_unfinished_scan() -> None:
     """A door not yet connected on a fiber street is worth offering."""
-    assert verdict(None, now=NOW, street_no=7, checked_to=14,
-                   street_best_mbps=Decimal(1000)) == INFERRED
+    assert verdict(None, now=NOW, street_no=7, checked_to=14, street_best_mbps=Decimal(1000)) == INFERRED
 
 
 def test_inference_is_not_a_reason_to_ask() -> None:

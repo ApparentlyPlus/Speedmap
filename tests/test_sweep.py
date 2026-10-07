@@ -67,9 +67,7 @@ def test_the_most_lived_in_address_is_asked_first(queue: psycopg.Connection[Tupl
     assert stale(queue, NOW, 10) == [2, 3, 1]
 
 
-def test_an_answer_that_has_not_expired_is_left_alone(
-    queue: psycopg.Connection[TupleRow],
-) -> None:
+def test_an_answer_that_has_not_expired_is_left_alone(queue: psycopg.Connection[TupleRow]) -> None:
     place(queue, 1, 10, NOW + timedelta(days=90))
     assert stale(queue, NOW, 10) == []
 
@@ -80,9 +78,7 @@ def test_one_about_to_expire_is_taken_early(queue: psycopg.Connection[TupleRow])
     assert stale(queue, NOW, 10) == [1]
 
 
-def test_an_address_with_no_count_is_still_asked_about(
-    queue: psycopg.Connection[TupleRow],
-) -> None:
+def test_an_address_with_no_count_is_still_asked_about(queue: psycopg.Connection[TupleRow]) -> None:
     """The register leaves premises null often. Null is unknown, and unknown is not zero."""
     place(queue, 1, None, NOW - timedelta(days=1))
     assert stale(queue, NOW, 10) == [1]
@@ -94,9 +90,7 @@ def test_the_budget_is_what_one_run_costs(queue: psycopg.Connection[TupleRow]) -
     assert len(stale(queue, NOW, 2)) == 2
 
 
-def test_a_refreshed_answer_falls_out_of_the_queue(
-    queue: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_refreshed_answer_falls_out_of_the_queue(queue: psycopg.Connection[TupleRow]) -> None:
     """The query is the queue: nothing has to remember where the last run stopped."""
     place(queue, 1, 10, NOW - timedelta(days=1))
     fake = Fake()

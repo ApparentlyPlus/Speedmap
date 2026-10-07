@@ -64,8 +64,7 @@ const RETAILERS = OPERATORS.filter((code) => !WHOLESALE.has(code));
 const NETWORKS = OPERATORS.filter((code) => WHOLESALE.has(code));
 
 /** Slow at both ends. Linear travel starts and stops at full speed and jolts at each end. */
-const EASE = (t: number): number =>
-  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+const EASE = (t: number): number => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
 /** Long enough that a typist doesn't fire a request per letter. */
 const SETTLE_MS = 250;
@@ -173,14 +172,10 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       if (map.getLayer(STREETS_LAYER) === undefined) return null;
       const exact = map.queryRenderedFeatures(at, { layers: [STREETS_LAYER] });
       const pad = touchPad(map.getZoom());
-      const near =
-        exact.length > 0
+      const near = exact.length > 0
           ? exact
           : map.queryRenderedFeatures(
-              [
-                [at.x - pad, at.y - pad],
-                [at.x + pad, at.y + pad],
-              ],
+              [[at.x - pad, at.y - pad], [at.x + pad, at.y + pad]],
               { layers: [STREETS_LAYER] },
             );
       const id = near[0]?.properties?.["id"];
@@ -298,9 +293,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     const stop = new AbortController();
     const timer = window.setTimeout(() => {
       // Streets only. A typed number picks its street, since a map has nowhere to put a door.
-      search(asked, stop.signal, "street")
-        .then(setResults)
-        .catch(() => setResults([]));
+      search(asked, stop.signal, "street").then(setResults).catch(() => setResults([]));
     }, SETTLE_MS);
     return () => {
       window.clearTimeout(timer);
@@ -328,11 +321,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       const streets = view === "coverage";
       for (const layer of ["streets-halo", "streets"]) {
         if (map.getLayer(layer) !== undefined) {
-          map.setLayoutProperty(
-            layer,
-            "visibility",
-            streets ? "visible" : "none",
-          );
+          map.setLayoutProperty(layer, "visibility", streets ? "visible" : "none");
         }
       }
       // the choropleth follows whichever view is on
@@ -346,16 +335,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       }
 
       if (map.getLayer("cells") !== undefined) {
-        map.setLayoutProperty(
-          "cells",
-          "visibility",
-          streets ? "none" : "visible",
-        );
-        map.setFilter("cells", [
-          "==",
-          ["get", "family"],
-          view === "mobile" ? "mobile" : "fixed",
-        ]);
+        map.setLayoutProperty("cells", "visibility", streets ? "none" : "visible");
+        map.setFilter("cells", ["==", ["get", "family"], view === "mobile" ? "mobile" : "fixed"]);
       }
     };
 
@@ -412,8 +393,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
                   type="button"
                   className="atlas-hit"
                   onClick={() => {
-                    // select first, then travel (see travelTo for why)
-                    setCell(null);
+                    setCell(null); // select first, then travel (see travelTo for why)
                     void travelTo(mapRef.current, result, setChosen);
                     setQuery("");
                     setResults([]);

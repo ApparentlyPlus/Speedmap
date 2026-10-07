@@ -124,9 +124,7 @@ export function traceLayers(): LayerSpecification[] {
         "line-blur": 3,
         "line-opacity": 0,
         // tight around the line, so the mark doesn't look cut out. it isn't the mark itself
-        "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 3, 13, 5, 16, 11, 20, 34,
-        ],
+        "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 10, 3, 13, 5, 16, 11, 20, 34],
       },
     },
     {
@@ -151,10 +149,7 @@ export function traceLayers(): LayerSpecification[] {
 
 /** Brightness per layer. Low and constant, since the light moves but never dims. */
 export function traceOpacity(): [string, number][] {
-  return [
-    [GLOW, 0.14],
-    [TRACE, 0.62],
-  ];
+  return [[GLOW, 0.14], [TRACE, 0.62]];
 }
 
 /** The box worth pointing the camera at. */
@@ -184,10 +179,7 @@ export function turnable(
   const midLat = (south + north) / 2;
   const lift = Math.cos(midLat * (Math.PI / 180)) || 1;
   const half = Math.max((east - west) * lift, north - south) / 2;
-  return [
-    [midLon - half / lift, midLat - half],
-    [midLon + half / lift, midLat + half],
-  ];
+  return [[midLon - half / lift, midLat - half], [midLon + half / lift, midLat + half]];
 }
 
 /** The street's bounding box. */
@@ -206,8 +198,5 @@ export function extentOf(shape: Geometry): [[number, number], [number, number]] 
     }
   }
   if (!Number.isFinite(west) || !Number.isFinite(south)) return null;
-  return [
-    [west, south],
-    [east, north],
-  ];
+  return [[west, south], [east, north]];
 }

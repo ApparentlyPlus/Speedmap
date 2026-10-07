@@ -44,9 +44,7 @@ export function Landing(): React.ReactElement {
     }
     setFailed(false);
     setMaking(true);
-    askFor(street, result.street_no ?? "")
-      .then(setPicked)
-      .catch(() => setFailed(true))
+    askFor(street, result.street_no ?? "").then(setPicked).catch(() => setFailed(true))
       .finally(() => setMaking(false));
   };
 

@@ -113,7 +113,6 @@ export function ring(colour: string): THREE.Mesh {
     depthTest: false,
   });
   const mesh = new THREE.Mesh(geometry, material);
-  // after the house, so overlaps resolve to "in front"
-  mesh.renderOrder = 4;
+  mesh.renderOrder = 4; // after the house, so overlaps resolve to "in front"
   return mesh;
 }

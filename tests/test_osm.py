@@ -30,9 +30,7 @@ def test_a_line_needs_two_placed_nodes() -> None:
     assert line_wkt([(23.0, 40.0), (23.1, 40.1)]) == "LINESTRING(23.0 40.0, 23.1 40.1)"
 
 
-def test_a_street_is_stored_with_its_geometry(
-    osm: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_street_is_stored_with_its_geometry(osm: psycopg.Connection[TupleRow]) -> None:
     assert write(osm, iter([TZELILI])) == 1
     row = osm.execute(
         "select osm_id, name, highway, st_srid(geom), st_numpoints(geom) from raw_osm_street"
@@ -40,9 +38,7 @@ def test_a_street_is_stored_with_its_geometry(
     assert row == (4263046, "Αχιλλέα Τζελίλη", "secondary", 4326, 2)
 
 
-def test_loading_replaces_rather_than_accumulates(
-    osm: psycopg.Connection[TupleRow],
-) -> None:
+def test_loading_replaces_rather_than_accumulates(osm: psycopg.Connection[TupleRow]) -> None:
     """An extract is a snapshot: a way deleted upstream must disappear here too."""
     write(osm, iter([TZELILI]))
     other = Street(99, "Άλλη Οδός", "residential", "LINESTRING(24.0 41.0, 24.1 41.1)")

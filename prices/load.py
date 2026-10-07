@@ -15,10 +15,7 @@ from db.connect import connect
 from prices import nova, published, vodafone
 from prices.catalogue import Tariff, write
 
-SOURCES: dict[str, Callable[[], list[Tariff]]] = {
-    "VODAFONE": vodafone.fetch,
-    "NOVA": nova.fetch,
-}
+SOURCES: dict[str, Callable[[], list[Tariff]]] = {"VODAFONE": vodafone.fetch, "NOVA": nova.fetch}
 
 
 def main(argv: list[str] | None = None) -> int:

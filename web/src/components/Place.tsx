@@ -82,10 +82,9 @@ export function Place({
       .then(async (found) => {
         if (stop.signal.aborted) return;
         const id = found.street_id;
-        const known =
-          id === null || id === undefined
-            ? null
-            : await street(id, stop.signal).catch(() => null);
+        const known = id === null || id === undefined
+          ? null
+          : await street(id, stop.signal).catch(() => null);
         if (stop.signal.aborted) return;
         setWhere({ lon: found.lon, lat: found.lat });
         if (known !== null) {
@@ -102,14 +101,7 @@ export function Place({
 
   return (
     <Split where={where} shape={shape} streetId={road} language={language}>
-      <Answer
-        name={name}
-        place={place}
-        answer={known}
-        language={language}
-        onBack={onBack}
-        failed={failed}
-      />
+      <Answer name={name} place={place} answer={known} language={language} onBack={onBack} failed={failed} />
     </Split>
   );
 }

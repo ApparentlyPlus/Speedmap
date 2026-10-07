@@ -158,13 +158,13 @@
             "type": "string"
           },
           "confidence": {
-            "description": "evidence from tests alone; a quote has none",
+            "description": "evidence from tests alone, so a quote has none",
             "title": "Confidence",
             "type": "number"
           },
           "cost": {
             "$ref": "#/components/schemas/Cost",
-            "description": "always a figure; see Cost.complete for whether it is exact"
+            "description": "always a figure. Cost.complete says whether it is exact"
           },
           "data_cap_gb": {
             "anyOf": [
@@ -640,7 +640,7 @@
                 "type": "null"
               }
             ],
-            "description": "the fastest known to reach here; null is not filed, not zero",
+            "description": "the fastest known to reach here. Null is not filed, not zero",
             "title": "Best Mbps"
           },
           "id": {
@@ -793,7 +793,7 @@
       "StreetDetail": {
         "properties": {
           "bbox": {
-            "description": "west, south, east, north — a street has no point, only an extent",
+            "description": "west, south, east, north. A street has no point, only an extent",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
@@ -1038,7 +1038,7 @@
             }
           },
           {
-            "description": "ask only these; omit to ask every operator that is due",
+            "description": "ask only these, or omit to ask every operator that is due",
             "in": "query",
             "name": "provider",
             "required": false,
@@ -1054,7 +1054,7 @@
                   "type": "null"
                 }
               ],
-              "description": "ask only these; omit to ask every operator that is due",
+              "description": "ask only these, or omit to ask every operator that is due",
               "title": "Provider"
             }
           }
@@ -1141,7 +1141,7 @@
     },
     "/reports": {
       "post": {
-        "description": "Record that something here looks wrong.\n\nThe only write in the API. Rate limiting belongs at the reverse proxy rather than in\nprocess, where it would be per worker and reset on deploy.",
+        "description": "Record that something here looks wrong.\n\nRate limiting belongs at the reverse proxy rather than in process, where it would be per\nworker and reset on deploy.",
         "operationId": "report_reports_post",
         "requestBody": {
           "content": {

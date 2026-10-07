@@ -50,10 +50,7 @@ def test_edited_migration_is_drift() -> None:
 def test_migrate_refuses_to_run_over_drift(db: psycopg.Connection[TupleRow]) -> None:
     """An applied file edited afterwards stops the run instead of diverging quietly."""
     original = discover()[0]
-    db.execute(
-        "update schema_migration set checksum = 'tampered' where version = %s",
-        (original.version,),
-    )
+    db.execute("update schema_migration set checksum = 'tampered' where version = %s", (original.version,))
     db.commit()
     try:
         with pytest.raises(SystemExit, match=original.version):
@@ -75,9 +72,7 @@ def test_failed_migration_raises_its_own_error(
     """
     broken = tmp_path / "9999_broken.sql"
     broken.write_text("select * from no_such_table;")
-    monkeypatch.setattr(
-        "normalise.migrate.discover", lambda: [*discover(), Migration.load(broken)]
-    )
+    monkeypatch.setattr("normalise.migrate.discover", lambda: [*discover(), Migration.load(broken)])
     with pytest.raises(psycopg.errors.UndefinedTable):
         migrate(db)
     assert scalar(db, "select count(*) from pg_locks where locktype = 'advisory'") == 0

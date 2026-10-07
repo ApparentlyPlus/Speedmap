@@ -26,9 +26,7 @@ def document() -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--check", action="store_true", help="fail if the file does not match the server"
-    )
+    parser.add_argument("--check", action="store_true", help="fail if the file does not match the server")
     asked = parser.parse_args()
 
     wanted = document()

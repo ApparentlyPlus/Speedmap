@@ -23,8 +23,7 @@ from psycopg.rows import TupleRow
 from db.settings import settings
 from publish import features, fields
 
-# no reachable zoom may be empty
-MIN_ZOOM = 4
+MIN_ZOOM = 4  # no reachable zoom may be empty
 MAX_ZOOM = 14
 
 # Streets are what the map is for, so they're never dropped to save room. Coarse zooms
@@ -71,10 +70,7 @@ def tool(name: str) -> str:
 
 
 def layer(name: str, path: pathlib.Path, rules: tuple[str, ...]) -> list[str]:
-    return [
-        "--named-layer", f"{name}:{path}",
-        *rules,
-    ]
+    return ["--named-layer", f"{name}:{path}", *rules]
 
 
 def cut(

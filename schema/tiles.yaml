@@ -20,7 +20,7 @@ layers:
         type: number
         nullable: true
         unit: mbps
-        description: the fastest anyone reaches here; null is not filed, never zero
+        description: the fastest anyone reaches here. Null is not filed, never zero
       nprov:
         type: integer
         nullable: true
@@ -48,7 +48,7 @@ layers:
     description: >
       One feature per municipality, for the zooms where a street is a fraction of a pixel.
       A map with no basemap and nothing drawn at low zoom is a black rectangle telling the
-      reader to zoom in, somewhere, with no clue where — so the country has to have a shape
+      reader to zoom in, somewhere, with no clue where. The country has to have a shape
       before it has streets. Fiber rather than the fastest anything: the fastest anything is
       5G, which reaches nearly every address, and a map of it is one colour.
     geometry: polygon
@@ -66,7 +66,7 @@ layers:
         description: how many of them fiber reaches
       fiber_share:
         type: number
-        description: nought to one; what the Filed view is painted by
+        description: nought to one, and what the Filed view is painted by
       best_mbps:
         type: number
         nullable: true
@@ -78,7 +78,7 @@ layers:
         type: number
         nullable: true
         unit: mbps
-        description: fixed-line speed tests here; null is untested, which is most of Greece
+        description: fixed-line speed tests here. Null is untested, which is most of Greece
       measured_tests:
         type: integer
         nullable: true
@@ -105,7 +105,7 @@ layers:
         description: the zoom 16 tile key, which is also its identity upstream
       family:
         type: string
-        description: fixed or mobile; the two measure differently and never mix
+        description: fixed or mobile. The two measure differently and never mix
       down_mbps:
         type: number
         unit: mbps
@@ -114,7 +114,7 @@ layers:
         unit: mbps
       tests:
         type: integer
-        description: measurements behind the figure; drawn as opacity, never as deletion
+        description: measurements behind the figure, drawn as opacity and never as deletion
 
 # The two archives built elsewhere, by planetiler, cut down to what the style reads. Each
 # label carried about eighty translations and each building every Overture attribute, all
