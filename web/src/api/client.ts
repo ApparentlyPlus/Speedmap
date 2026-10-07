@@ -9,6 +9,8 @@ export type Operator = components["schemas"]["Operator"];
 export type Probed = components["schemas"]["Probed"];
 export type StreetDetail = components["schemas"]["StreetDetail"];
 export type AddressDetail = components["schemas"]["AddressDetail"];
+export type ReportIn = components["schemas"]["ReportIn"];
+export type Report = components["schemas"]["Report"];
 
 /** Same origin behind Caddy in production, proxied the same way in development. */
 const BASE = "/api";
@@ -93,6 +95,11 @@ export function askFor(
 }
 
 
+
+/** Tell us something looks wrong. */
+export function report(filed: ReportIn, signal?: AbortSignal): Promise<Report> {
+  return send<Report>("POST", "/reports", signal, filed);
+}
 
 export function street(streetId: number, signal?: AbortSignal): Promise<StreetDetail> {
   return get<StreetDetail>(`/streets/${streetId}`, signal);

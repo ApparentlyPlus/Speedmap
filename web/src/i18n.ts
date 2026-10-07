@@ -62,6 +62,10 @@ type Strings = {
   readonly unlimited: string;
   readonly disclaimer: string;
   readonly report: string;
+  readonly reportPrompt: string;
+  readonly reportSend: string;
+  readonly reportSent: string;
+  readonly reportFailed: string;
   readonly bestHere: string;
   readonly upTo: string;
   readonly more: string;
@@ -136,6 +140,10 @@ const el: Strings = {
   disclaimer:
     "Η διαθεσιμότητα και οι τιμές είναι κατά προσέγγιση. Επιβεβαίωσέ τα πάντα με τον πάροχο.",
   report: "Κάτι δεν φαίνεται σωστό;",
+  reportPrompt: "Τι δεν ταιριάζει; Π.χ. έχω οπτική ίνα αλλά εδώ δεν φαίνεται",
+  reportSend: "Αποστολή",
+  reportSent: "Ευχαριστούμε, θα το κοιτάξουμε",
+  reportFailed: "Δεν στάλθηκε. Δοκιμάστε ξανά σε λίγο",
   bestHere: "καλύτερο εδώ",
   upTo: "έως",
   more: "ακόμη",
@@ -229,6 +237,10 @@ const en: Strings = {
   disclaimer:
     "Availability and prices are best effort. Always confirm with the provider.",
   report: "Something look wrong?",
+  reportPrompt: "What doesn't match? For example, I have fiber and it isn't shown here",
+  reportSend: "Send",
+  reportSent: "Thanks, we'll look into it",
+  reportFailed: "It didn't send. Try again in a moment",
   bestHere: "best here",
   upTo: "up to",
   more: "more",

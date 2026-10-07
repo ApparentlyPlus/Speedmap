@@ -11,6 +11,7 @@ import { strings, type Language } from "../i18n";
 import { colourFor, mbps } from "../tokens";
 import { House } from "./House";
 import { Offer } from "./Offer";
+import { Report } from "./Report";
 import { saidAbout, verdictOf } from "./verdict";
 import { Waiting } from "./Waiting";
 
@@ -24,6 +25,7 @@ export function Answer({
   language,
   onBack,
   failed = false,
+  addressId,
 }: {
   readonly name: string;
   readonly place: string;
@@ -34,6 +36,8 @@ export function Answer({
   readonly onBack?: () => void;
   /** The first answer isn't coming. Without this the panel waited for it forever. */
   readonly failed?: boolean;
+  /** What a report from this screen is about. The lab has none. */
+  readonly addressId?: number;
 }): React.ReactElement {
   const text = strings(language);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -138,9 +142,7 @@ export function Answer({
 
           <footer className="disclaimer">
             <p>{text.disclaimer}</p>
-            <button className="report" type="button">
-              {text.report}
-            </button>
+            <Report addressId={addressId} language={language} />
           </footer>
         </>
       )}
