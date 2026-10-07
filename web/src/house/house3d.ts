@@ -155,8 +155,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   chimney.position.set(-0.78, RIDGE - 0.18, -0.45);
   house.add(chimney);
 
-  // router, inside
-  const router = new THREE.Group();
+  const router = new THREE.Group(); // inside the house
   const shell = new THREE.Mesh(
     new THREE.BoxGeometry(0.66, 0.13, 0.44),
     new THREE.MeshStandardMaterial({ color: 0xeef2f8, roughness: 0.3, metalness: 0.1 }),
@@ -174,8 +173,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
   router.position.set(0, 1.0, 0);
   house.add(router);
 
-  // dish, on the roof
-  const dish = new THREE.Group();
+  const dish = new THREE.Group(); // on the roof
   const BOWL = 0.36;
   const bowl = new THREE.Mesh(
     new THREE.SphereGeometry(BOWL, 28, 18, 0, Math.PI * 2, 0, Math.PI / 2.7),
@@ -272,10 +270,7 @@ export function house3d(canvas: HTMLCanvasElement, options: SceneOptions = {}): 
     camera.aspect = box.width / Math.max(1, box.height);
     const vertical = Math.tan((camera.fov * Math.PI) / 360);
     const backFor = (subject: { height: number; width: number }): number =>
-      Math.max(
-        subject.height / 2 / vertical,
-        subject.width / 2 / (vertical * camera.aspect),
-      ) * 1.2;
+      Math.max(subject.height / 2 / vertical, subject.width / 2 / (vertical * camera.aspect)) * 1.2;
     range = { near: backFor(HOUSE), far: backFor(BROADCAST) };
     camera.updateProjectionMatrix();
   }

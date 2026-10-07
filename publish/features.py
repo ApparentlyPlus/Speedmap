@@ -119,8 +119,7 @@ order by m.id
 """
 
 
-# half a zoom 16 tile, in Web Mercator metres
-HALF_TILE = 40075016.686 / (1 << 16) / 2
+HALF_TILE = 40075016.686 / (1 << 16) / 2  # half a zoom 16 tile, in Web Mercator metres
 
 # how far past the coast a cell can sit and still count as Greek, in degrees (about 2 km)
 SHORE = 0.02
@@ -221,14 +220,11 @@ def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
 
 
 def streets_overview(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    sql = STREETS_OVERVIEW.format(
-        aggregates=aggregates(), operators=operators(), detail_from=DETAIL_FROM
-    )
+    sql = STREETS_OVERVIEW.format(aggregates=aggregates(), operators=operators(), detail_from=DETAIL_FROM)
     return write(conn, sql, out)
 
 
-# coastline smoothing, in degrees (about 20 m)
-SMOOTH = 0.0002
+SMOOTH = 0.0002  # coastline smoothing, in degrees (about 20 m)
 
 # Closes the slivers between neighbouring municipalities without moving the coast anywhere
 # you'd notice: about 150 m.

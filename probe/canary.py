@@ -108,6 +108,7 @@ def run(
         target = target_for(conn, int(row[0]))
         if target is None:
             continue
+
         wanted = [a for a in adapters if not canary.providers or a.code in canary.providers]
         for adapter in wanted:
             # asked directly, past the backoff: the point is to notice while it's still broken

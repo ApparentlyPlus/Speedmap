@@ -53,10 +53,7 @@ export const BUILDINGS_FROM = 14;
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
 
 /** Gavdos to the Evros, Corfu to Kastellorizo, plus half a degree of sea. */
-export const LIMITS: [[number, number], [number, number]] = [
-  [18.6, 34.2],
-  [30.4, 42.3],
-];
+export const LIMITS: [[number, number], [number, number]] = [[18.6, 34.2], [30.4, 42.3]];
 
 /** Far enough out to hold the country, no further. */
 export const FLOOR_ZOOM = 5.6;
@@ -171,9 +168,7 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
           "interpolate", ["linear"], ["zoom"],
           8, 0.06, 13, 0.13, 15, 0.2, 16, 0.15, 18, 0.09,
         ],
-        "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60,
-        ],
+        "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 10, 4, 13, 8, 16, 22, 20, 60],
       },
     },
     {
@@ -203,7 +198,7 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       source: SOURCE,
       "source-layer": STREETS_LAYER,
       filter: NOTHING,
-      // hidden, not just filtered: a hidden layer is skipped at tile build, a filtered one
+      // hidden as well as filtered: a hidden layer is skipped at tile build, and a filtered one
       // still runs its filter on every street in the tile
       layout: { "line-cap": "round", "line-join": "round", visibility: "none" },
       paint: {
@@ -211,9 +206,7 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
         "line-blur": 6,
         "line-opacity": 0,
         "line-opacity-transition": { duration: LIGHT_MS, delay: LIGHT_WAIT },
-        "line-width": [
-          "interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70,
-        ],
+        "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 10, 9, 13, 13, 16, 26, 20, 70],
       },
     },
     {
@@ -242,11 +235,7 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
  * nothing. Padding the query does the same job. Half the old width minus the street's own
  * half-width, since a query already counts a line as wide as it's drawn.
  */
-export const TOUCH: readonly (readonly [number, number])[] = [
-  [11, 4.5],
-  [16, 7.5],
-  [20, 9],
-];
+export const TOUCH: readonly (readonly [number, number])[] = [[11, 4.5], [16, 7.5], [20, 9]];
 
 /** Padding in px at a zoom, interpolated between stops and flat outside them. */
 export function touchPad(zoom: number): number {
@@ -523,10 +512,7 @@ export function style(base = "/tiles"): StyleSpecification {
             ["primary", "secondary"], C.road,
             C.roadMinor,
           ],
-          "line-width": [
-            "interpolate", ["exponential", 1.6], ["zoom"],
-            6, 0.4, 12, 2, 16, 10, 20, 40,
-          ],
+          "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 6, 0.4, 12, 2, 16, 10, 20, 40],
         },
       },
 

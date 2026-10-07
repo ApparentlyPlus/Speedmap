@@ -57,9 +57,7 @@ def test_rungs_run_fastest_first_and_reach_the_bottom() -> None:
 
 def test_every_technology_named_is_one_we_have(db: psycopg.Connection[TupleRow]) -> None:
     """A code invented in the file would reach the ranker as a plan on no line at all."""
-    known = {
-        str(code) for (code,) in db.execute("select code from technology").fetchall()
-    }
+    known = {str(code) for (code,) in db.execute("select code from technology").fetchall()}
     for code in OPERATORS:
         spec = Descriptor(code)
         named = set(spec.mapping("technology").values()) | set(spec.mapping("bare").values())

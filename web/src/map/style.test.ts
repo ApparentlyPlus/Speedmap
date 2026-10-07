@@ -193,9 +193,7 @@ describe("the ramp", () => {
     // the ramp is written fastest first and interpolate wants ascending stops, an easy place
     // to get the order wrong
     const [, , , anchors] = paint() as unknown[];
-    const stops = (anchors as unknown[])
-      .slice(3)
-      .filter((_, index) => index % 2 === 0) as number[];
+    const stops = (anchors as unknown[]).slice(3).filter((_, index) => index % 2 === 0) as number[];
     expect(stops).toEqual([...stops].sort((a, b) => a - b));
   });
 

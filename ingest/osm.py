@@ -48,6 +48,7 @@ def streets(path: Path) -> Iterator[Street]:
         .with_filter(osmium.filter.EntityFilter(osmium.osm.WAY))
         .with_filter(osmium.filter.KeyFilter("highway"))
     )
+
     for way in processor:
         # the entity filter already guarantees this, the check is for mypy
         if not isinstance(way, osmium.osm.Way):
@@ -66,9 +67,7 @@ def write(conn: psycopg.Connection[TupleRow], found: Iterator[Street]) -> int:
     """Replace the table wholesale, since an extract is a snapshot."""
     conn.execute("truncate raw_osm_street")
     written = 0
-    with conn.cursor().copy(
-        "copy raw_osm_street (osm_id, name, highway, geom) from stdin"
-    ) as copy:
+    with conn.cursor().copy("copy raw_osm_street (osm_id, name, highway, geom) from stdin") as copy:
         for street in found:
             copy.write_row((street.osm_id, street.name, street.highway, street.wkt))
             written += 1

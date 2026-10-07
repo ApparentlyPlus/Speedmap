@@ -45,13 +45,9 @@ limit %(budget)s
 """
 
 
-def stale(
-    conn: psycopg.Connection[TupleRow], now: datetime, budget: int
-) -> list[int]:
+def stale(conn: psycopg.Connection[TupleRow], now: datetime, budget: int) -> list[int]:
     """Addresses most worth re-asking, most lived-in first."""
-    rows = conn.execute(
-        DUE, {"before": now, "soon": SOON, "budget": budget}
-    ).fetchall()
+    rows = conn.execute(DUE, {"before": now, "soon": SOON, "budget": budget}).fetchall()
     return [int(row[0]) for row in rows]
 
 
@@ -85,9 +81,7 @@ def main(argv: list[str] | None = None) -> int:
 
     adapters: list[Adapter] = [Cosmote(), Vodafone(), Nova()]
     with connect() as conn:
-        reply, answered = sweep(
-            conn, adapters, datetime.now(UTC), budget=args.budget, pace=args.pace
-        )
+        reply, answered = sweep(conn, adapters, datetime.now(UTC), budget=args.budget, pace=args.pace)
     print(f"  sweep: {reply} addresses asked, {answered} operators answered")
     return 0
 

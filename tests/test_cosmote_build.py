@@ -56,9 +56,7 @@ def build(conn: psycopg.Connection[TupleRow], rows: list[Checked], held: str | N
 
 
 def answers(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, float]]:
-    rows = conn.execute(
-        "select technology, max_down_mbps from availability order by technology"
-    ).fetchall()
+    rows = conn.execute("select technology, max_down_mbps from availability order by technology").fetchall()
     return [(str(t), float(m)) for t, m in rows]
 
 
@@ -80,9 +78,7 @@ def test_the_keys_match_the_register_path() -> None:
     from normalise.address import parse
 
     (filed,) = parse("56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
-    assert keys("Αμυγδαλιάς", "ΕΥΚΑΡΠΙΑ") == (
-        filed.street_fold, filed.search_key, filed.latin_key,
-    )
+    assert keys("Αμυγδαλιάς", "ΕΥΚΑΡΠΙΑ") == (filed.street_fold, filed.search_key, filed.latin_key)
 
 
 def test_the_catalogue_comes_from_the_plan_table(scrape: psycopg.Connection[TupleRow]) -> None:
@@ -95,11 +91,8 @@ def test_the_catalogue_comes_from_the_plan_table(scrape: psycopg.Connection[Tupl
     assert rows[-1] == ("FBR_3G", "FTTH")
 
 
-def test_a_matched_address_becomes_a_cached_answer(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
-    build(scrape, [checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11, "FBR_1G,ADSL_24M")],
-          "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
+def test_a_matched_address_becomes_a_cached_answer(scrape: psycopg.Connection[TupleRow]) -> None:
+    build(scrape, [checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11, "FBR_1G,ADSL_24M")], "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
     assert answers(scrape) == [("FTTH", 1000.0)]
 
 
@@ -115,25 +108,17 @@ def test_the_answer_carries_when_it_was_asked(scrape: psycopg.Connection[TupleRo
     assert row[1:] == (True, "isp-live", True)
 
 
-def test_a_street_the_register_never_filed_becomes_an_address(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_street_the_register_never_filed_becomes_an_address(scrape: psycopg.Connection[TupleRow]) -> None:
     """168 of the 333 municipalities have no register address at all."""
     build(scrape, [checked_at(1, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 40)], None)
-    row = scrape.execute(
-        "select street, street_no, postcode, source, search_key from address"
-    ).fetchone()
+    row = scrape.execute("select street, street_no, postcode, source, search_key from address").fetchone()
     assert row == ("ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", "40", None, "cosmote", "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ ΠΑΓΓΑΙΟ")
 
 
-def test_an_address_we_already_hold_is_not_duplicated(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_an_address_we_already_hold_is_not_duplicated(scrape: psycopg.Connection[TupleRow]) -> None:
     """The register files a postcode and the scrape does not, so the key alone would collide."""
     build(scrape, [checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11)], "56429,Αμυγδαλιάς,11,ΕΥΚΑΡΠΙΑ")
-    assert scrape.execute("select source, count(*) from address group by 1").fetchall() == [
-        ("register", 1)
-    ]
+    assert scrape.execute("select source, count(*) from address group by 1").fetchall() == [("register", 1)]
 
 
 def test_a_rooftop_beats_an_interpolated_point(scrape: psycopg.Connection[TupleRow]) -> None:
@@ -145,9 +130,7 @@ def test_a_rooftop_beats_an_interpolated_point(scrape: psycopg.Connection[TupleR
     assert scrape.execute("select kaek from address").fetchall() == [("ROOF",)]
 
 
-def test_a_coarse_row_still_answers_once_the_pair_is_learned(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_coarse_row_still_answers_once_the_pair_is_learned(scrape: psycopg.Connection[TupleRow]) -> None:
     """That is the point of learning the pair: it carries the rows that cannot place themselves."""
     build(scrape, [
         checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11, "FBR_50M"),
@@ -157,9 +140,7 @@ def test_a_coarse_row_still_answers_once_the_pair_is_learned(
     assert answers(scrape) == [("FTTH", 1000.0), ("VDSL", 50.0)]
 
 
-def test_the_ceiling_lands_on_every_address_of_the_street(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_ceiling_lands_on_every_address_of_the_street(scrape: psycopg.Connection[TupleRow]) -> None:
     """The probe layer asks about an address, so the address is where the ceiling belongs."""
     build(scrape, [
         checked_at(1, "ΑΜΥΓΔΑΛΙΑΣ", 11),
@@ -169,12 +150,9 @@ def test_the_ceiling_lands_on_every_address_of_the_street(
     assert rows == [("11", 14), ("14", 14)]
 
 
-def test_a_number_above_the_ceiling_is_unknown_not_refused(
-    scrape: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_number_above_the_ceiling_is_unknown_not_refused(scrape: psycopg.Connection[TupleRow]) -> None:
     """Τζελίλη 40 exists and is served. The scan stopped at 1 and never asked."""
-    build(scrape, [checked_at(1, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 1, "ADSL_24M")],
-          "56429,Αχιλλέα Τζελίλη,40,ΠΑΓΓΑΙΟ")
+    build(scrape, [checked_at(1, "ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ", 1, "ADSL_24M")], "56429,Αχιλλέα Τζελίλη,40,ΠΑΓΓΑΙΟ")
     rows = scrape.execute(
         "select street_no, checked_to, street_no::int > checked_to from address "
         "order by street_no::int"

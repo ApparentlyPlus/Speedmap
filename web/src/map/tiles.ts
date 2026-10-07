@@ -1,4 +1,4 @@
-/** Generated from schema/tiles.yaml. Do not edit; edit the schema and regenerate. */
+/** Generated from schema/tiles.yaml. Edit the schema and regenerate, never this file. */
 
 import type { Mbps } from "../tokens";
 
@@ -15,7 +15,7 @@ export type Street = {
    * pixel wide and features with identical fields are merged into one
    */
   readonly id: number | null;
-  /** the fastest anyone reaches here; null is not filed, never zero */
+  /** the fastest anyone reaches here. Null is not filed, never zero */
   readonly best_mbps: Mbps | null;
   /** how many operators reach this street at all, filed speed or not. Absent below zoom 10 */
   readonly nprov: number | null;
@@ -83,8 +83,8 @@ export const STREETS_INFRASTRUCTURE: readonly string[] = [
 /**
  * One feature per municipality, for the zooms where a street is a fraction of a pixel. A
  * map with no basemap and nothing drawn at low zoom is a black rectangle telling the reader
- * to zoom in, somewhere, with no clue where — so the country has to have a shape before it
- * has streets. Fiber rather than the fastest anything: the fastest anything is 5G, which
+ * to zoom in, somewhere, with no clue where. The country has to have a shape before it has
+ * streets. Fiber rather than the fastest anything: the fastest anything is 5G, which
  * reaches nearly every address, and a map of it is one colour.
  */
 export type Region = {
@@ -95,11 +95,11 @@ export type Region = {
   readonly addresses: number;
   /** how many of them fiber reaches */
   readonly fiber: number;
-  /** nought to one; what the Filed view is painted by */
+  /** nought to one, and what the Filed view is painted by */
   readonly fiber_share: number;
   /** the band's assured speed, held to what the technology can carry */
   readonly best_mbps: Mbps | null;
-  /** fixed-line speed tests here; null is untested, which is most of Greece */
+  /** fixed-line speed tests here. Null is untested, which is most of Greece */
   readonly measured_mbps: Mbps | null;
   /** how many tests that rests on, drawn as opacity rather than as deletion */
   readonly measured_tests: number | null;
@@ -131,11 +131,11 @@ export const REGIONS_FIELDS = [
 export type Cell = {
   /** the zoom 16 tile key, which is also its identity upstream */
   readonly quadkey: string;
-  /** fixed or mobile; the two measure differently and never mix */
+  /** fixed or mobile. The two measure differently and never mix */
   readonly family: string;
   readonly down_mbps: Mbps;
   readonly up_mbps: Mbps;
-  /** measurements behind the figure; drawn as opacity, never as deletion */
+  /** measurements behind the figure, drawn as opacity and never as deletion */
   readonly tests: number;
 };
 

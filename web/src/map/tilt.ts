@@ -20,8 +20,7 @@ export class Tilt implements IControl {
   private map: Maplibre | null = null;
   private box: HTMLDivElement | null = null;
   private icon: HTMLSpanElement | null = null;
-  // the single tap waiting to see whether a second one follows
-  private waiting = 0;
+  private waiting = 0; // the single tap waiting to see whether a second one follows
 
   constructor(private readonly label: string) {}
 

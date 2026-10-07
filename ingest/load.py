@@ -100,9 +100,7 @@ def write_page(conn: psycopg.Connection[TupleRow], target: Target, rows: Iterabl
     if not batch:
         return 0
     columns = tuple(batch[0])
-    conn.cursor().executemany(
-        upsert_sql(target, columns), [row_params(target, columns, r) for r in batch]
-    )
+    conn.cursor().executemany(upsert_sql(target, columns), [row_params(target, columns, r) for r in batch])
     return len(batch)
 
 
@@ -113,9 +111,7 @@ def begin_run(conn: psycopg.Connection[TupleRow], dataset: str) -> str | None:
         "on conflict (dataset) do update set run_started_at = now(), run_fetched = 0",
         (dataset,),
     )
-    row = conn.execute(
-        "select last_key from register_fetch where dataset = %s", (dataset,)
-    ).fetchone()
+    row = conn.execute("select last_key from register_fetch where dataset = %s", (dataset,)).fetchone()
     return None if row is None else row[0]
 
 

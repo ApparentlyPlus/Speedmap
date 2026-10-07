@@ -62,9 +62,5 @@ def blended(price: Price) -> MonthlyCost:
     remaining = WINDOW_MONTHS - promo
     promo_rate = price.promo_monthly_eur if price.promo_monthly_eur is not None else Decimal(0)
 
-    recurring = (
-        promo_rate * Decimal(promo) + price.monthly_eur * Decimal(remaining)
-    ) / WINDOW_MONTHS
-    return MonthlyCost(
-        total=recurring + spread, recurring=recurring, upfront=spread, complete=known
-    )
+    recurring = (promo_rate * Decimal(promo) + price.monthly_eur * Decimal(remaining)) / WINDOW_MONTHS
+    return MonthlyCost(total=recurring + spread, recurring=recurring, upfront=spread, complete=known)

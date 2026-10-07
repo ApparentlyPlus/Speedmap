@@ -43,8 +43,7 @@ NEARBY_M = 500.0
 # district boundary and offer both sides, few enough to stay an index scan.
 LOOK = 40
 
-# spellings a verifying adapter tries before giving up
-TRIES = 4
+TRIES = 4  # spellings a verifying adapter tries before giving up
 
 
 @dataclass(frozen=True)
@@ -56,16 +55,13 @@ class Naming:
     area: str | None
     street: str
     street_type: str | None
-    # True when the scrape walked this very street
-    exact: bool = True
+    exact: bool = True  # True when the scrape walked this very street
     # Metres to the neighbour it came from. None on an exact naming, which is about this
     # street itself.
     metres: float | None = None
 
 
-def naming(
-    conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str
-) -> Naming | None:
+def naming(conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str) -> Naming | None:
     """Their spelling of this street, if the scrape walked it."""
     row = conn.execute(EXACT, (municipality_id, street_fold)).fetchone()
     if row is None:
@@ -92,6 +88,7 @@ def namings(
         return [exact]
     if lat is None or lon is None:
         return []
+
     found = conn.execute(NEAREST, {
         "municipality": municipality_id,
         "here": f"SRID=4326;POINT({lon} {lat})",

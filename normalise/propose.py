@@ -129,9 +129,7 @@ where s.id = %s
 """
 
 
-def propose(
-    conn: psycopg.Connection[TupleRow], street_id: int, street_no: str
-) -> int | None:
+def propose(conn: psycopg.Connection[TupleRow], street_id: int, street_no: str) -> int | None:
     """The id of the address at this number on this street, made if it's new.
 
     Keyed like the register load, so asking twice returns the same address.

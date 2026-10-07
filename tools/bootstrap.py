@@ -21,7 +21,7 @@ from db.settings import settings
 # Everything works without it, less well. See skipped().
 SCRAPE = Path("data/cosmote.db")
 
-# connected to in order to create the real one, since a database can't create itself
+# connected to first to create the real one, since a database can't create itself
 MAINTENANCE = "postgres"
 
 
@@ -42,9 +42,7 @@ def database() -> int:
     name = str(info.get("dbname", "speedmap"))
     admin = make_conninfo(settings.dsn, dbname=MAINTENANCE)
     with psycopg.connect(admin, autocommit=True) as conn:
-        found = conn.execute(
-            "select 1 from pg_database where datname = %s", (name,)
-        ).fetchone()
+        found = conn.execute("select 1 from pg_database where datname = %s", (name,)).fetchone()
         if found is None:
             # an identifier, so it can't be a parameter
             conn.execute(

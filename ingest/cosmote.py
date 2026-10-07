@@ -55,8 +55,7 @@ def checked(path: Path) -> Iterator[Checked]:
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
         for row in connection.execute(READ):
-            (rid, nomos, dimos, area, kind, street, number, plans, stamp,
-             lat, lon, prec, kaek) = row
+            (rid, nomos, dimos, area, kind, street, number, plans, stamp, lat, lon, prec, kaek) = row
             yield Checked(
                 rid, nomos, dimos, area, kind, street, number, plans, stamp,
                 point_wkt(lat, lon), prec, kaek,

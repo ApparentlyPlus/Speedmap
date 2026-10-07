@@ -75,9 +75,7 @@ def built(db: psycopg.Connection[TupleRow], *steps: str) -> None:
     db.commit()
 
 
-async def found(
-    client: httpx.AsyncClient, q: str, **params: str | int
-) -> list[dict[str, object]]:
+async def found(client: httpx.AsyncClient, q: str, **params: str | int) -> list[dict[str, object]]:
     response = await client.get("/search", params={"q": q, **params})
     assert response.status_code == 200, response.text
     body = response.json()
@@ -90,9 +88,7 @@ async def test_health_reports_the_database(client: httpx.AsyncClient) -> None:
     assert body == {"ok": True, "addresses": 0, "offers": 0}
 
 
-async def test_health_counts_what_is_built(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_health_counts_what_is_built(client: httpx.AsyncClient, seeded_address: None) -> None:
     body = (await client.get("/health")).json()
     assert body["addresses"] == len(SAMPLE)
 
@@ -106,32 +102,24 @@ async def test_the_schema_is_served(client: httpx.AsyncClient) -> None:
 
 
 
-async def test_a_prefix_finds_the_address(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_prefix_finds_the_address(client: httpx.AsyncClient, seeded_address: None) -> None:
     hits = await found(client, "ΑΧΑΡΝΩΝ")
     assert {h["street_no"] for h in hits} == {"128", "12"}
     assert all(h["match"] == "prefix" and h["kind"] == "address" for h in hits)
 
 
-async def test_bigger_buildings_come_first(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_bigger_buildings_come_first(client: httpx.AsyncClient, seeded_address: None) -> None:
     """Rows in a tier matched equally well, so the bigger building comes first."""
     hits = await found(client, "ΑΧΑΡΝΩΝ")
     assert [h["street_no"] for h in hits] == ["128", "12"]
 
 
-async def test_the_query_is_folded_like_the_index(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_the_query_is_folded_like_the_index(client: httpx.AsyncClient, seeded_address: None) -> None:
     hits = await found(client, "αχαρνών αθηνα")
     assert [h["street_no"] for h in hits] == ["128", "12"]
 
 
-async def test_a_type_word_in_the_query_is_ignored(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_type_word_in_the_query_is_ignored(client: httpx.AsyncClient, seeded_address: None) -> None:
     hits = await found(client, "Λεωφ Αλεξανδρας")
     assert [h["name"] for h in hits] == ["Λεωφόρος Αλεξάνδρας"]
 
@@ -156,9 +144,7 @@ async def test_greeklish_reaches_a_street_with_no_addresses(
     assert hits[0]["name"] == "Αχιλλέα Τζελίλη"
 
 
-async def test_a_word_in_the_middle_is_found(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_word_in_the_middle_is_found(client: httpx.AsyncClient, seeded_address: None) -> None:
     """ΤΖΕΛΙΛΗ isn't a prefix of ΑΧΙΛΛΕΑ ΤΖΕΛΙΛΗ, so only the word tier can find it."""
     hits = await found(client, "Τζελίλη")
     assert [h["match"] for h in hits[:2]] == ["word", "word"]
@@ -207,17 +193,13 @@ async def test_a_number_we_do_not_hold_is_offered_on_the_street(
     assert hits[0]["street_id"] is not None
 
 
-async def test_a_number_we_hold_is_not_proposed(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_number_we_hold_is_not_proposed(client: httpx.AsyncClient, seeded_address: None) -> None:
     """One that exists beats one we'd have to make, so nothing is proposed."""
     hits = await found(client, "ΑΧΑΡΝΩΝ 12")
     assert [h["kind"] for h in hits if h["kind"] == "proposed"] == []
 
 
-async def test_a_street_is_not_offered_twice(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_street_is_not_offered_twice(client: httpx.AsyncClient, seeded_address: None) -> None:
     """Offering it once as a door and once as a street answers the same question twice."""
     hits = await found(client, "Τζελίλη 40")
     offered = {h["id"] for h in hits if h["kind"] == "proposed"}
@@ -243,15 +225,11 @@ async def test_a_wildcard_is_searched_for_literally(
     assert [h["name"] for h in hits] == ["100% Οδός"]
 
 
-async def test_an_underscore_is_not_a_wildcard(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_an_underscore_is_not_a_wildcard(client: httpx.AsyncClient, seeded_address: None) -> None:
     assert await found(client, "1_0") == []
 
 
-async def test_nothing_found_is_an_empty_list(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_nothing_found_is_an_empty_list(client: httpx.AsyncClient, seeded_address: None) -> None:
     assert await found(client, "ΞΞΞΞΞΞ") == []
 
 
@@ -263,9 +241,7 @@ async def test_the_limit_is_capped(client: httpx.AsyncClient, seeded_address: No
     assert (await client.get("/search", params={"q": "ΑΧ", "limit": 999})).status_code == 422
 
 
-async def test_the_limit_is_respected(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_the_limit_is_respected(client: httpx.AsyncClient, seeded_address: None) -> None:
     assert len(await found(client, "ΑΧΑΡΝΩΝ", limit=1)) == 1
 
 
@@ -284,9 +260,7 @@ async def test_asking_makes_the_address(
     assert body["name"] == "Αχιλλέα Τζελίλη"
 
 
-async def test_asking_twice_is_the_same_address(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_asking_twice_is_the_same_address(client: httpx.AsyncClient, seeded_address: None) -> None:
     """The reader may ask again. Operator answers belong to the door, whoever asked."""
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     first = await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
@@ -294,9 +268,7 @@ async def test_asking_twice_is_the_same_address(
     assert first.json()["id"] == again.json()["id"]
 
 
-async def test_a_made_address_is_findable(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_made_address_is_findable(client: httpx.AsyncClient, seeded_address: None) -> None:
     """From then on it's an address, so the next search finds it instead of offering it."""
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     await client.post(f"/streets/{street}/addresses", json={"street_no": "40"})
@@ -354,9 +326,7 @@ async def test_asking_on_a_street_we_do_not_have_is_refused(
     assert made.status_code == 404
 
 
-async def test_a_blank_number_is_refused(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_blank_number_is_refused(client: httpx.AsyncClient, seeded_address: None) -> None:
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     made = await client.post(f"/streets/{street}/addresses", json={"street_no": ""})
     assert made.status_code == 422
@@ -390,26 +360,20 @@ def seeded_offer(db: psycopg.Connection[TupleRow], seeded_address: None) -> Iter
     db.commit()
 
 
-async def test_an_address_carries_its_offers(
-    client: httpx.AsyncClient, seeded_offer: int
-) -> None:
+async def test_an_address_carries_its_offers(client: httpx.AsyncClient, seeded_offer: int) -> None:
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     assert body["street"] == "Αχαρνών"
     assert {o["provider"] for o in body["offers"]} == {"NOVA", "TELEKOM"}
 
 
-async def test_an_offer_with_no_filed_speed_says_so(
-    client: httpx.AsyncClient, seeded_offer: int
-) -> None:
+async def test_an_offer_with_no_filed_speed_says_so(client: httpx.AsyncClient, seeded_offer: int) -> None:
     """73.3% of filed services carry no band. Null has to reach the client as null, never 0."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     copper = next(o for o in body["offers"] if o["provider"] == "TELEKOM")
     assert copper["speed"] is None
 
 
-async def test_a_band_is_reported_as_a_range(
-    client: httpx.AsyncClient, seeded_offer: int
-) -> None:
+async def test_a_band_is_reported_as_a_range(client: httpx.AsyncClient, seeded_offer: int) -> None:
     """The register files a range, never a number, and an open end stays open."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     fiber = next(o for o in body["offers"] if o["provider"] == "NOVA")
@@ -421,24 +385,17 @@ async def test_a_band_is_reported_as_a_range(
     }
 
 
-async def test_the_builder_is_reported_separately(
-    client: httpx.AsyncClient, seeded_offer: int
-) -> None:
+async def test_the_builder_is_reported_separately(client: httpx.AsyncClient, seeded_offer: int) -> None:
     """Nova sells over FIBERGRID's fiber. Merging them would hide who owns the network."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
     fiber = next(o for o in body["offers"] if o["provider"] == "NOVA")
     assert fiber["infra_provider"] == "FIBERGRID"
 
 
-async def test_how_the_match_was_made_is_reported(
-    client: httpx.AsyncClient, seeded_offer: int
-) -> None:
+async def test_how_the_match_was_made_is_reported(client: httpx.AsyncClient, seeded_offer: int) -> None:
     """A filing against this building is stronger evidence than sitting inside a cabinet."""
     body = (await client.get(f"/addresses/{seeded_offer}")).json()
-    assert {o["provider"]: o["matched_by"] for o in body["offers"]} == {
-        "NOVA": "point",
-        "TELEKOM": "area",
-    }
+    assert {o["provider"]: o["matched_by"] for o in body["offers"]} == {"NOVA": "point", "TELEKOM": "area"}
 
 
 async def test_an_unknown_address_is_not_found(client: httpx.AsyncClient) -> None:
@@ -449,9 +406,7 @@ async def test_an_unknown_street_is_not_found(client: httpx.AsyncClient) -> None
     assert (await client.get("/streets/999999999")).status_code == 404
 
 
-async def test_a_street_reports_its_merged_ways(
-    client: httpx.AsyncClient, seeded_address: None
-) -> None:
+async def test_a_street_reports_its_merged_ways(client: httpx.AsyncClient, seeded_address: None) -> None:
     hits = await found(client, "tzelili")
     body = (await client.get(f"/streets/{hits[0]['id']}")).json()
     assert body["name"] == "Αχιλλέα Τζελίλη"
@@ -520,9 +475,7 @@ async def test_the_bar_can_be_moved_by_the_caller(client: httpx.AsyncClient) -> 
     found = [r for r in address.json() if r["kind"] == "address"]
     if not found:
         pytest.skip("the scratch database holds no address to rank")
-    response = await client.get(
-        f"/addresses/{found[0]['id']}/options", params={"need_mbps": "500"}
-    )
+    response = await client.get(f"/addresses/{found[0]['id']}/options", params={"need_mbps": "500"})
     assert response.json()["need_mbps"] == "500"
 
 
@@ -531,9 +484,7 @@ async def test_a_bar_of_nothing_is_refused(client: httpx.AsyncClient) -> None:
     found = [r for r in address.json() if r["kind"] == "address"]
     if not found:
         pytest.skip("the scratch database holds no address to rank")
-    response = await client.get(
-        f"/addresses/{found[0]['id']}/options", params={"need_mbps": "0"}
-    )
+    response = await client.get(f"/addresses/{found[0]['id']}/options", params={"need_mbps": "0"})
     assert response.status_code == 422
 
 
@@ -568,9 +519,7 @@ async def test_one_operator_can_be_asked_alone(client: httpx.AsyncClient) -> Non
     found = [r for r in address.json() if r["kind"] == "address"]
     if not found:
         pytest.skip("the scratch database holds no address to probe")
-    response = await client.post(
-        f"/addresses/{found[0]['id']}/probe", params={"provider": "NOPE"}
-    )
+    response = await client.post(f"/addresses/{found[0]['id']}/probe", params={"provider": "NOPE"})
     assert response.status_code == 422
 
 

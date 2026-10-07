@@ -39,9 +39,7 @@ class Measured:
     tests: int
 
 
-def nearby(
-    conn: psycopg.Connection[TupleRow], lat: float, lon: float
-) -> dict[str, Measured]:
+def nearby(conn: psycopg.Connection[TupleRow], lat: float, lon: float) -> dict[str, Measured]:
     """The latest measurements for the tile this address is in.
 
     A tile is about 600 m across, so this describes the street and its neighbours more than

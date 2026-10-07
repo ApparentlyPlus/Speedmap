@@ -154,9 +154,7 @@ def test_a_promo_never_raises_the_cost(monthly: Decimal, promo: Decimal, months:
 
 
 @given(monthly=money, setup=money, hardware=money)
-def test_the_parts_always_sum_to_the_total(
-    monthly: Decimal, setup: Decimal, hardware: Decimal
-) -> None:
+def test_the_parts_always_sum_to_the_total(monthly: Decimal, setup: Decimal, hardware: Decimal) -> None:
     cost = blended(Price(monthly_eur=monthly, setup_eur=setup, hardware_eur=hardware))
     assert cost is not None
     assert cost.recurring + cost.upfront == cost.total

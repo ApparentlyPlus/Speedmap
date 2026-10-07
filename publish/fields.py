@@ -1,4 +1,4 @@
-"""Generated from schema/tiles.yaml. Do not edit; edit the schema and regenerate."""
+"""Generated from schema/tiles.yaml. Edit the schema and regenerate, never this file."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ STREETS_NULLABLE: Final = (
 
 # One feature per municipality, for the zooms where a street is a fraction of a pixel. A map
 # with no basemap and nothing drawn at low zoom is a black rectangle telling the reader to
-# zoom in, somewhere, with no clue where — so the country has to have a shape before it has
+# zoom in, somewhere, with no clue where. The country has to have a shape before it has
 # streets. Fiber rather than the fastest anything: the fastest anything is 5G, which reaches
 # nearly every address, and a map of it is one colour.
 REGIONS_LAYER: Final = "regions"

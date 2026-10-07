@@ -168,8 +168,7 @@ class Nova:
         """Their prefecture and municipality are the ones Telekom wants, prefixed, so one
         recorded spelling serves both.
         """
-        tried = namings(conn, target.municipality_id, target.street_fold,
-                        target.lat, target.lon)
+        tried = namings(conn, target.municipality_id, target.street_fold, target.lat, target.lon)
         if not tried:
             raise NotAskableError(f"no spelling recorded for {target.street}")
 
@@ -194,6 +193,7 @@ class Nova:
         street = self.locate(target, region, municipality)
         if street is None:
             raise NotAskableError(f"no street matched {target.street} in {municipality}")
+
         payload = {
             # their flow arrives with a package already chosen, and an empty one returns no offers
             "packagePreselected": PRESELECTED if preselect is None else preselect,

@@ -205,9 +205,7 @@ class Vodafone:
 
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
         """The connection goes unused: a point is the whole query."""
-        response = self.session().post(
-            f"{PROXY}{QUALIFY}", json=self.request(target)
-        )
+        response = self.session().post(f"{PROXY}{QUALIFY}", json=self.request(target))
         if response.status_code != httpx.codes.OK:
             raise ProbeError(f"qualification returned {response.status_code}")
         body = response.json()

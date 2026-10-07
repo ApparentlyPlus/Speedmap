@@ -153,9 +153,7 @@ def test_copper_never_exceeds_its_ceiling(advertised: Decimal, median: Decimal) 
 
 def test_a_thin_measurement_does_not_overturn_the_filed_band() -> None:
     """Two tests measuring 36 against a band filed at 300 land between them, nearer 300."""
-    result = expected(
-        "mobile", mbps("1000"), median_mbps=mbps("35.7"), tests=2, filed_mbps=mbps("300")
-    )
+    result = expected("mobile", mbps("1000"), median_mbps=mbps("35.7"), tests=2, filed_mbps=mbps("300"))
     assert result.mbps is not None
     assert mbps("100") < result.mbps < mbps("300")
 
@@ -173,9 +171,7 @@ def test_more_tests_never_move_the_answer_back_toward_the_filing() -> None:
     """The curve is monotonic: evidence only ever counts for more."""
     seen: list[Decimal] = []
     for n in (1, 2, 6, 12, 25):
-        result = expected(
-            "mobile", mbps("1000"), median_mbps=mbps("30"), tests=n, filed_mbps=mbps("300")
-        )
+        result = expected("mobile", mbps("1000"), median_mbps=mbps("30"), tests=n, filed_mbps=mbps("300"))
         assert result.mbps is not None
         seen.append(result.mbps)
     assert seen == sorted(seen, reverse=True)
@@ -208,9 +204,7 @@ def test_tempering_against_nothing_changes_nothing() -> None:
     filed=st.decimals(min_value=1, max_value=1000, allow_nan=False, places=1),
     weight=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
 )
-def test_tempering_never_leaves_the_two_witnesses(
-    seen: Decimal, filed: Decimal, weight: float
-) -> None:
+def test_tempering_never_leaves_the_two_witnesses(seen: Decimal, filed: Decimal, weight: float) -> None:
     """The answer always lies between what was measured and what was filed."""
     result = tempered(seen, filed, weight)
     assert min(seen, filed) - Decimal("0.001") <= result <= max(seen, filed) + Decimal("0.001")

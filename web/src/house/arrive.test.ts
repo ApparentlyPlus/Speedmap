@@ -126,9 +126,7 @@ describe.skipIf(!running)("arriving at a street", () => {
   });
 
   it("lights the street it was asked for", async () => {
-    const lit = await page.evaluate(
-      () => window.anchored.getLayer("trace") !== undefined,
-    );
+    const lit = await page.evaluate(() => window.anchored.getLayer("trace") !== undefined);
     expect(lit).toBe(true);
   });
 });

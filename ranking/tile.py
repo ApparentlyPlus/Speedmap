@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import math
 
-# Ookla's zoom, the only one they publish
-ZOOM = 16
+ZOOM = 16  # Ookla's zoom, the only one they publish
 
 # Web Mercator can't reach the poles, so it clamps where the projection would run to infinity.
 LIMIT = 85.05112878

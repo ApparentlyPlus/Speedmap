@@ -41,8 +41,7 @@ export function Road({
   }, [result.id]);
 
   const middle = found === null ? null : centre(found.bbox);
-  // an empty list is a real answer
-  const bare = found !== null && found.offers.length === 0;
+  const bare = found !== null && found.offers.length === 0; // an empty list is a real answer
 
   return (
     <Split
@@ -170,8 +169,7 @@ function byOperator(offers: readonly StreetOffer[]): {
   for (const offer of offers) {
     groups.set(offer.provider, [...(groups.get(offer.provider) ?? []), offer]);
   }
-  const fastest = (lines: StreetOffer[]): number =>
-    Math.max(...lines.map((line) => speedOf(line) ?? -1));
+  const fastest = (lines: StreetOffer[]): number => Math.max(...lines.map((line) => speedOf(line) ?? -1));
   return [...groups.entries()]
     .map(([provider, lines]) => {
       const sorted = [...lines].sort((a, b) => (speedOf(b) ?? -1) - (speedOf(a) ?? -1));

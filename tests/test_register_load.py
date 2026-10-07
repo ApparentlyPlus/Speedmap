@@ -122,10 +122,7 @@ def test_geometry_columns_get_an_explicit_srid() -> None:
 
 def test_conflict_updates_every_non_key_column() -> None:
     sql = upsert_sql(TARGETS["provider"], ("id", "name", "short_name"))
-    assert (
-        "on conflict (id) do update set name = excluded.name, short_name = excluded.short_name"
-        in sql
-    )
+    assert ("on conflict (id) do update set name = excluded.name, short_name = excluded.short_name" in sql)
 
 
 # loading.
@@ -161,9 +158,7 @@ def test_progress_is_recorded_for_resume(loadable: psycopg.Connection[TupleRow])
     assert row == ("2", 2, 3)
 
 
-def test_a_finished_run_starts_the_next_one_from_the_top(
-    loadable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_finished_run_starts_the_next_one_from_the_top(loadable: psycopg.Connection[TupleRow]) -> None:
     """The quarterly refresh re-reads the whole register, including rows that changed."""
     load(loadable, loader(PROVIDERS), PROVIDER)
     renamed = [{**PROVIDERS[0], "name": "Cosmote"}, *PROVIDERS[1:]]
@@ -172,9 +167,7 @@ def test_a_finished_run_starts_the_next_one_from_the_top(
     assert row == ("Cosmote",)
 
 
-def test_an_interrupted_run_resumes_where_it_stopped(
-    loadable: psycopg.Connection[TupleRow],
-) -> None:
+def test_an_interrupted_run_resumes_where_it_stopped(loadable: psycopg.Connection[TupleRow]) -> None:
     """One page at a time, then continue: no row is fetched twice and none is skipped."""
     load(loadable, loader(PROVIDERS, cap=1), PROVIDER, max_pages=1)
     first = loadable.execute("select count(*) from raw_provider").fetchone()
@@ -217,9 +210,7 @@ def test_a_run_records_when_it_started(loadable: psycopg.Connection[TupleRow]) -
     assert row == (True,)
 
 
-def test_a_second_run_resets_only_the_run_counter(
-    loadable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_second_run_resets_only_the_run_counter(loadable: psycopg.Connection[TupleRow]) -> None:
     """fetched is the cumulative position. Run_fetched is the only one a rate can divide."""
     load(loadable, loader(PROVIDERS), PROVIDER)
     assert progress(loadable) == (3, 3, True)
@@ -233,9 +224,7 @@ def test_a_second_run_resets_only_the_run_counter(
     assert started
 
 
-def test_the_run_clock_moves_forward_on_each_run(
-    loadable: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_run_clock_moves_forward_on_each_run(loadable: psycopg.Connection[TupleRow]) -> None:
     load(loadable, loader(PROVIDERS), PROVIDER)
     first = loadable.execute(
         "select run_started_at from register_fetch where dataset = 'provider'"
@@ -259,9 +248,7 @@ def test_progress_view_reports_completion(loadable: psycopg.Connection[TupleRow]
     assert float(row[2]) == 100.0
 
 
-def test_progress_view_survives_a_dataset_that_never_ran(
-    loadable: psycopg.Connection[TupleRow],
-) -> None:
+def test_progress_view_survives_a_dataset_that_never_ran(loadable: psycopg.Connection[TupleRow]) -> None:
     """Division by a null clock or an empty run must not error the whole view."""
     loadable.execute("insert into register_fetch (dataset) values ('never')")
     loadable.commit()

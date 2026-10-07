@@ -182,9 +182,7 @@ def test_a_street_with_no_door_is_reached_by_the_cabinet_it_crosses(
     assert reach(reachable) == [("TEST", 100.0)]
 
 
-def test_a_street_with_no_door_is_painted_by_it_too(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_street_with_no_door_is_painted_by_it_too(reachable: psycopg.Connection[TupleRow]) -> None:
     """The colour and the filter come from one row, so they can't disagree."""
     seed_street(reachable)
     seed_area(reachable, band=6)
@@ -192,9 +190,7 @@ def test_a_street_with_no_door_is_painted_by_it_too(
     assert figure(reachable) == 100.0
 
 
-def test_a_street_outside_the_cabinet_is_reached_by_nobody(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_street_outside_the_cabinet_is_reached_by_nobody(reachable: psycopg.Connection[TupleRow]) -> None:
     seed_street(reachable, OUTSIDE_LINE)
     seed_area(reachable, band=6)
     run(reachable, steps())
@@ -202,9 +198,7 @@ def test_a_street_outside_the_cabinet_is_reached_by_nobody(
     assert figure(reachable) is None
 
 
-def test_a_door_reaches_a_street_its_cabinets_do_not(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_door_reaches_a_street_its_cabinets_do_not(reachable: psycopg.Connection[TupleRow]) -> None:
     """Builders file doors and no polygons. INALAN has 112,739 doors and not one area."""
     seed_street(reachable)
     seed_door(reachable, band=8)
@@ -212,9 +206,7 @@ def test_a_door_reaches_a_street_its_cabinets_do_not(
     assert reach(reachable) == [("TEST", 1000.0)]
 
 
-def test_both_routes_are_asked_and_the_best_wins(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_both_routes_are_asked_and_the_best_wins(reachable: psycopg.Connection[TupleRow]) -> None:
     """Both routes are asked, and the faster line wins."""
     seed_street(reachable)
     seed_area(reachable, band=6)
@@ -224,9 +216,7 @@ def test_both_routes_are_asked_and_the_best_wins(
     assert figure(reachable) == 1000.0
 
 
-def test_a_district_sized_filing_does_not_name_a_street(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_district_sized_filing_does_not_name_a_street(reachable: psycopg.Connection[TupleRow]) -> None:
     """Λίμνης Κορώνειας crosses only three filings of 36.8 km2. It was drawn at 100 and reported
     as nothing at all, along with 3,188 others."""
     seed_street(reachable)
@@ -252,9 +242,7 @@ def test_mobile_does_not_reach_a_street(reachable: psycopg.Connection[TupleRow])
     assert figure(reachable) is None
 
 
-def test_a_withdrawn_filing_stops_reaching_the_street(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_a_withdrawn_filing_stops_reaching_the_street(reachable: psycopg.Connection[TupleRow]) -> None:
     """The step recomputes from scratch.
 
     Both statements used to only write, so a street that qualified under a looser rule kept
@@ -276,9 +264,7 @@ def test_a_withdrawn_filing_stops_reaching_the_street(
     ).fetchone() == (1,)
 
 
-def test_rebuilding_does_not_double_the_operators(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_rebuilding_does_not_double_the_operators(reachable: psycopg.Connection[TupleRow]) -> None:
     seed_street(reachable)
     seed_area(reachable, band=6)
     seed_door(reachable, band=8)
@@ -287,9 +273,7 @@ def test_rebuilding_does_not_double_the_operators(
     assert reach(reachable) == [("TEST", 1000.0)]
 
 
-def test_the_figure_is_what_the_line_is_sold_at(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_figure_is_what_the_line_is_sold_at(reachable: psycopg.Connection[TupleRow]) -> None:
     """The technology sets the figure, and the register's own speeds aren't consulted.
 
     max_plausible_mbps isn't used either. It's a physics ceiling nobody sells: every vectored
@@ -301,9 +285,7 @@ def test_the_figure_is_what_the_line_is_sold_at(
     assert figure(reachable) == 100.0
 
 
-def test_the_filing_can_lower_the_figure_but_never_lift_it(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_filing_can_lower_the_figure_but_never_lift_it(reachable: psycopg.Connection[TupleRow]) -> None:
     """The technology sets the figure and the filing caps it: least(sold, the band's top).
 
     An operator filing a low band is telling us this particular line is bad, which beats the
@@ -335,9 +317,7 @@ def test_an_unfiled_band_caps_nothing(reachable: psycopg.Connection[TupleRow]) -
     assert figure(reachable) == 100.0
 
 
-def test_the_open_topped_band_caps_nothing_either(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_the_open_topped_band_caps_nothing_either(reachable: psycopg.Connection[TupleRow]) -> None:
     """">= 1000 Mbps" has no ceiling, and a null ceiling isn't a cap of zero.
 
     Every fiber filing with a band has this one, so getting it wrong zeroes the fiber map.
@@ -375,9 +355,7 @@ def test_fiber_is_a_gigabit(reachable: psycopg.Connection[TupleRow]) -> None:
     assert figure(reachable) == 1000.0
 
 
-def test_fiber_with_no_band_is_still_fiber(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_fiber_with_no_band_is_still_fiber(reachable: psycopg.Connection[TupleRow]) -> None:
     """The case that decided it.
 
     758,885 of 1,071,133 FTTH filings carry no speed band, so 11,880 streets with fiber down
@@ -412,9 +390,7 @@ def test_only_four_figures_are_retailed(reachable: psycopg.Connection[TupleRow])
     assert [float(row[0]) for row in sold] == [24.0, 50.0, 100.0, 1000.0]
 
 
-def test_built_fiber_reaches_the_street_it_stands_on(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
+def test_built_fiber_reaches_the_street_it_stands_on(reachable: psycopg.Connection[TupleRow]) -> None:
     """A filing with no street name and no door nearby still reaches the road it's on.
 
     Where the address index is thin route one finds nothing: Πύλου-Νέστορος has 4,789 fiber

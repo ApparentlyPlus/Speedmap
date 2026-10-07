@@ -23,7 +23,7 @@ SCHEMA = ROOT / "schema" / "tiles.yaml"
 PYTHON_OUT = ROOT / "publish" / "fields.py"
 TYPESCRIPT_OUT = ROOT / "web" / "src" / "map" / "tiles.ts"
 
-BANNER = "Generated from schema/tiles.yaml. Do not edit; edit the schema and regenerate."
+BANNER = "Generated from schema/tiles.yaml. Edit the schema and regenerate, never this file."
 
 # A schema unit becomes a type unit. Several prototype bugs were a number of the right
 # shape and the wrong unit, and nothing objected.
@@ -57,11 +57,7 @@ def python_source(schema: dict[str, Any]) -> str:
         lines += [f'    "{field}",' for field in fields]
         lines += [")", ""]
 
-        by_provider = {
-            str(spec["provider"]): field
-            for field, spec in fields.items()
-            if "provider" in spec
-        }
+        by_provider = {str(spec["provider"]): field for field, spec in fields.items() if "provider" in spec}
         if by_provider:
             lines += [
                 "# The operator each per-operator field belongs to. The builder pivots the",
@@ -139,11 +135,7 @@ def typescript_source(schema: dict[str, Any]) -> str:
         lines += [f'  "{field}",' for field in fields]
         lines += ["] as const;", ""]
 
-        by_provider = {
-            str(spec["provider"]): field
-            for field, spec in fields.items()
-            if "provider" in spec
-        }
+        by_provider = {str(spec["provider"]): field for field, spec in fields.items() if "provider" in spec}
         if by_provider:
             lines += [
                 "/** The field each operator's speed is written under, for the filter. */",

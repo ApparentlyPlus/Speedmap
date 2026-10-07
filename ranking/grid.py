@@ -40,8 +40,7 @@ class Reach:
     provider: str
     five_g: bool
     floor_mbps: Decimal | None
-    # top of the band this operator filed here
-    ceiling_mbps: Decimal | None = None
+    ceiling_mbps: Decimal | None = None  # top of the band this operator filed here
 
 
 def mobile(conn: psycopg.Connection[TupleRow], address_id: int) -> dict[str, Reach]:
@@ -51,9 +50,7 @@ def mobile(conn: psycopg.Connection[TupleRow], address_id: int) -> dict[str, Rea
     slow band, which is why absence isn't filled in with zero.
     """
     found: dict[str, Reach] = {}
-    for code, five_g, floor_mbps, ceiling_mbps in conn.execute(
-        REACH, (address_id,)
-    ).fetchall():
+    for code, five_g, floor_mbps, ceiling_mbps in conn.execute(REACH, (address_id,)).fetchall():
         found[str(code)] = Reach(
             provider=str(code),
             five_g=bool(five_g),

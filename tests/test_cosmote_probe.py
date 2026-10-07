@@ -95,9 +95,7 @@ def test_an_empty_table_offers_nothing() -> None:
     assert read("<html></html>").serviceable is False
 
 
-def test_their_hierarchy_is_read_back_not_reconstructed(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
+def test_their_hierarchy_is_read_back_not_reconstructed(scraped: psycopg.Connection[TupleRow]) -> None:
     """Only 164 of their 506 municipalities share a name with a Καλλικράτης one."""
     scraped.execute(
         "insert into raw_cosmote (id, nomos, dimos, area, street_type, street, street_no, "
@@ -122,8 +120,7 @@ def test_the_form_carries_their_prefixes() -> None:
 
 def test_a_street_with_no_area_falls_back_to_the_municipality() -> None:
     """Their own form does the same when the area dropdown comes back empty."""
-    bare = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None,
-                  street="ΑΧΑΡΝΩΝ", street_type="ΟΔΟΣ")
+    bare = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None, street="ΑΧΑΡΝΩΝ", street_type="ΟΔΟΣ")
     assert Cosmote().form(TARGET, bare)["mArea"] == "ΑΘΗΝΑΙΩΝ"
 
 
@@ -134,8 +131,7 @@ def test_the_street_type_is_what_makes_them_answer() -> None:
 
 def test_a_street_with_no_recorded_type_is_sent_bare() -> None:
     """Better a name they may refuse than a type invented for them."""
-    untyped = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None,
-                     street="ΑΧΑΡΝΩΝ", street_type=None)
+    untyped = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None, street="ΑΧΑΡΝΩΝ", street_type=None)
     assert Cosmote().addressed(untyped) == "ΑΧΑΡΝΩΝ"
 
 

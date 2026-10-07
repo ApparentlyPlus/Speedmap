@@ -67,8 +67,7 @@ const RAISE_CAP = 2500;
 const DESCENT_CURVE = 1;
 
 /** Slow at both ends. Linear starts and stops at full speed, which jolts. */
-const SMOOTH = (t: number): number =>
-  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+const SMOOTH = (t: number): number => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 
 /** prefers-reduced-motion */
 function stillness(): boolean {
@@ -128,9 +127,7 @@ export function Anchored({
   const box = useRef<HTMLDivElement>(null);
   const mapRef = useRef<Maplibre | null>(null);
   // read once at construction, after that a new point is a move
-  const here = useRef<[number, number] | null>(
-    lon !== null && lat !== null ? [lon, lat] : null,
-  );
+  const here = useRef<[number, number] | null>(lon !== null && lat !== null ? [lon, lat] : null);
 
   useEffect(() => {
     if (box.current === null || mapRef.current !== null) return;
@@ -206,10 +203,8 @@ export function Anchored({
     const map = mapRef.current;
     if (map === null || shape === null || shape === undefined) return;
     let running = 0;
-    // the map can be removed from under us
-    let stopped = false;
-    // set once the camera lands, so the turn can start
-    let turning = false;
+    let stopped = false; // the map can be removed from under us
+    let turning = false; // set once the camera lands, so the turn can start
     let last = 0;
 
     const path = pathOf(shape);
@@ -258,10 +253,9 @@ export function Anchored({
       const raised: [string, unknown][] = Object.entries(BUILDING_LAYERS)
         .filter(([layer]) => map.getLayer(layer) !== undefined)
         .map(([layer, property]) => {
-          const painted =
-            layer === "building"
-              ? (["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, SHEER] as unknown)
-              : map.getPaintProperty(layer, property);
+          const painted = layer === "building"
+            ? (["interpolate", ["linear"], ["zoom"], 14, 0, 15.2, SHEER] as unknown)
+            : map.getPaintProperty(layer, property);
           map.setPaintProperty(layer, `${property}-transition`, { duration: 0, delay: 0 });
           map.setPaintProperty(layer, property, 0);
           return [layer, painted];
@@ -309,10 +303,7 @@ export function Anchored({
             layout: { "line-cap": "round", "line-join": "round" },
             paint: {
               "line-color": ramps(null)["streets"] as DataDrivenPropertyValueSpecification<string>,
-              "line-opacity": [
-                "interpolate", ["linear"], ["zoom"],
-                7, 0.55, 13, 0.7, 16, 0.78, 18, 0.6,
-              ],
+              "line-opacity": ["interpolate", ["linear"], ["zoom"], 7, 0.55, 13, 0.7, 16, 0.78, 18, 0.6],
               "line-width": [
                 "interpolate", ["exponential", 1.6], ["zoom"],
                 6, 0.45, 12, 1.25, 14, 2.6, 15, 4.5, 16, 7, 20, 26,
