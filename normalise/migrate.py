@@ -86,6 +86,9 @@ def migrate(conn: psycopg.Connection[TupleRow], *, dry_run: bool = False) -> lis
 
         return [m.version for m in pending_now]
     finally:
+        # A migration that failed leaves the transaction aborted, and the unlock then failed
+        # too, with an error on top of the one that mattered.
+        conn.rollback()
         conn.execute("select pg_advisory_unlock(%s)", (LOCK_KEY,))
         conn.commit()
 
