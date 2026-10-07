@@ -360,6 +360,9 @@ async def test_a_blank_number_is_refused(
     street = (await found(client, "Τζελίλη 40"))[0]["id"]
     made = await client.post(f"/streets/{street}/addresses", json={"street_no": ""})
     assert made.status_code == 422
+    # spaces pass the length check, and used to make a door with no number at all
+    made = await client.post(f"/streets/{street}/addresses", json={"street_no": "   "})
+    assert made.status_code == 422
 
 
 @pytest.fixture
