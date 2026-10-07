@@ -283,6 +283,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       map.remove();
       mapRef.current = null;
     };
+    // built once. The language is fixed for the page, so the tilt label can't go stale
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Same index as the landing page. Two search boxes disagreeing about which streets exist
