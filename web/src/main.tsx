@@ -1,4 +1,4 @@
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import "@fontsource-variable/dm-sans";
@@ -13,36 +13,39 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles/app.css";
 
 /*
+ * Three pages, one path each, no router. A router earns its keep once routes nest. Every page
+ * is a full load, so the page is known before anything renders.
+ *
  * One chunk per page. The landing page is a search field and used to ship MapLibre and
  * three.js with it: 1.95 MB of script (535 kB gzipped) before you could type.
+ *
+ * The chunk is fetched before the first render, not under Suspense. React 19 holds a suspended
+ * boundary back until 300 ms after its fallback appeared, and the map waited 290 ms of that
+ * with its script already loaded.
  */
-const MapPage = lazy(() => import("./routes/map").then((m) => ({ default: m.MapPage })));
-const Credits = lazy(() => import("./routes/credits").then((m) => ({ default: m.Credits })));
-// dev only, so a build has no chunk for it
-const Lab = import.meta.env.DEV
-  ? lazy(() => import("./lab/Lab").then((m) => ({ default: m.Lab })))
-  : null;
-
-/** Three pages, one path each, no router. A router earns its keep once routes nest. */
-function Page(): React.ReactElement {
+async function page(): Promise<React.ReactElement> {
   const path = window.location.pathname.replace(/\/+$/, "");
   const language = languageOf(path);
-  const page = (name: string): boolean => path === `/${name}` || path === `/${language}/${name}`;
-  if (page("map")) return <Suspense fallback={null}><MapPage language={language} /></Suspense>;
-  if (page("attribution")) return <Suspense fallback={null}><Credits /></Suspense>;
-  // the bench for whatever is being redesigned, dev only (see above)
-  if (Lab !== null && page("lab")) {
-    return <Suspense fallback={null}><Lab /></Suspense>;
+  const at = (name: string): boolean => path === `/${name}` || path === `/${language}/${name}`;
+  if (at("map")) {
+    const { MapPage } = await import("./routes/map");
+    return <MapPage language={language} />;
+  }
+  if (at("attribution")) {
+    const { Credits } = await import("./routes/credits");
+    return <Credits />;
+  }
+  // the bench for whatever is being redesigned, dev only, so a build has no chunk for it
+  if (import.meta.env.DEV && at("lab")) {
+    const { Lab } = await import("./lab/Lab");
+    return <Lab />;
   }
   return <Landing />;
 }
 
-
 const root = document.getElementById("root");
 if (root === null) throw new Error("no #root to mount into");
 
-createRoot(root).render(
-  <StrictMode>
-    <Page />
-  </StrictMode>,
-);
+void page().then((element) => {
+  createRoot(root).render(<StrictMode>{element}</StrictMode>);
+});
