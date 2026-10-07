@@ -1227,6 +1227,11 @@ body {
   filter: invert(1);
 }
 
+/* Its double tap resets the camera; the browser would otherwise take it as a page zoom. */
+.atlas-tilt {
+  touch-action: manipulation;
+}
+
 /* Where the panel is wide enough, the filters are simply part of it. */
 .atlas-more {
   display: contents;
