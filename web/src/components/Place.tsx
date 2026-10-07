@@ -30,13 +30,19 @@ export function Place({
   /** The door's street, for the light along it. */
   const [shape, setShape] = useState<Geometry | null>(null);
   const [road, setRoad] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const stop = new AbortController();
 
+    setFailed(false);
     void (async () => {
       const first = await options(result.id, stop.signal).catch(() => null);
-      if (first === null || stop.signal.aborted) return;
+      if (stop.signal.aborted) return;
+      if (first === null) {
+        setFailed(true);
+        return;
+      }
       setKnown(first);
 
       const due = first.operators.filter((o) => !SETTLED.has(o.known));
@@ -96,7 +102,14 @@ export function Place({
 
   return (
     <Split where={where} shape={shape} streetId={road} language={language}>
-      <Answer name={name} place={place} answer={known} language={language} onBack={onBack} />
+      <Answer
+        name={name}
+        place={place}
+        answer={known}
+        language={language}
+        onBack={onBack}
+        failed={failed}
+      />
     </Split>
   );
 }

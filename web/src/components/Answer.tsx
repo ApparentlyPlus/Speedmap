@@ -23,6 +23,7 @@ export function Answer({
   answer,
   language,
   onBack,
+  failed = false,
 }: {
   readonly name: string;
   readonly place: string;
@@ -31,6 +32,8 @@ export function Answer({
   readonly language: Language;
   /** Absent in the lab, which has nowhere to go back to. */
   readonly onBack?: () => void;
+  /** The first answer isn't coming. Without this the panel waited for it forever. */
+  readonly failed?: boolean;
 }): React.ReactElement {
   const text = strings(language);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -89,7 +92,9 @@ export function Answer({
 
       <hr className="split-rule" />
 
-      {answer === null ? (
+      {answer === null && failed ? (
+        <p className="split-empty">{text.answerFailed}</p>
+      ) : answer === null ? (
         <Waiting />
       ) : (
         <>
