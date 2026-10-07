@@ -23,6 +23,7 @@ type Strings = {
   readonly shown: string;
   readonly views: Readonly<Record<string, string>>;
   readonly anyOperator: string;
+  readonly filters: string;
   readonly legend: Readonly<Record<string, string>>;
   readonly measuredHere: string;
   readonly down: string;
@@ -93,6 +94,7 @@ const el: Strings = {
   shown: "Τι δείχνει",
   views: { coverage: "Κάλυψη", measured: "Μετρημένη", mobile: "Κινητή" },
   anyOperator: "Όλοι",
+  filters: "Φίλτρα και υπόμνημα",
   legend: { coverage: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
   measuredHere: "Μετρήσεις εδώ",
   down: "Λήψη",
@@ -182,6 +184,7 @@ const en: Strings = {
   shown: "Showing",
   views: { coverage: "Coverage", measured: "Measured", mobile: "Mobile" },
   anyOperator: "Anyone",
+  filters: "Filters and legend",
   legend: { coverage: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
   measuredHere: "Measured here",
   down: "Down",

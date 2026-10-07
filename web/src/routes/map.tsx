@@ -92,6 +92,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   const [view, setView] = useState<View>("coverage");
   const [regions, setRegions] = useState(false);
   const [showing, setShowing] = useState<Showing>("ready");
+  // the filters and legend on a phone, shut until asked for (see the panel)
+  const [more, setMore] = useState(false);
 
   useEffect(() => {
     if (box.current === null || mapRef.current !== null) return;
@@ -122,6 +124,27 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     });
     map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
     mapRef.current = map;
+
+    // A phone held upright is narrower than Greece at FLOOR_ZOOM: Corfu and Rhodes sat off
+    // either edge and no amount of pinching brought them in. There the floor, and the opening
+    // view, come from fitting the country into what the panel leaves. Same width as the
+    // stylesheet's narrow layout.
+    //
+    // The bounds grow to take in that whole view. MapLibre keeps the screen inside them, and
+    // a tall screen fitted to Greece's width shows sea above and below LIMITS, so it zoomed
+    // straight back in.
+    if (window.matchMedia("(width <= 560px)").matches) {
+      const whole = map.cameraForBounds(LIMITS, { padding: clearOf(map) });
+      if (whole?.zoom !== undefined) {
+        const camera = { center: map.getCenter(), zoom: map.getZoom() };
+        map.setMaxBounds(null);
+        map.setMinZoom(Math.min(FLOOR_ZOOM, whole.zoom));
+        map.jumpTo(whole);
+        const seen = map.getBounds().extend(LIMITS);
+        if (linked) map.jumpTo(camera);
+        map.setMaxBounds(seen);
+      }
+    }
     // for the console and the browser test, which checks the map actually drew something
     if (import.meta.env.DEV) {
       window.atlas = map;
@@ -420,111 +443,133 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
           </ul>
         )}
 
-        <h2 className="atlas-head">{text.shown}</h2>
-        <ul className="atlas-operators">
-          {VIEWS.map((one) => (
-            <li key={one}>
-              <button
-                type="button"
-                className={`atlas-operator${view === one ? " atlas-operator-on" : ""}`}
-                onClick={() => {
-                  setCell(null);
-                  setView(one);
-                }}
-              >
-                {text.views[one]}
-              </button>
-            </li>
-          ))}
-        </ul>
+        {/* Phones only. The whole panel sat over the top half of the map with the bottom of
+            it cut off, so on a narrow screen everything below the search folds behind this.
+            It names the filter in force, which otherwise disappears with it. */}
+        <button
+          type="button"
+          className="atlas-more-toggle"
+          aria-expanded={more}
+          aria-controls="atlas-more"
+          onClick={() => setMore(!more)}
+        >
+          <span>{text.filters}</span>
+          <span className="atlas-more-now">
+            {view !== "coverage"
+              ? text.views[view]
+              : provider !== null
+                ? brandOf(provider).name
+                : null}
+          </span>
+        </button>
 
-        {/* A checkbox, since this is an overlay that's on or off. As a pill it sat in a row
-            of mutually exclusive choices and looked like one of them. */}
-        <label className="atlas-toggle" title={text.regionsHint}>
-          <input
-            type="checkbox"
-            checked={regions}
-            onChange={(event) => setRegions(event.target.checked)}
-          />
-          <span>{text.regions}</span>
-        </label>
-
-        {view === "coverage" && (
-          <>
-            <h2 className="atlas-head">{text.operator}</h2>
-            <ul className="atlas-operators">
-              <li>
+        <div className="atlas-more" id="atlas-more" data-open={more}>
+          <h2 className="atlas-head">{text.shown}</h2>
+          <ul className="atlas-operators">
+            {VIEWS.map((one) => (
+              <li key={one}>
                 <button
                   type="button"
-                  className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
-                  onClick={() => setProvider(null)}
+                  className={`atlas-operator${view === one ? " atlas-operator-on" : ""}`}
+                  onClick={() => {
+                    setCell(null);
+                    setView(one);
+                  }}
                 >
-                  {text.anyOperator}
+                  {text.views[one]}
                 </button>
               </li>
-              {RETAILERS.map((code) => (
-                <li key={code}>
+            ))}
+          </ul>
+
+          {/* A checkbox, since this is an overlay that's on or off. As a pill it sat in a row
+              of mutually exclusive choices and looked like one of them. */}
+          <label className="atlas-toggle" title={text.regionsHint}>
+            <input
+              type="checkbox"
+              checked={regions}
+              onChange={(event) => setRegions(event.target.checked)}
+            />
+            <span>{text.regions}</span>
+          </label>
+
+          {view === "coverage" && (
+            <>
+              <h2 className="atlas-head">{text.operator}</h2>
+              <ul className="atlas-operators">
+                <li>
                   <button
                     type="button"
-                    className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                    style={
-                      { "--brand": brandOf(code).colour } as React.CSSProperties
-                    }
-                    onClick={() => setProvider(provider === code ? null : code)}
+                    className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
+                    onClick={() => setProvider(null)}
                   >
-                    {/* the brand people know: the code is a join key, and nobody shops at "OTE"
-                        when the shop, the bill and the router all say Telekom */}
-                    {brandOf(code).name}
+                    {text.anyOperator}
                   </button>
                 </li>
-              ))}
-            </ul>
+                {RETAILERS.map((code) => (
+                  <li key={code}>
+                    <button
+                      type="button"
+                      className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
+                      style={
+                        { "--brand": brandOf(code).colour } as React.CSSProperties
+                      }
+                      onClick={() => setProvider(provider === code ? null : code)}
+                    >
+                      {/* the brand people know: the code is a join key, and nobody shops at "OTE"
+                          when the shop, the bill and the router all say Telekom */}
+                      {brandOf(code).name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
 
-            {/* Wholesale builders, plus Metadosis (files services, publishes no tariff). Next
-                to Telekom and Vodafone they looked like suppliers you could pick. Dropping them
-                would hide the fiber that decides whether anyone sells a gigabit here. */}
-            <h2 className="atlas-head" title={text.infrastructureHint}>
-              {text.infrastructure}
-            </h2>
-            <ul className="atlas-operators">
-              {NETWORKS.map((code) => (
-                <li key={code}>
-                  <button
-                    type="button"
-                    className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                    style={
-                      { "--brand": brandOf(code).colour } as React.CSSProperties
-                    }
-                    onClick={() => setProvider(provider === code ? null : code)}
-                  >
-                    {brandOf(code).name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+              {/* Wholesale builders, plus Metadosis (files services, publishes no tariff). Next
+                  to Telekom and Vodafone they looked like suppliers you could pick. Dropping them
+                  would hide the fiber that decides whether anyone sells a gigabit here. */}
+              <h2 className="atlas-head" title={text.infrastructureHint}>
+                {text.infrastructure}
+              </h2>
+              <ul className="atlas-operators">
+                {NETWORKS.map((code) => (
+                  <li key={code}>
+                    <button
+                      type="button"
+                      className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
+                      style={
+                        { "--brand": brandOf(code).colour } as React.CSSProperties
+                      }
+                      onClick={() => setProvider(provider === code ? null : code)}
+                    >
+                      {brandOf(code).name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
-        <h2 className="atlas-head">{text.legend[view]}</h2>
-        {/* Only the bands this view can paint. A filing can only cap a street below its retail
-            speed, so coverage never lands between 100 and 1000 and three ramp rows would be
-            colours the map never uses. Measured is continuous (median 60, p90 270). */}
-        <ul className="atlas-ramp">
-          {bandsPainted(view !== "coverage").map((band) => (
-            <li className="atlas-band" key={band.name}>
-              <span className="atlas-swatch" style={{ background: band.colour }} />
-              {band.name}
+          <h2 className="atlas-head">{text.legend[view]}</h2>
+          {/* Only the bands this view can paint. A filing can only cap a street below its retail
+              speed, so coverage never lands between 100 and 1000 and three ramp rows would be
+              colours the map never uses. Measured is continuous (median 60, p90 270). */}
+          <ul className="atlas-ramp">
+            {bandsPainted(view !== "coverage").map((band) => (
+              <li className="atlas-band" key={band.name}>
+                <span className="atlas-swatch" style={{ background: band.colour }} />
+                {band.name}
+              </li>
+            ))}
+            {/* Coverage: a street no line reaches, dark because it's absence and not a slow street.
+                Measured and Mobile: nobody has ever run a speed test here, which is most of Greece.
+                There used to be a third state, "reaches, no speed filed". The figure comes from
+                the technology now, so anything that reaches a street has a number. */}
+            <li className="atlas-band">
+              <span className="atlas-swatch" style={{ background: UNSERVED }} />
+              {view === "coverage" ? text.unreached : text.untested}
             </li>
-          ))}
-          {/* Coverage: a street no line reaches, dark because it's absence and not a slow street.
-              Measured and Mobile: nobody has ever run a speed test here, which is most of Greece.
-              There used to be a third state, "reaches, no speed filed". The figure comes from
-              the technology now, so anything that reaches a street has a number. */}
-          <li className="atlas-band">
-            <span className="atlas-swatch" style={{ background: UNSERVED }} />
-            {view === "coverage" ? text.unreached : text.untested}
-          </li>
-        </ul>
+          </ul>
+        </div>
 
         {cell !== null && (
           <section className="atlas-picked">
@@ -618,8 +663,8 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
 
 /**
  * The part of the map the panel doesn't cover. The panel floats over the map (232 px down the
- * left on wide screens, the top 46% on narrow ones), so fitting a street to the whole canvas
- * parked it under the panel about half the time.
+ * left on wide screens, a band across the top on narrow ones, as tall as it's open), so
+ * fitting a street to the whole canvas parked it under the panel about half the time.
  */
 function clearOf(map: Maplibre): { top: number; right: number; bottom: number; left: number } {
   const pad = { top: EDGE, right: EDGE, bottom: EDGE, left: EDGE };
