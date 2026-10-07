@@ -122,18 +122,25 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
       // the archive is swapped whole, weekly, and its URL is stable within a session
       refreshExpiredTiles: false,
     });
-    map.addControl(new NavigationControl({ showCompass: false }), "bottom-right");
+    // Same width as the stylesheet's narrow layout
+    const narrow = window.matchMedia("(width <= 560px)").matches;
+    // A compass on phones only. Tilting there is a two-finger drag that gives up when the
+    // fingers aren't level or drift apart, which in a hand is nearly always. Dragging the
+    // compass up and down tilts with one finger, and a tap puts north and the tilt back.
+    map.addControl(
+      new NavigationControl({ showCompass: narrow, visualizePitch: narrow }),
+      "bottom-right",
+    );
     mapRef.current = map;
 
     // A phone held upright is narrower than Greece at FLOOR_ZOOM: Corfu and Rhodes sat off
     // either edge and no amount of pinching brought them in. There the floor, and the opening
-    // view, come from fitting the country into what the panel leaves. Same width as the
-    // stylesheet's narrow layout.
+    // view, come from fitting the country into what the panel leaves.
     //
     // The bounds grow to take in that whole view. MapLibre keeps the screen inside them, and
     // a tall screen fitted to Greece's width shows sea above and below LIMITS, so it zoomed
     // straight back in.
-    if (window.matchMedia("(width <= 560px)").matches) {
+    if (narrow) {
       const whole = map.cameraForBounds(LIMITS, { padding: clearOf(map) });
       if (whole?.zoom !== undefined) {
         const camera = { center: map.getCenter(), zoom: map.getZoom() };
