@@ -1,8 +1,8 @@
 /**
  * The tilt button on a phone. Tilting there was MapLibre's two-finger vertical drag, which gives
  * up when the fingers aren't level or drift apart, so in a hand it nearly never took. MapLibre's
- * compass fixed that with a drag of its own, which was still a drag. Here a tap tilts, a double
- * tap puts the map flat and north up, and dragging does nothing.
+ * compass fixed that with a drag of its own, which was still a drag. Here a tap tilts the map
+ * or lays it flat again, a double tap turns it back to north, and dragging does nothing.
  */
 
 import type { IControl, Map as Maplibre } from "maplibre-gl";
@@ -37,17 +37,17 @@ export class Tilt implements IControl {
   private readonly tap = (): void => {
     const map = this.map;
     if (map === null) return;
-    // The tilt waits a moment. Started at once, a double tap set it going and then hauled it
-    // back.
+    // The tilt waits a moment. Started at once, a double tap would tilt the map as well as
+    // turn it.
     if (this.waiting !== 0) {
       window.clearTimeout(this.waiting);
       this.waiting = 0;
-      map.easeTo({ pitch: 0, bearing: 0, duration: MOVE_MS });
+      map.easeTo({ bearing: 0, duration: MOVE_MS });
       return;
     }
     this.waiting = window.setTimeout(() => {
       this.waiting = 0;
-      map.easeTo({ pitch: TILT, duration: MOVE_MS });
+      map.easeTo({ pitch: map.getPitch() > 0 ? 0 : TILT, duration: MOVE_MS });
     }, DOUBLE_MS);
   };
 
