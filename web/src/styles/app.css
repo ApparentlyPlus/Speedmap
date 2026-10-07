@@ -1708,54 +1708,81 @@ body {
   }
 }
 
-/* The map panel's compact rows are built for a 210 px column, and this card is twice that. */
-.road-offers {
-  display: grid;
-  gap: 1px;
+/* A street's operators, one card each, in the plans' own card. */
+.road-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.road-offer {
-  display: grid;
-  grid-template-columns: 7px 1fr auto;
-  gap: 2px 12px;
-  align-items: center;
-  padding: 11px 2px;
+/* Nothing to pick on a street: the card stays put under the pointer. */
+.road-card {
+  cursor: default;
+}
+
+.road-card:hover {
+  transform: none;
+  border-color: var(--rule);
+  background: rgb(255 255 255 / 1.6%);
+}
+
+.road-lines {
+  margin: 0;
+  padding: 4px 18px 6px;
+  list-style: none;
+}
+
+/* One kind of line this operator sells here, and how fast. */
+.road-line {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 0;
   border-bottom: 1px solid var(--rule);
 }
 
-.road-offer:last-child {
+.road-line:last-child {
   border-bottom: 0;
 }
 
-.road-dot {
-  grid-row: 1 / span 2;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-}
-
-.road-name {
-  color: var(--ink);
-  font-size: 14px;
-}
-
 .road-tech {
-  grid-column: 2;
-  color: var(--ink-faint);
-  font-size: 10px;
+  color: var(--ink-dim);
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
+.road-infra {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+}
+
 .road-speed {
-  grid-row: 1 / span 2;
-  grid-column: 3;
-  color: var(--ink-dim);
-  font-size: 13px;
+  flex: none;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+.road-speed-none {
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.road-unit {
+  margin-left: 4px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

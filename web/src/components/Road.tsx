@@ -6,6 +6,8 @@ import type { Geometry } from "geojson";
 import { street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
+import { colourFor, mbps } from "../tokens";
+import { Logo } from "./Logo";
 import { Split } from "./Split";
 import { Waiting } from "./Waiting";
 
@@ -77,36 +79,62 @@ export function Road({
             {text.streetHead}
             <span className="group-rule" aria-hidden="true" />
           </h2>
-          <ul className="road-offers">
-            {found.offers.map((offer) => (
-              <li className="road-offer" key={`${offer.provider}-${offer.technology}`}>
-                <span
-                  className="road-dot"
-                  style={{ background: brandOf(offer.provider).colour }}
-                />
-                <span className="road-name">{offer.provider_name}</span>
-                <span className="road-tech">
-                  {offer.technology}
-                  {/* who built the line, when that isn't the seller: three retailers over one
-                      cabinet is one line resold, and read as three networks without this */}
-                  {offer.infra_provider !== null &&
-                    offer.infra_provider !== offer.provider && (
-                      <span className="road-infra">
-                        {" "}
-                        · {text.over} {offer.infra_provider}
+          <ol className="road-cards">
+            {byOperator(found.offers).map((operator, rank) => (
+              <li
+                className="offer road-card"
+                key={operator.provider}
+                style={
+                  {
+                    "--brand": brandOf(operator.provider).colour,
+                    "--delay": `${Math.min(rank, 8) * 45}ms`,
+                  } as React.CSSProperties
+                }
+              >
+                <header className="offer-head">
+                  <Logo provider={operator.provider} />
+                  <div className="offer-title">
+                    <h3 className="offer-plan">{operator.name}</h3>
+                    <p className="offer-sub">
+                      {text.family[operator.family] ?? operator.family}
+                    </p>
+                  </div>
+                </header>
+                <ul className="road-lines">
+                  {operator.lines.map((offer) => (
+                    <li className="road-line" key={offer.technology}>
+                      <span className="road-tech">
+                        {text.technology[offer.technology] ?? offer.technology}
+                        {/* who built the line, when that isn't the seller: three retailers over
+                            one cabinet is one line resold, and read as three networks without
+                            this */}
+                        {offer.infra_provider !== null &&
+                          offer.infra_provider !== offer.provider && (
+                            <span className="road-infra">
+                              {text.over} {offer.infra_provider}
+                            </span>
+                          )}
                       </span>
-                    )}
-                </span>
-                {/* Retail speed held to the filing, which is what the street is painted with. The
-                    register's band read "not filed" on seven fiber lines in ten. */}
-                <span className="road-speed">
-                  {offer.sold_mbps === null || offer.sold_mbps === undefined
-                    ? text.unfiled
-                    : `${Number(offer.sold_mbps)} Mbps`}
-                </span>
+                      {/* Retail speed held to the filing, which is what the street is painted
+                          with. The register's band read "not filed" on seven fiber lines in
+                          ten. */}
+                      {speedOf(offer) === null ? (
+                        <span className="road-speed road-speed-none">{text.unfiled}</span>
+                      ) : (
+                        <span
+                          className="road-speed"
+                          style={{ color: colourFor(mbps(speedOf(offer) ?? 0)) }}
+                        >
+                          {speedOf(offer)}
+                          <span className="road-unit">Mbps</span>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
-          </ul>
+          </ol>
         </>
       )}
 
@@ -117,6 +145,40 @@ export function Road({
       )}
     </Split>
   );
+}
+
+type StreetOffer = StreetDetail["offers"][number];
+
+/** An offer's retail speed, or null where nothing was filed. */
+function speedOf(offer: StreetOffer): number | null {
+  return offer.sold_mbps === null || offer.sold_mbps === undefined
+    ? null
+    : Number(offer.sold_mbps);
+}
+
+/**
+ * One card per operator, fastest first, and in each the lines fastest first. A row per line
+ * type had Telekom four times down the list, split up by whoever sorted between them.
+ */
+function byOperator(offers: readonly StreetOffer[]): {
+  provider: string;
+  name: string;
+  family: string;
+  lines: StreetOffer[];
+}[] {
+  const groups = new Map<string, StreetOffer[]>();
+  for (const offer of offers) {
+    groups.set(offer.provider, [...(groups.get(offer.provider) ?? []), offer]);
+  }
+  const fastest = (lines: StreetOffer[]): number =>
+    Math.max(...lines.map((line) => speedOf(line) ?? -1));
+  return [...groups.entries()]
+    .map(([provider, lines]) => {
+      const sorted = [...lines].sort((a, b) => (speedOf(b) ?? -1) - (speedOf(a) ?? -1));
+      const first = sorted[0] as StreetOffer;
+      return { provider, name: first.provider_name, family: first.family, lines: sorted };
+    })
+    .sort((a, b) => fastest(b.lines) - fastest(a.lines) || a.name.localeCompare(b.name));
 }
 
 /** A street has no point of its own, so stand in the middle of its box. */
