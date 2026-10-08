@@ -179,7 +179,9 @@ function byOperator(offers: readonly StreetOffer[]): {
     .map(([provider, lines]) => {
       const sorted = [...lines].sort((a, b) => (speedOf(b) ?? -1) - (speedOf(a) ?? -1));
       const first = sorted[0] as StreetOffer;
-      return { provider, name: first.provider_name, family: first.family, lines: sorted };
+      // the brand people know, as everywhere else on the site: the register spells some in
+      // capitals and runs United Fiber together
+      return { provider, name: brandOf(provider).name, family: first.family, lines: sorted };
     })
     .sort(
       (a, b) =>
