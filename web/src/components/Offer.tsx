@@ -45,7 +45,7 @@ export function Offer({
           <h3 className="offer-plan">{shorten(option.plan, option.provider_name)}</h3>
           <p className="offer-sub">{text.family[option.family] ?? option.family}</p>
         </div>
-        <span className="offer-brand">{option.provider_name}</span>
+        <span className="offer-brand">{brandOf(option.provider).name}</span>
       </header>
 
       <div className="offer-rate">
