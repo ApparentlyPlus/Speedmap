@@ -42,7 +42,8 @@ export const BRANDS: Record<string, Brand> = {
   METADOSIS: { ...UNBRANDED, mark: metadosis, colour: "#34b44a", name: shown("METADOSIS") },
   FIBERGRID: { ...UNBRANDED, name: shown("FIBERGRID") },
   UNITEDFIBER: { ...UNBRANDED, name: shown("UNITEDFIBER") },
-  FIBER2ALL: { ...UNBRANDED, name: shown("FIBER2ALL") },
+  // Vodafone's own fiber network: its mark, since that's the name people know behind it
+  FIBER2ALL: { ...UNBRANDED, mark: vodafone, colour: "#e60000", name: shown("FIBER2ALL") },
   NETFIBER: { ...UNBRANDED, name: shown("NETFIBER") },
 };
 
