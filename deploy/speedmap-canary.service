@@ -2,6 +2,8 @@
 Description=speedmap.gr check the operator checkers still work
 After=network-online.target postgresql.service
 Wants=network-online.target
+# a failure is pushed to the owner's phone (see speedmap-alert@.service)
+OnFailure=speedmap-alert@%n.service
 
 [Service]
 Type=oneshot

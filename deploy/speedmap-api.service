@@ -4,6 +4,8 @@ Description=speedmap.gr read API
 After=network-online.target postgresql.service
 Wants=network-online.target
 Requires=postgresql.service
+# a failure is pushed to the owner's phone (see speedmap-alert@.service)
+OnFailure=speedmap-alert@%n.service
 
 [Service]
 Type=exec

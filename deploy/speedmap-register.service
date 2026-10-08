@@ -2,6 +2,8 @@
 Description=speedmap.gr refresh the national register and rebuild from it
 After=network-online.target postgresql.service
 Wants=network-online.target
+# a failure is pushed to the owner's phone (see speedmap-alert@.service)
+OnFailure=speedmap-alert@%n.service
 
 [Service]
 Type=oneshot
@@ -13,6 +15,9 @@ EnvironmentFile=/opt/speedmap/.env
 ExecStart=/opt/speedmap/.venv/bin/python -m ingest.load
 ExecStart=/opt/speedmap/.venv/bin/python -m normalise.migrate
 ExecStart=/opt/speedmap/.venv/bin/python -m normalise.build
+# The map is painted from the same rows the panels read, so it's recut from them here. Left to
+# the desktop, the first rebuild on its own had the map's colours disagree with its panels.
+ExecStart=/opt/speedmap/.venv/bin/python -m publish.run --out /srv/speedmap/tiles/speedmap.pmtiles
 TimeoutStartSec=8h
 Slice=speedmap.slice
 

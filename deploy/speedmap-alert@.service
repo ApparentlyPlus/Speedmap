@@ -1,0 +1,20 @@
+[Unit]
+Description=speedmap.gr tell the owner %i failed
+# Started by OnFailure= in every other speedmap unit. It pushes the unit's name and the end of
+# its log to the ntfy topic in .env, so a failure at 03:00 on a Pi nobody watches gets seen.
+
+[Service]
+Type=oneshot
+User=speedmap
+# reading another unit's log needs the journal group
+SupplementaryGroups=systemd-journal
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+ExecStart=/opt/speedmap/.venv/bin/python -m alert --failed %i
+TimeoutStartSec=1min
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes

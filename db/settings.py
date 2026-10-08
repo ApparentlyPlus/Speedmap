@@ -15,5 +15,8 @@ class Settings(BaseSettings):
     register_concurrency: int = 3
     register_delay_s: float = 0.35
 
+    # Where alerts go: an ntfy topic URL. Unset, they're only logged.
+    ntfy_url: str | None = None
+
 
 settings = Settings()
