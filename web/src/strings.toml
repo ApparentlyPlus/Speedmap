@@ -1,0 +1,276 @@
+# Every piece of text the site shows, in Greek and in English.
+#
+# Edit the wording here, then run `make strings`. It checks the file and rebuilds what the site
+# reads; `make check` fails if you forget. In development the change shows on the next reload.
+#
+# Words in {braces} are filled in by the site, like {address} or {operator}. Keep them, and move
+# them anywhere in the sentence the language wants them. The two languages must have the same
+# keys and the same {braces}: `make strings` says which one is missing where.
+#
+# What isn't here: the licence lines on the credits page. Ookla's is a condition of its licence
+# and has to stay word for word, so those live in web/src/credits.ts.
+
+[el]
+eyebrow = "Ευρυζωνική κάλυψη Ελλάδας"
+tagline = "Τι ίντερνετ μπορείς να πάρεις;"
+sub = "Κάλυψη, ταχύτητες και τιμές για κάθε διεύθυνση στην Ελλάδα."
+searchLabel = "Διεύθυνση"
+searchPlaceholder = "Οδός και αριθμός, ή περιοχή"
+browseMap = "ή δες τον χάρτη"
+mapTitle = "Ο χάρτης κάλυψης"
+# the map's menu button, shut and open
+mapOptions = "Επιλογές χάρτη"
+mapClose = "Κλείσιμο"
+operator = "Πάροχος"
+# Operators nobody retails from, under their own heading.
+infrastructure = "Δίκτυο χωρίς λιανική"
+infrastructureHint = "Έχουν περάσει ίνα εδώ αλλά δεν πουλάνε σύνδεση απευθείας σε νοικοκυριό."
+shown = "Τι δείχνει"
+anyOperator = "Όλοι"
+tilt = "Κλίση. Διπλό πάτημα για βορρά"
+sheet = "Αποτελέσματα σε όλη την οθόνη"
+measuredHere = "Μετρήσεις εδώ"
+down = "Λήψη"
+up = "Αποστολή"
+tests = "μετρήσεις"
+mapZoomIn = "Κάνε ζουμ για να δεις κάλυψη ανά δρόμο"
+mapNothingHere = "Κανένας δρόμος εδώ με δηλωμένη κάλυψη"
+mapTruncated = "Πολλοί δρόμοι στην οθόνη — κάνε ζουμ για όλους"
+noResults = "Καμία διεύθυνση"
+searching = "Αναζήτηση…"
+searchFailed = "Η αναζήτηση δεν απάντησε"
+unfiled = "χωρίς δηλωμένη ταχύτητα"
+# The per-municipality overlay, off until asked for.
+untested = "χωρίς μέτρηση"
+unreached = "χωρίς γραμμή"
+regions = "Ανά δήμο"
+regionsHint = "Σύνοψη ανά δήμο, όσο ο χάρτης είναι μακριά"
+over = "σε δίκτυο"
+streetHead = "Σε αυτόν τον δρόμο"
+notIndexed = "Αυτός ο δρόμος δεν έχει καταχωρηθεί ακόμα"
+notIndexedWhy = "Κανένας πάροχος δεν έχει δηλώσει κάλυψη εδώ."
+street = "οδός"
+askThem = "ρώτα"
+asking = "Ετοιμάζουμε τη διεύθυνση…"
+askFailed = "Δεν μπορέσαμε να ετοιμάσουμε αυτή τη διεύθυνση"
+# the whole page, when its script won't load even after a reload
+loadFailed = "Η σελίδα δεν φόρτωσε. Ανανεώστε σε λίγο"
+# the address screen, when the first answer never came
+answerFailed = "Δεν πήραμε απάντηση για αυτή τη διεύθυνση. Δοκιμάστε ξανά σε λίγο"
+# under an answer, when an operator is blocking us and this is its last real answer
+cachedFrom = "Η {operator} δεν απαντά αυτή τη στιγμή, οπότε βλέπετε ό,τι μας είχε πει στις {date}."
+# the same, when it never gave this address a real answer
+cachedNever = "Η {operator} δεν απαντά αυτή τη στιγμή, οπότε ό,τι βλέπετε γι' αυτήν προέρχεται από το μητρώο."
+address = "διεύθυνση"
+back = "Νέα αναζήτηση"
+nothingHere = "Δεν βρέθηκε τίποτα για αυτή τη διεύθυνση"
+perMonth = "/μήνα"
+upfront = "αρχικό κόστος"
+priceFrom = "από"
+unlimited = "απεριόριστα"
+disclaimer = "Η διαθεσιμότητα και οι τιμές είναι κατά προσέγγιση. Επιβεβαίωσέ τα πάντα με τον πάροχο."
+report = "Κάτι δεν φαίνεται σωστό;"
+reportPrompt = "Τι δεν ταιριάζει; Π.χ. έχω οπτική ίνα αλλά εδώ δεν φαίνεται"
+reportSend = "Αποστολή"
+reportSent = "Ευχαριστούμε, θα το κοιτάξουμε"
+reportFailed = "Δεν στάλθηκε. Δοκιμάστε ξανά σε λίγο"
+bestHere = "καλύτερο εδώ"
+upTo = "έως"
+more = "ακόμη"
+fewer = "λιγότερα"
+groupEnough = "Φτάνουν για ένα σπιτικό"
+groupSlower = "Πιο αργά απ' όσο θέλει ένα σπιτικό"
+# The credits page and the small link to it in a map corner.
+creditsLink = "Πηγές"
+creditsHome = "Αρχική"
+creditsTitle = "Πηγές και άδειες"
+creditsIntro = "Ο χάρτης δεν είναι δικός μας. Είναι φτιαγμένος από δεδομένα που δημοσιεύουν άλλοι, και ο καθένας τους ζητά να αναφέρεται. Εδώ αναφέρονται."
+creditsData = "Τα δεδομένα"
+creditsTools = "Τα εργαλεία"
+creditsCode = "Ο κώδικας"
+creditsTerms = "Ο κώδικας του site είναι MIT. Τα δεδομένα όμως κρατούν τις δικές τους άδειες: οι μετρήσεις της Ookla είναι μη εμπορικές, και το μητρώο της ΓΓΤΤ επιτρέπει μόνο προσωπική, μη εμπορική χρήση."
+
+[el.views]
+coverage = "Κάλυψη"
+measured = "Μετρημένη"
+mobile = "Κινητή"
+
+[el.legend]
+coverage = "Ταχύτητα δρόμου"
+measured = "Ταχύτητα που μετρήθηκε"
+mobile = "Κάλυψη κινητής"
+
+[el.basis]
+quoted = "από τον πάροχο"
+measured = "μετρημένο"
+filed = "δηλωμένο"
+advertised = "διαφημιζόμενο"
+
+[el.family]
+fiber = "οπτική ίνα"
+copper = "χαλκός"
+wireless = "ασύρματο"
+satellite = "δορυφορικό"
+
+[el.technology]
+FWA_5G = "5G"
+FWA_4G = "4G"
+VECT_VDSL = "VDSL+"
+MOBILE = "κινητό"
+SAT = "δορυφόρος"
+
+[el.provides]
+osm = "Γεωμετρία δρόμων και ο χάρτης από κάτω"
+overture = "Τα κτίρια"
+ookla = "Μετρημένες ταχύτητες ανά τετράγωνο 600 μέτρων"
+eett = "Ποιος δηλώνει κάλυψη πού, σε ποια τεχνολογία"
+
+# the sentence that opens an address's answer, one per kind of line
+[el.verdict]
+fiber = "Στη διεύθυνση {address} φτάνει οπτική ίνα, οπότε ένα απλό πρόγραμμα ίνας από τους παρόχους παρακάτω θα αποδώσει την ταχύτητα που πουλάει."
+vectored = "Η διεύθυνση {address} εξυπηρετείται από vectored χαλκό, όχι από ίνα. Ρεαλιστικά μιλάμε για περίπου 100 Mbps, και πόσο κοντά θα φτάσετε εξαρτάται από την απόσταση ως την καμπίνα."
+legacy = "Στη διεύθυνση {address} υπάρχει μόνο παλιός χαλκός, ADSL ή απλό VDSL. Ένα πρόγραμμα κινητής χωρίς όριο δεδομένων με router 5G σχεδόν σίγουρα θα είναι γρηγορότερο από ό,τι δίνει η γραμμή."
+wireless = "Καμία σταθερή γραμμή δεν φτάνει στη διεύθυνση {address}. Ένα router 5G με πρόγραμμα χωρίς όριο είναι ο δρόμος, και τα παρακάτω είναι ταξινομημένα κατά κόστος."
+satellite = "Τίποτα επίγειο δεν φτάνει στη διεύθυνση {address}. Ο δορυφόρος είναι ο μόνος τρόπος σύνδεσης εδώ, και κοστίζει ανάλογα."
+none = "Δεν υπάρχει καμία δήλωση για τη διεύθυνση {address}. Αυτό σημαίνει ότι κανένας πάροχος δεν έχει δηλώσει κάλυψη, όχι ότι δεν υπάρχει."
+
+
+[en]
+eyebrow = "Greek broadband coverage"
+tagline = "What internet can you get?"
+sub = "Coverage, speeds and prices for every address in Greece."
+searchLabel = "Address"
+searchPlaceholder = "Street and number, or an area"
+browseMap = "or browse the map"
+mapTitle = "The coverage map"
+# the map's menu button, shut and open
+mapOptions = "Map options"
+mapClose = "Close"
+operator = "Operator"
+# Operators nobody retails from, under their own heading.
+infrastructure = "Network, not retail"
+infrastructureHint = "They have run fiber past here but sell no connection to a household directly."
+shown = "Showing"
+anyOperator = "Anyone"
+tilt = "Tilt. Double tap for north"
+sheet = "Results on the whole screen"
+measuredHere = "Measured here"
+down = "Down"
+up = "Up"
+tests = "tests"
+mapZoomIn = "Zoom in for coverage street by street"
+mapNothingHere = "No street here has coverage filed"
+mapTruncated = "More streets in view than shown — zoom in for all of them"
+noResults = "No address found"
+searching = "Searching…"
+searchFailed = "Search did not answer"
+unfiled = "no speed filed"
+# The per-municipality overlay, off until asked for.
+untested = "not tested"
+unreached = "no line reaches"
+regions = "By municipality"
+regionsHint = "A summary per municipality, while the map is far out"
+over = "over"
+streetHead = "On this street"
+notIndexed = "Sorry, that street is not indexed yet"
+notIndexedWhy = "No operator has filed coverage here."
+street = "street"
+askThem = "ask"
+asking = "Preparing the address…"
+askFailed = "We could not prepare that address"
+# the whole page, when its script won't load even after a reload
+loadFailed = "The page didn't load. Refresh in a moment"
+# the address screen, when the first answer never came
+answerFailed = "We could not get an answer for this address. Try again in a moment"
+# under an answer, when an operator is blocking us and this is its last real answer
+cachedFrom = "{operator} isn't answering right now, so this is what it told us on {date}."
+# the same, when it never gave this address a real answer
+cachedNever = "{operator} isn't answering right now, so what's shown for it comes from the register."
+address = "address"
+back = "New search"
+nothingHere = "Nothing found for this address"
+perMonth = "/month"
+upfront = "up front"
+priceFrom = "from"
+unlimited = "unlimited"
+disclaimer = "Availability and prices are best effort. Always confirm with the provider."
+report = "Something look wrong?"
+reportPrompt = "What doesn't match? For example, I have fiber and it isn't shown here"
+reportSend = "Send"
+reportSent = "Thanks, we'll look into it"
+reportFailed = "It didn't send. Try again in a moment"
+bestHere = "best here"
+upTo = "up to"
+more = "more"
+fewer = "fewer"
+groupEnough = "Enough for a household"
+groupSlower = "Slower than a household wants"
+# The credits page and the small link to it in a map corner.
+creditsLink = "Sources"
+creditsHome = "Home"
+creditsTitle = "Sources and licences"
+creditsIntro = "The map is not ours. It is built out of data other people publish, and each of them asks to be named. Here they are."
+creditsData = "The data"
+creditsTools = "The tools"
+creditsCode = "The code"
+creditsTerms = "The site's code is MIT. The data keeps its own licences: the Ookla measurements are non-commercial, and the register allows personal, non-commercial use only."
+
+[en.views]
+coverage = "Coverage"
+measured = "Measured"
+mobile = "Mobile"
+
+[en.legend]
+coverage = "Street speed"
+measured = "Measured speed"
+mobile = "Mobile coverage"
+
+[en.basis]
+quoted = "quoted"
+measured = "measured"
+filed = "filed"
+advertised = "advertised"
+
+[en.family]
+fiber = "fiber"
+copper = "copper"
+wireless = "wireless"
+satellite = "satellite"
+
+[en.technology]
+FWA_5G = "5G"
+FWA_4G = "4G"
+VECT_VDSL = "VDSL+"
+MOBILE = "mobile"
+SAT = "satellite"
+
+[en.provides]
+osm = "Street geometry and the basemap underneath"
+overture = "The buildings"
+ookla = "Measured speeds, per 600 m tile"
+eett = "Who files coverage where, and on which technology"
+
+# the sentence that opens an address's answer, one per kind of line
+[en.verdict]
+fiber = "{address} has fiber running to it, so a plain fiber plan from one of the providers below will carry the speed it is sold at."
+vectored = "{address} is on vectored copper rather than fiber. Around 100 Mbps is realistic, and how close you get to it depends on how far the cabinet is."
+legacy = "{address} has only legacy copper, ADSL or plain VDSL. An unlimited cellular plan with a 5G router will almost certainly be faster than anything on the wire here."
+wireless = "No fixed line reaches {address} at all. A 5G router on an unlimited plan is the way in, and the plans below are ordered by what they cost to run."
+satellite = "Nothing terrestrial reaches {address}. Satellite is the only way to get online here, and it is priced like it."
+none = "Nothing is filed at {address}. That means no operator has told the register they serve it, rather than that nobody does."
+
+
+# Each operator's name as the site shows it, in both languages.
+[operators]
+TELEKOM = "Telekom"
+VODAFONE = "Vodafone"
+NOVA = "Nova"
+DEI = "ΔΕΗ Fiber"
+STARLINK = "Starlink"
+INALAN = "Inalan"
+HCN = "HCN"
+METADOSIS = "Metadosis"
+FIBERGRID = "Fibergrid"
+UNITEDFIBER = "United Fiber"
+FIBER2ALL = "Fiber2All"
+NETFIBER = "Netfiber"
