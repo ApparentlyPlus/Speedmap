@@ -18,7 +18,7 @@ export function Routers(): React.ReactElement {
   );
 }
 
-/** What the page says, wherever it's opened from. Each router headed the way the answer's groups are. */
+/** What the page says, wherever it's opened from. */
 export function RouterList({ language }: { readonly language: Language }): React.ReactElement {
   const text = strings(language);
 
@@ -28,13 +28,9 @@ export function RouterList({ language }: { readonly language: Language }): React
       <p className="credits-said">{text.routersIntro}</p>
 
       <ol className="routers-list">
-        {ROUTERS.map((router, i) => (
+        {ROUTERS.map((router) => (
           <li className="routers-one" key={router.id}>
-            <p className="group-head">
-              <span className="group-index">{String(i + 1).padStart(2, "0")}</span>
-              {text.routerFor[router.id]}
-              <span className="group-rule" />
-            </p>
+            <p className="routers-for">{text.routerFor[router.id]}</p>
             <h2 className="routers-name">{router.name}</h2>
             <p className="routers-why">{text.routerWhy[router.id]}</p>
             <a className="routers-link" href={router.href} target="_blank" rel="noopener noreferrer">

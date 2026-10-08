@@ -33,7 +33,7 @@ export type Strings = {
   readonly regions: string;
   readonly regionsHint: string;
   readonly over: string;
-  readonly streetHead: string;
+  readonly roadBest: string;
   readonly notIndexed: string;
   readonly notIndexedWhy: string;
   readonly street: string;
@@ -123,7 +123,7 @@ export const el: Strings = {
   regions: "Ανά δήμο",
   regionsHint: "Σύνοψη ανά δήμο, όσο ο χάρτης είναι μακριά",
   over: "σε δίκτυο",
-  streetHead: "Σε αυτόν τον δρόμο",
+  roadBest: "το γρηγορότερο σε αυτόν τον δρόμο",
   notIndexed: "Αυτός ο δρόμος δεν έχει καταχωρηθεί ακόμα",
   notIndexedWhy: "Κανένας πάροχος δεν έχει δηλώσει κάλυψη εδώ.",
   street: "οδός",
@@ -259,7 +259,7 @@ export const en: Strings = {
   regions: "By municipality",
   regionsHint: "A summary per municipality, while the map is far out",
   over: "over",
-  streetHead: "On this street",
+  roadBest: "the fastest on this street",
   notIndexed: "Sorry, that street is not indexed yet",
   notIndexedWhy: "No operator has filed coverage here.",
   street: "street",

@@ -44,6 +44,12 @@ export function Road({
 
   const middle = found === null ? null : centre(found.bbox);
   const bare = found !== null && found.offers.length === 0; // an empty list is a real answer
+  const operators = found === null ? [] : byOperator(found.offers);
+  // the best a household can buy here: a wholesaler's fiber isn't on sale to anyone
+  const sold = operators.filter((operator) => !WHOLESALE.has(operator.provider));
+  const speeds = (sold.length > 0 ? sold : operators).flatMap((operator) => operator.lines.map(speedOf));
+  const filed = speeds.filter((speed): speed is number => speed !== null);
+  const best = filed.length > 0 ? Math.max(...filed) : null;
 
   return (
     <Split
@@ -61,8 +67,6 @@ export function Road({
         <p className="split-where">{result.municipality}</p>
       </header>
 
-      <hr className="split-rule" />
-
       {found === null && !failed && <Waiting />}
 
       {(failed || bare) && (
@@ -73,77 +77,79 @@ export function Road({
         </div>
       )}
 
-      {found !== null && found.offers.length > 0 && (
+      {found !== null && operators.length > 0 && (
         <>
-          <h2 className="group-head">
-            <span className="group-index">/01</span>
-            {text.streetHead}
-            <span className="group-rule" aria-hidden="true" />
-          </h2>
-          <ol className="road-cards">
-            {byOperator(found.offers).map((operator, rank) => (
-              <li
-                className="offer road-card"
-                key={operator.provider}
-                style={
-                  {
-                    "--brand": brandOf(operator.provider).colour,
-                    "--delay": `${Math.min(rank, 8) * 45}ms`,
-                  } as React.CSSProperties
-                }
-              >
-                <header className="offer-head">
-                  <Logo provider={operator.provider} />
-                  <div className="offer-title">
-                    <h3 className="offer-plan">{operator.name}</h3>
-                    <p className="offer-sub">
-                      {text.family[operator.family] ?? operator.family}
-                    </p>
-                  </div>
-                </header>
-                <ul className="road-lines">
-                  {operator.lines.map((offer) => (
-                    <li className="road-line" key={offer.technology}>
-                      <span className="road-tech">
-                        {text.technology[offer.technology] ?? offer.technology}
-                        {/* who built the line, when that isn't the seller: three retailers over
-                            one cabinet is one line resold, and read as three networks without
-                            this */}
-                        {offer.infra_provider !== null &&
-                          offer.infra_provider !== offer.provider && (
-                            <span className="road-infra">
-                              {text.over} {offer.infra_provider}
-                            </span>
-                          )}
-                      </span>
-                      {/* Retail speed held to the filing, which is what the street is painted
-                          with. The register's band read "not filed" on seven fiber lines in
-                          ten. */}
-                      {speedOf(offer) === null ? (
-                        <span className="road-speed road-speed-none">{text.unfiled}</span>
-                      ) : (
-                        <span
-                          className="road-speed"
-                          style={{ color: colourFor(mbps(speedOf(offer) ?? 0)) }}
-                        >
-                          {speedOf(offer)}
-                          <span className="road-unit">Mbps</span>
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <Visit provider={operator.provider} language={language} />
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
+          {/* the answer first: how fast this street goes, before who sells it */}
+          {best !== null && (
+            <p className="road-best">
+              <span className="road-best-speed" style={{ color: colourFor(mbps(best)) }}>
+                {best}
+                <span className="road-unit">Mbps</span>
+              </span>
+              <span className="road-best-said">{text.roadBest}</span>
+            </p>
+          )}
 
-      {found !== null && found.offers.length > 0 && (
-        <footer className="disclaimer">
-          <p>{text.disclaimer}</p>
-        </footer>
+          <ol className="road-ops">
+            {operators.map((operator, rank) => {
+              const top = speedOf(operator.lines[0] as StreetOffer);
+              // whose network it rides on, said once and not under every line
+              const over = [...new Set(
+                operator.lines
+                  .map((line) => line.infra_provider)
+                  .filter((infra): infra is string => infra !== null && infra !== undefined && infra !== operator.provider),
+              )];
+              return (
+                <li
+                  className="road-op"
+                  key={operator.provider}
+                  style={
+                    {
+                      "--brand": brandOf(operator.provider).colour,
+                      "--delay": `${Math.min(rank, 8) * 45}ms`,
+                    } as React.CSSProperties
+                  }
+                >
+                  <Logo provider={operator.provider} />
+                  <h3 className="road-name">{operator.name}</h3>
+                  {top === null ? (
+                    <span className="road-speed road-speed-none">{text.unfiled}</span>
+                  ) : (
+                    <span className="road-speed" style={{ color: colourFor(mbps(top)) }}>
+                      {top}
+                      <span className="road-unit">Mbps</span>
+                    </span>
+                  )}
+                  <div className="road-more">
+                    {/* every line it sells here, in a row: the same four on every card read as noise */}
+                    <p className="road-lines">
+                      {operator.lines.map((offer) => (
+                        <span className="road-line" key={offer.technology}>
+                          {text.technology[offer.technology] ?? offer.technology}
+                          {speedOf(offer) !== null && <b>{speedOf(offer)}</b>}
+                        </span>
+                      ))}
+                    </p>
+                    {over.length > 0 && (
+                      <p className="road-infra">
+                        {text.over} {new Intl.ListFormat(language, { type: "conjunction" }).format(over.map((code) => brandOf(code).name))}
+                      </p>
+                    )}
+                    {WHOLESALE.has(operator.provider) ? (
+                      <p className="road-infra">{text.infrastructure}</p>
+                    ) : (
+                      <Visit provider={operator.provider} language={language} />
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+
+          <footer className="disclaimer road-foot">
+            <p>{text.disclaimer}</p>
+          </footer>
+        </>
       )}
     </Split>
   );
@@ -169,7 +175,6 @@ const WHOLESALE = new Set(STREETS_INFRASTRUCTURE);
 function byOperator(offers: readonly StreetOffer[]): {
   provider: string;
   name: string;
-  family: string;
   lines: StreetOffer[];
 }[] {
   const groups = new Map<string, StreetOffer[]>();
@@ -180,10 +185,9 @@ function byOperator(offers: readonly StreetOffer[]): {
   return [...groups.entries()]
     .map(([provider, lines]) => {
       const sorted = [...lines].sort((a, b) => (speedOf(b) ?? -1) - (speedOf(a) ?? -1));
-      const first = sorted[0] as StreetOffer;
       // the brand people know, as everywhere else on the site: the register spells some in
       // capitals and runs United Fiber together
-      return { provider, name: brandOf(provider).name, family: first.family, lines: sorted };
+      return { provider, name: brandOf(provider).name, lines: sorted };
     })
     .sort(
       (a, b) =>
