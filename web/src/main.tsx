@@ -13,7 +13,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles/app.css";
 
 /*
- * Three pages, one path each, no router. A router earns its keep once routes nest. Every page
+ * Four pages, one path each, no router. A router earns its keep once routes nest. Every page
  * is a full load, so the page is known before anything renders.
  *
  * One chunk per page. The landing page is a search field and used to ship MapLibre and
@@ -30,6 +30,10 @@ async function page(): Promise<React.ReactElement> {
   if (at("map")) {
     const { MapPage } = await import("./routes/map");
     return <MapPage language={language} />;
+  }
+  if (at("routers")) {
+    const { Routers } = await import("./routes/routers");
+    return <Routers />;
   }
   if (at("attribution")) {
     const { Credits } = await import("./routes/credits");

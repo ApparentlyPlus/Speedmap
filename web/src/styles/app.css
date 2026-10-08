@@ -2101,6 +2101,73 @@ body {
   }
 }
 
+/* The router page, on the credits page's column: one card per situation. */
+.routers-list {
+  display: grid;
+  gap: 12px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routers-one {
+  padding: 18px 20px;
+  border: 1px solid var(--rule-lit);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 1.6%);
+}
+
+.routers-for {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.routers-name {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.routers-why {
+  margin: 8px 0 12px;
+  color: var(--ink-dim);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.routers-link {
+  color: var(--ink);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.routers-check,
+.routers-note {
+  margin: 20px 0 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.routers-note {
+  margin-top: 8px;
+  color: var(--ink-faint);
+}
+
+/* under the answer, the way to the router page */
+.split-routers {
+  display: inline-block;
+  margin: calc(clamp(20px, 2.6vh, 32px) * -0.6) 0 clamp(16px, 2vh, 24px);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .credits {
   max-width: 640px;
   margin: 0 auto;
