@@ -72,6 +72,12 @@ export type Strings = {
   readonly creditsTools: string;
   readonly creditsCode: string;
   readonly creditsTerms: string;
+  readonly routersTitle: string;
+  readonly routersIntro: string;
+  readonly routersLink: string;
+  readonly routersCheck: string;
+  readonly routersNote: string;
+  readonly whichRouter: string;
   readonly views: Readonly<Record<string, string>>;
   readonly legend: Readonly<Record<string, string>>;
   readonly basis: Readonly<Record<string, string>>;
@@ -79,6 +85,8 @@ export type Strings = {
   readonly technology: Readonly<Record<string, string>>;
   readonly provides: Readonly<Record<string, string>>;
   readonly verdict: Readonly<Record<string, string>>;
+  readonly routerFor: Readonly<Record<string, string>>;
+  readonly routerWhy: Readonly<Record<string, string>>;
 };
 
 export const el: Strings = {
@@ -153,6 +161,12 @@ export const el: Strings = {
   creditsTools: "Τα εργαλεία",
   creditsCode: "Ο κώδικας",
   creditsTerms: "Ο κώδικας του site είναι MIT. Τα δεδομένα όμως κρατούν τις δικές τους άδειες: οι μετρήσεις της Ookla είναι μη εμπορικές, και το μητρώο της ΓΓΤΤ επιτρέπει μόνο προσωπική, μη εμπορική χρήση.",
+  routersTitle: "Router για ίντερνετ από το κινητό δίκτυο",
+  routersIntro: "Όπου η γραμμή δεν φτάνει ή είναι αργή, ένα router με κάρτα SIM φέρνει στο σπίτι ίντερνετ από το δίκτυο κινητής. Αυτά θα διαλέγαμε εμείς, ένα για κάθε περίπτωση.",
+  routersLink: "Δείτε το στο Skroutz",
+  routersCheck: "Πριν αγοράσετε, ρωτήστε τον πάροχο της κάρτας σας αν το μοντέλο δουλεύει στο δικό του 5G. Δεν τα υποστηρίζουν όλοι όλα.",
+  routersNote: "Οι σύνδεσμοι είναι απλοί: δεν κερδίζουμε τίποτα αν αγοράσετε.",
+  whichRouter: "Ποιο router να πάρω;",
   views: {
     coverage: "Κάλυψη",
     measured: "Μετρημένη",
@@ -195,6 +209,18 @@ export const el: Strings = {
     wireless: "Καμία σταθερή γραμμή δεν φτάνει στη διεύθυνση {address}. Ένα router 5G με πρόγραμμα χωρίς όριο είναι ο δρόμος, και τα παρακάτω είναι ταξινομημένα κατά κόστος.",
     satellite: "Τίποτα επίγειο δεν φτάνει στη διεύθυνση {address}. Ο δορυφόρος είναι ο μόνος τρόπος σύνδεσης εδώ, και κοστίζει ανάλογα.",
     none: "Δεν υπάρχει καμία δήλωση για τη διεύθυνση {address}. Αυτό σημαίνει ότι κανένας πάροχος δεν έχει δηλώσει κάλυψη, όχι ότι δεν υπάρχει.",
+  },
+  routerFor: {
+    mc888: "5G, για τα περισσότερα σπίτια",
+    nx600: "5G, όπου το σήμα είναι οριακό",
+    mr600: "4G, όπου δεν φτάνει 5G",
+    nr7101: "Εξωτερικό, όταν μέσα δεν πιάνει",
+  },
+  routerWhy: {
+    mc888: "Το πιο οικονομικό από τα 5G router που αξίζουν. Δύο θύρες για καλώδιο και Wi-Fi 6. Βάλτε το κοντά σε παράθυρο.",
+    nx600: "5G με δύο υποδοχές για εξωτερική κεραία, για όταν το σήμα στο σπίτι δεν είναι αρκετό. Τρεις θύρες για καλώδιο.",
+    mr600: "Για περιοχές χωρίς 5G. Σταθερό και φθηνό, με τέσσερις θύρες για καλώδιο, και αρκεί για ένα σπίτι που βλέπει βίντεο.",
+    nr7101: "Μπαίνει έξω, σε τοίχο ή ιστό, εκεί που το σήμα είναι δυνατότερο, και φέρνει τη σύνδεση μέσα με καλώδιο. Ακριβό, αλλά λύνει τα σπίτια που μέσα δεν πιάνουν.",
   },
 };
 
@@ -270,6 +296,12 @@ export const en: Strings = {
   creditsTools: "The tools",
   creditsCode: "The code",
   creditsTerms: "The site's code is MIT. The data keeps its own licences: the Ookla measurements are non-commercial, and the register allows personal, non-commercial use only.",
+  routersTitle: "Routers for internet over the mobile network",
+  routersIntro: "Where the line doesn't reach or is slow, a router with a SIM card brings internet home over the mobile network. These are the ones we'd pick, one for each situation.",
+  routersLink: "See it on Skroutz",
+  routersCheck: "Before you buy, ask the operator whose SIM you'll use whether the model works on its 5G. Not every router works with every operator.",
+  routersNote: "These are plain links: we earn nothing if you buy.",
+  whichRouter: "Which router should I get?",
   views: {
     coverage: "Coverage",
     measured: "Measured",
@@ -312,6 +344,18 @@ export const en: Strings = {
     wireless: "No fixed line reaches {address} at all. A 5G router on an unlimited plan is the way in, and the plans below are ordered by what they cost to run.",
     satellite: "Nothing terrestrial reaches {address}. Satellite is the only way to get online here, and it is priced like it.",
     none: "Nothing is filed at {address}. That means no operator has told the register they serve it, rather than that nobody does.",
+  },
+  routerFor: {
+    mc888: "5G, for most homes",
+    nx600: "5G, where the signal is marginal",
+    mr600: "4G, where 5G doesn't reach",
+    nr7101: "Outdoor, when nothing gets through indoors",
+  },
+  routerWhy: {
+    mc888: "The least expensive 5G router worth having. Two wired ports and Wi-Fi 6. Put it near a window.",
+    nx600: "5G with two sockets for an outdoor antenna, for when the signal indoors isn't enough. Three wired ports.",
+    mr600: "For places 5G hasn't reached. Steady and cheap, with four wired ports, and enough for a home that streams video.",
+    nr7101: "Goes outside, on a wall or a mast, where the signal is strongest, and brings the connection in over a cable. Expensive, but it solves homes where nothing gets through indoors.",
   },
 };
 

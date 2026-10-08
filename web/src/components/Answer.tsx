@@ -100,6 +100,12 @@ export function Answer({
         <>
           {/* what it means, before the plans */}
           <p className="split-verdict">{saidAbout(language, verdictOf(answer), name)}</p>
+          {/* the two answers whose advice is a mobile router get a way to pick one */}
+          {(verdictOf(answer) === "legacy" || verdictOf(answer) === "wireless") && (
+            <a className="split-routers" href={language === "el" ? "/routers" : "/en/routers"}>
+              {text.whichRouter} <span aria-hidden="true">→</span>
+            </a>
+          )}
 
           {/* An operator blocking us is asked nothing until its rest is over, so what shows for
               it is the cache. Said once, quietly, and only then. */}
