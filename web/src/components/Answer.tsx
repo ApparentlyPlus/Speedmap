@@ -1,6 +1,6 @@
 /**
  * What an address can get, as the panel shows it: the house, one sentence on what the answer
- * means, then the plans. Holds no requests, so the lab can hand it any shape of answer.
+ * means, then the plans. Holds no requests: Place fetches, and this draws whatever it's handed.
  */
 
 import { useState } from "react";
@@ -32,12 +32,11 @@ export function Answer({
   /** Null while the first answer is on its way. */
   readonly answer: Options | null;
   readonly language: Language;
-  /** Absent in the lab, which has nowhere to go back to. */
-  readonly onBack?: () => void;
+  readonly onBack: () => void;
   /** The first answer isn't coming. Without this the panel waited for it forever. */
   readonly failed?: boolean;
-  /** What a report from this screen is about. The lab has none. */
-  readonly addressId?: number;
+  /** What a report from this screen is about. */
+  readonly addressId: number;
 }): React.ReactElement {
   const text = strings(language);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -68,11 +67,9 @@ export function Answer({
 
   return (
     <>
-      {onBack !== undefined && (
-        <button className="back split-back" type="button" onClick={onBack}>
-          <span aria-hidden="true">←</span> {text.back}
-        </button>
-      )}
+      <button className="back split-back" type="button" onClick={onBack}>
+        <span aria-hidden="true">←</span> {text.back}
+      </button>
 
       {/* House and address side by side, same height. In a 232 px band with the list
           scrolling under it, the house lost its roof and aerial in every mode. */}

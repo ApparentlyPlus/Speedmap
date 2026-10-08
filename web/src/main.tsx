@@ -35,11 +35,6 @@ async function page(): Promise<React.ReactElement> {
     const { Credits } = await import("./routes/credits");
     return <Credits />;
   }
-  // the bench for whatever is being redesigned, dev only, so a build has no chunk for it
-  if (import.meta.env.DEV && at("lab")) {
-    const { Lab } = await import("./lab/Lab");
-    return <Lab />;
-  }
   return <Landing />;
 }
 

@@ -18,7 +18,7 @@ export function Report({
   addressId,
   language,
 }: {
-  readonly addressId: number | undefined;
+  readonly addressId: number;
   readonly language: Language;
 }): React.ReactElement {
   const text = strings(language);
@@ -36,7 +36,7 @@ export function Report({
 
   const send = (): void => {
     setStage("sending");
-    report({ kind: "other", detail: note.trim(), address_id: addressId ?? null })
+    report({ kind: "other", detail: note.trim(), address_id: addressId })
       .then(() => setStage("sent"))
       .catch(() => setStage("failed"));
   };
