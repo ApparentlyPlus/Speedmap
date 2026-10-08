@@ -267,7 +267,11 @@ function Legend({ language, view }: { readonly language: Language; readonly view
 
 type Line = StreetDetail["offers"][number];
 
-/** One row per operator, fastest first, and each operator's lines fastest first. */
+/**
+ * One row per operator and each operator's lines fastest first. Retailers come before the
+ * wholesalers, however fast: a wholesaler's gigabit topped the list on Ερμού, and nobody can
+ * buy from them.
+ */
 function byOperator(offers: readonly Line[]): { code: string; lines: Line[] }[] {
   const groups = new Map<string, Line[]>();
   for (const offer of offers) groups.set(offer.provider, [...(groups.get(offer.provider) ?? []), offer]);
@@ -275,7 +279,8 @@ function byOperator(offers: readonly Line[]): { code: string; lines: Line[] }[] 
   const best = (lines: Line[]): number => Math.max(...lines.map(speed));
   return [...groups.entries()]
     .map(([code, lines]) => ({ code, lines: [...lines].sort((a, b) => speed(b) - speed(a)) }))
-    .sort((a, b) => best(b.lines) - best(a.lines));
+    .sort((a, b) =>
+      Number(WHOLESALE.has(a.code)) - Number(WHOLESALE.has(b.code)) || best(b.lines) - best(a.lines));
 }
 
 function StreetCard({ language, street }: { readonly language: Language; readonly street: StreetDetail }) {
