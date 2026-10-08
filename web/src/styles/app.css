@@ -34,6 +34,14 @@
 }
 
 /*
+ * Phones flash a blue box over anything tapped. Every control here draws its own pressed and
+ * open states, so the flash only covers them up. Keyboard focus is separate and keeps its outline.
+ */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
  * One focus style for the whole page, keyboard only. Someone who just clicked a card with the
  * mouse doesn't need telling which card it was.
  */
