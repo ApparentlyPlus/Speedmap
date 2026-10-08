@@ -109,7 +109,7 @@ body {
   isolation: isolate;
 }
 
-/* The lamp. */
+/* The network, faint behind an open answer. */
 .network {
   position: fixed;
   z-index: -2;
@@ -124,23 +124,7 @@ body {
   animation: lights-on calc(var(--warmup) * 1.4) ease-out both;
 }
 
-.lamp {
-  position: fixed;
-  z-index: -1;
-  inset: auto 0 -18% 0;
-  height: 96vh;
-  /* Three ellipses: a broad glow, a hot core, a faint bloom up to the type. One alone either lit
-   * only the floor or washed flat over the text. */
-  background:
-    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(255 255 255 / 13%), transparent 70%),
-    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(255 255 255 / 7%), transparent 66%),
-    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(255 255 255 / 6%), transparent 72%);
-  filter: blur(52px);
-  pointer-events: none;
-  animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Rises as it brightens, so the light arrives from somewhere. */
+/* Rises as it brightens, so it arrives from somewhere. */
 @keyframes lights-on {
   from {
     opacity: 0;
@@ -407,6 +391,46 @@ body {
     /* without this a looping animation strobes at 1 ms a lap */
     animation-iteration-count: 1 !important;
   }
+}
+
+/* The flyover behind the landing. Each city fades in once it's drawn and out before the next. */
+.flyover {
+  position: fixed;
+  z-index: -3;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1400ms ease;
+}
+
+.flyover-shown {
+  opacity: 1;
+}
+
+.flyover-dim {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  background: rgb(8 8 10 / 80%);
+  pointer-events: none;
+}
+
+/* Over moving streets the type gets a shadow, the map link one step up from the faintest grey,
+   and the field a solid surface. */
+.landing-centre .eyebrow,
+.landing-centre .tagline,
+.landing-centre .sub,
+.landing-centre .browse {
+  text-shadow: 0 1px 18px rgb(8 8 10 / 90%);
+}
+
+.landing-centre .browse:not(:hover) {
+  color: var(--ink-dim);
+}
+
+.landing-centre .search-shell {
+  border-color: var(--rule-lit);
+  background: rgb(16 16 19 / 92%);
+  backdrop-filter: blur(14px);
 }
 
 /*

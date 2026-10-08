@@ -20,6 +20,9 @@ const results = (): Promise<typeof import("./results")> => import("./results");
 const Place = lazy(() => results().then((m) => ({ default: m.Place })));
 const Road = lazy(() => results().then((m) => ({ default: m.Road })));
 
+/* The flyover carries MapLibre, so it comes after the field: typing never waits on the map. */
+const Flyover = lazy(() => import("../components/Flyover").then((m) => ({ default: m.Flyover })));
+
 let warmed = false;
 function warm(): void {
   if (warmed) return;
@@ -68,11 +71,10 @@ export function Landing(): React.ReactElement {
 
   return (
     <main className="landing" lang={language}>
-      {/* the map this site is about, faded down to texture */}
-      <Network />
-
-      {/* the lamp below the fold, lighting everything on the page */}
-      <div className="lamp" aria-hidden="true" />
+      {/* the map this site is about, drifting over one city after another */}
+      <Suspense fallback={null}>
+        <Flyover />
+      </Suspense>
 
       <div className="landing-centre">
         <p className="eyebrow">{text.eyebrow}</p>
