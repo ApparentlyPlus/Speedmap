@@ -6,8 +6,9 @@
 import { useState } from "react";
 
 import type { Options } from "../api/client";
+import { brandOf } from "../brands";
 import { modeOf } from "../house/mode";
-import { strings, type Language } from "../i18n";
+import { fill, strings, type Language } from "../i18n";
 import { colourFor, mbps } from "../tokens";
 import { House } from "./House";
 import { Offer } from "./Offer";
@@ -100,6 +101,19 @@ export function Answer({
           {/* what it means, before the plans */}
           <p className="split-verdict">{saidAbout(language, verdictOf(answer), name)}</p>
 
+          {/* An operator blocking us is asked nothing until its rest is over, so what shows for
+              it is the cache. Said once, quietly, and only then. */}
+          {answer.operators
+            .filter((operator) => operator.state === "blocked")
+            .map((operator) => (
+              <p className="split-cached" key={operator.provider}>
+                {fill(operator.answered_on ? text.cachedFrom : text.cachedNever, {
+                  operator: brandOf(operator.provider).name,
+                  date: operator.answered_on ? day(operator.answered_on, language) : "",
+                })}
+              </p>
+            ))}
+
           {/* no rule: the plans continue the sentence */}
           {offers.length === 0 ? (
             <p className="split-empty">{text.nothingHere}</p>
@@ -144,4 +158,12 @@ export function Answer({
       )}
     </>
   );
+}
+
+/** "3 October", in the reader's language. */
+function day(iso: string, language: Language): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(language === "el" ? "el-GR" : "en-GB", {
+    day: "numeric",
+    month: "long",
+  });
 }

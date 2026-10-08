@@ -643,6 +643,14 @@ body {
 
 /* The page's one paragraph, set larger than the list under it: this is the answer, the list
  * is the evidence. */
+/* An operator that's blocking us, and how old its answer here is. Quiet: it's a footnote. */
+.split-cached {
+  margin: calc(clamp(20px, 2.6vh, 32px) * -0.6) 0 clamp(16px, 2vh, 24px);
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .split-verdict {
   /*
    * Same width as the plans. 46ch is a comfortable measure, but 76 px narrower than the cards

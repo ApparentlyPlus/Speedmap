@@ -8,15 +8,17 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 import psycopg
 from psycopg.rows import TupleRow
 from psycopg.types.json import Jsonb
 
+from alert import alert_later
 from probe.adapter import Adapter, NotAskableError, Probed, Target
 from probe.ttl import FAILED, VOLATILE, ttl
+from probe.walls import BlockedError
 
 WIDTH = 3  # three operators, three sessions, one wait
 
@@ -29,9 +31,38 @@ limit 1
 """
 
 ATTEMPT = """
-insert into probe_attempt (address_id, provider_id, attempted_at, ok, askable, serviceable, detail, raw)
-select %(address)s, p.id, %(at)s, %(ok)s, %(askable)s, %(serviceable)s, %(detail)s, %(raw)s
+insert into probe_attempt (
+    address_id, provider_id, attempted_at, ok, askable, serviceable, detail, raw, blocked
+)
+select %(address)s, p.id, %(at)s, %(ok)s, %(askable)s, %(serviceable)s, %(detail)s, %(raw)s,
+       %(blocked)s
 from provider p where p.code = %(code)s
+"""
+
+# A block is about us, not the address, so the whole operator rests. Half an hour after the
+# first, doubling with each block in a row, and never more than half a day: the next attempt
+# after a rest is the test of whether the wall is still there.
+REST = timedelta(minutes=30)
+LONGEST_REST = timedelta(hours=12)
+
+# The operator's latest attempts, newest first, for counting the blocks in a row.
+STREAK = """
+select a.blocked, a.attempted_at
+from probe_attempt a
+where a.provider_id = (select id from provider where code = %(code)s)
+order by a.attempted_at desc
+limit 8
+"""
+
+# Live checks per operator per minute, from the API and the sweep together. A burst of readers
+# can't then be the reason an operator decides we're a bot.
+PER_MINUTE = 12
+
+RECENT = """
+select count(*)
+from probe_attempt a
+where a.provider_id = (select id from provider where code = %(code)s)
+  and a.attempted_at > %(since)s
 """
 
 KEEP = """
@@ -79,6 +110,8 @@ class Reply:
     # False when we couldn't put the address to them at all: no spelling for the street, or
     # their list has no such street.
     askable: bool = True
+    # whose bot protection answered instead of the operator, when one did
+    blocked: str | None = None
 
 
 def best(result: Probed) -> Decimal | None:
@@ -105,10 +138,33 @@ def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: dat
     return True
 
 
+def resting(conn: psycopg.Connection[TupleRow], code: str, now: datetime) -> datetime | None:
+    """Until when this operator rests after blocking us, or None when it may be asked."""
+    streak = conn.execute(STREAK, {"code": code}).fetchall()
+    blocks = 0
+    for blocked, _ in streak:
+        if blocked is None:
+            break
+        blocks += 1
+    if blocks == 0:
+        return None
+    last: datetime = streak[0][1]
+    until = last + min(REST * 2 ** (blocks - 1), LONGEST_REST)
+    return until if until > now else None
+
+
+def crowded(conn: psycopg.Connection[TupleRow], code: str, now: datetime) -> bool:
+    """Whether this operator has had its minute's worth of live checks already."""
+    row = conn.execute(RECENT, {"code": code, "since": now - timedelta(minutes=1)}).fetchone()
+    return row is not None and int(row[0]) >= PER_MINUTE
+
+
 def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) -> Reply:
     """One operator, failures caught so one being down can't take the others with it."""
     try:
         return Reply(provider=adapter.code, result=adapter.check(conn, target))
+    except BlockedError as wall:
+        return Reply(provider=adapter.code, result=None, error=str(wall), blocked=wall.wall)
     except NotAskableError as gap:
         # our gap: the adapter had nothing to look the address up by, and said so
         return Reply(provider=adapter.code, result=None, error=str(gap), askable=False)
@@ -129,6 +185,18 @@ def store(
     """
     result = reply.result
     conclusive = result is not None and result.conclusive
+    was = conn.execute(STREAK, {"code": reply.provider}).fetchone()
+    was_blocked = was is not None and was[0] is not None
+    if reply.blocked is not None and not was_blocked:
+        alert_later(
+            f"{reply.provider} is blocking us",
+            f"{reply.blocked} answered instead of {reply.provider}. It rests for "
+            f"{int(REST.total_seconds() // 60)} minutes, longer if it keeps blocking, and readers "
+            "see what the cache holds until then.",
+            urgent=True,
+        )
+    elif conclusive and was_blocked:
+        alert_later(f"{reply.provider} is answering again", "Live checks are back on.")
     conn.execute(ATTEMPT, {
         "address": address_id,
         "code": reply.provider,
@@ -140,6 +208,7 @@ def store(
         "raw": (
             result.body if result is not None and (keep_raw or not conclusive) else None
         ),
+        "blocked": reply.blocked,
     })
     if result is None or not conclusive:
         return 0
@@ -178,7 +247,12 @@ def refresh(
     keep_raw: bool = False,
 ) -> dict[str, Reply]:
     """Ask every due operator at once and keep what comes back."""
-    todo = [a for a in adapters if due(conn, target.address_id, a.code, now)]
+    todo = [
+        a for a in adapters
+        if due(conn, target.address_id, a.code, now)
+        and resting(conn, a.code, now) is None
+        and not crowded(conn, a.code, now)
+    ]
     if not todo:
         return {}
 

@@ -16,6 +16,7 @@ from psycopg.rows import TupleRow
 from db.settings import settings
 from probe.adapter import Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
+from probe.walls import refuse
 
 SPEC = Descriptor("VODAFONE")
 
@@ -149,6 +150,8 @@ class Vodafone:
         client = httpx.Client(
             base_url=BASE,
             timeout=30.0,
+            # a block page fails the request here, before it's read as an answer
+            event_hooks={"response": [refuse]},
             headers={
                 "User-Agent": self.user_agent,
                 "Accept": "application/json, text/plain, */*",

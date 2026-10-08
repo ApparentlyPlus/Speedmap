@@ -20,6 +20,7 @@ from db.settings import settings
 from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import TRIES, namings
+from probe.walls import refuse
 
 SPEC = Descriptor("NOVA")
 
@@ -113,6 +114,8 @@ class Nova:
         client = httpx.Client(
             base_url=BASE,
             timeout=30.0,
+            # a block page fails the request here, before it's read as an answer
+            event_hooks={"response": [refuse]},
             headers={
                 "Accept": "application/json, text/plain, */*",
                 "Content-Type": "application/json",

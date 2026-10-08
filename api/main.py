@@ -710,8 +710,12 @@ class Operator(BaseModel):
     provider: str
     provider_name: str
     known: str = Field(description="how this operator's answer was arrived at")
-    state: str = Field(description="healthy, degraded, broken or untried")
+    state: str = Field(description="healthy, degraded, broken, untried, or blocked by its bot protection")
     says: str = Field(description="what to tell the reader when it is not answering")
+    answered_on: date | None = Field(
+        default=None,
+        description="when it last gave this address a real answer, for saying how old a cached one is",
+    )
 
 
 class Options(BaseModel):
@@ -722,6 +726,17 @@ class Options(BaseModel):
         description="an operator missing from a comparison is a worse lie than a visible gap"
     )
     options: list[Buyable]
+
+
+# When each operator last gave this door a real answer. A refusal is an answer too, so this
+# reads the attempts, not availability, which only ever holds offers.
+ANSWERED = """
+select p.code, max(a.attempted_at)::date
+from probe_attempt a
+join provider p on p.id = a.provider_id
+where a.address_id = %s and a.ok and p.code = any(%s)
+group by p.code
+"""
 
 
 # Spreading a one-off over 24 months rarely lands on a cent. The arithmetic stays exact and
@@ -755,6 +770,7 @@ def address_options(
         states = adapter_state(conn, RETAIL, now)
         display = names(conn, RETAIL)
         ranked = rank(buyable(conn, address_id), need=need_mbps)
+        answered: dict[str, date] = dict(conn.execute(ANSWERED, (address_id, RETAIL)).fetchall())
 
     return Options(
         address_id=address_id,
@@ -767,6 +783,7 @@ def address_options(
                 known=known.get(code, "unknown"),
                 state=states[code].state,
                 says=states[code].says,
+                answered_on=answered.get(code),
             )
             for code in sorted(states)
         ],
