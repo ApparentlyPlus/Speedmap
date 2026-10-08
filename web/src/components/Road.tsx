@@ -6,6 +6,7 @@ import type { Geometry } from "geojson";
 import { street, type Result, type StreetDetail } from "../api/client";
 import { brandOf } from "../brands";
 import { strings, type Language } from "../i18n";
+import { STREETS_INFRASTRUCTURE } from "../map/tiles";
 import { colourFor, mbps } from "../tokens";
 import { Logo } from "./Logo";
 import { Split } from "./Split";
@@ -155,9 +156,13 @@ function speedOf(offer: StreetOffer): number | null {
     : Number(offer.sold_mbps);
 }
 
+/** Operators that sell to other operators and not to a household. */
+const WHOLESALE = new Set(STREETS_INFRASTRUCTURE);
+
 /**
  * One card per operator, fastest first, and in each the lines fastest first. A row per line
  * type had Telekom four times down the list, split up by whoever sorted between them.
+ * Wholesalers go last, however fast, since nobody can buy from them.
  */
 function byOperator(offers: readonly StreetOffer[]): {
   provider: string;
@@ -176,7 +181,12 @@ function byOperator(offers: readonly StreetOffer[]): {
       const first = sorted[0] as StreetOffer;
       return { provider, name: first.provider_name, family: first.family, lines: sorted };
     })
-    .sort((a, b) => fastest(b.lines) - fastest(a.lines) || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        Number(WHOLESALE.has(a.provider)) - Number(WHOLESALE.has(b.provider)) ||
+        fastest(b.lines) - fastest(a.lines) ||
+        a.name.localeCompare(b.name),
+    );
 }
 
 /** A street has no point of its own, so stand in the middle of its box. */
