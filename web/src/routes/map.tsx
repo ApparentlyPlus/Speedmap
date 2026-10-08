@@ -7,16 +7,14 @@ import { useEffect, useRef, useState } from "react";
 import { Map as Maplibre, NavigationControl, type Point as MapPoint } from "maplibre-gl";
 import type { Geometry } from "geojson";
 
-import { address, search, street, type Result, type StreetDetail } from "../api/client";
-import { brandOf } from "../brands";
+import { address, street, type Result, type StreetDetail } from "../api/client";
 import { Credit } from "../components/Credit";
+import { MapMenu, type Picked } from "../components/MapMenu";
+import { MapSearch } from "../components/MapSearch";
 import { engine, whenLoaded } from "../map/engine";
 import { Tilt } from "../map/tilt";
 import { strings, type Language } from "../i18n";
-import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 import {
-  STREETS_BY_PROVIDER,
-  STREETS_INFRASTRUCTURE,
   STREETS_LAYER,
   type Cell,
 } from "../map/tiles";
@@ -30,7 +28,6 @@ import {
   HOME,
   LIMITS,
   REGION_LAYERS,
-  VIEWS,
   only,
   LIT,
   onlyStreet,
@@ -54,20 +51,8 @@ const CLOSEST = 16;
 /** Gap between the street and whatever sits nearest it on screen. */
 const EDGE = 44;
 
-/**
- * Suppliers you can buy from, and networks you can't. Read off the tile contract so a new
- * provider in the schema lands in the right half of the panel without touching this file.
- */
-const WHOLESALE = new Set(STREETS_INFRASTRUCTURE);
-const OPERATORS = Object.keys(STREETS_BY_PROVIDER);
-const RETAILERS = OPERATORS.filter((code) => !WHOLESALE.has(code));
-const NETWORKS = OPERATORS.filter((code) => WHOLESALE.has(code));
-
 /** Slow at both ends. Linear travel starts and stops at full speed and jolts at each end. */
 const EASE = (t: number): number => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
-
-/** Long enough that a typist doesn't fire a request per letter. */
-const SETTLE_MS = 250;
 
 /** Fade-in for the footprints once the whole view has them. */
 const RAISE_MS = 220;
@@ -87,16 +72,13 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
   // the camera from the URL the reader arrived on, read before the map rewrites the hash
   const arrived = useRef(window.location.hash);
   const [provider, setProvider] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Result[]>([]);
+  const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState<StreetDetail | null>(null);
   // a measured square, straight off the tile: it carries everything shown, so no request
   const [cell, setCell] = useState<Cell | null>(null);
   const [view, setView] = useState<View>("coverage");
   const [regions, setRegions] = useState(false);
   const [showing, setShowing] = useState<Showing>("ready");
-  // the filters and legend on a phone, shut until asked for (see the panel)
-  const [more, setMore] = useState(false);
 
   useEffect(() => {
     if (box.current === null || mapRef.current !== null) return;
@@ -160,6 +142,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     map.on("click", "cells", (event) => {
       const hit = event.features?.[0]?.properties;
       if (hit === undefined) return;
+      setOpen(false);
       setChosen(null);
       setCell(hit as Cell);
     });
@@ -188,6 +171,7 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     map.on("click", (event) => {
       const id = streetUnder(event.point);
       if (id === null) return;
+      setOpen(false);
       setCell(null);
       const mine = ++asked.current;
       street(id)
@@ -282,24 +266,20 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Same index as the landing page. Two search boxes disagreeing about which streets exist
-  // would be a bug report waiting to happen.
+  // Escape shuts whatever is open, the menu before a picked street or square
   useEffect(() => {
-    const asked = query.trim();
-    if (asked.length < 2) {
-      setResults([]);
-      return;
-    }
-    const stop = new AbortController();
-    const timer = window.setTimeout(() => {
-      // Streets only. A typed number picks its street, since a map has nowhere to put a door.
-      search(asked, stop.signal, "street").then(setResults).catch(() => setResults([]));
-    }, SETTLE_MS);
-    return () => {
-      window.clearTimeout(timer);
-      stop.abort();
+    const shut = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      if (open) {
+        setOpen(false);
+      } else {
+        setChosen(null);
+        setCell(null);
+      }
     };
-  }, [query]);
+    window.addEventListener("keydown", shut);
+    return () => window.removeEventListener("keydown", shut);
+  }, [open]);
 
   // switching operator touches two properties on two layers
   useEffect(() => {
@@ -363,293 +343,69 @@ export function MapPage({ language }: { readonly language: Language }): React.Re
     return whenLoaded(map, apply);
   }, [chosen]);
 
+  const picked: Picked | null =
+    chosen !== null ? { kind: "street", street: chosen } : cell !== null ? { kind: "cell", cell } : null;
+
   return (
     <main className="atlas" lang={language}>
       <div className="atlas-canvas" ref={box} />
       <Credit language={language} />
 
-      <section className="atlas-panel">
-        <a className="atlas-back" href={language === "el" ? "/" : "/en/"}>
-          <span aria-hidden="true">←</span> {text.back}
-        </a>
-        <h1 className="atlas-name">{text.mapTitle}</h1>
+      <MapSearch
+        language={language}
+        onPick={(result) => {
+          // select first, then travel (see travelTo for why)
+          setOpen(false);
+          setCell(null);
+          const mine = ++asked.current;
+          void travelTo(mapRef.current, result, setChosen, () => mine === asked.current);
+        }}
+      />
+      {showing === "failed" && <p className="map-failed">{text.searchFailed}</p>}
 
-        <label className="atlas-search">
-          <span className="visually-hidden">{text.searchLabel}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={text.searchPlaceholder}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-        {results.length > 0 && (
-          <ul className="atlas-found">
-            {results.slice(0, 6).map((result) => (
-              <li key={`${result.kind}-${result.id}`}>
-                <button
-                  type="button"
-                  className="atlas-hit"
-                  onClick={() => {
-                    setCell(null); // select first, then travel (see travelTo for why)
-                    const mine = ++asked.current;
-                    void travelTo(mapRef.current, result, setChosen, () => mine === asked.current);
-                    setQuery("");
-                    setResults([]);
-                  }}
-                >
-                  <span className="atlas-hit-name">
-                    {result.street_no === null
-                      ? result.name
-                      : `${result.name} ${result.street_no}`}
-                  </span>
-                  {/* 7,320 names cover two or more roads in one municipality. The locality
-                      their doors agree on is what tells them apart. No doors, no label. */}
-                  <span className="atlas-hit-where">
-                    {[result.locality, result.municipality].filter(Boolean).join(" · ")}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Phones only. The whole panel sat over the top half of the map with the bottom of
-            it cut off, so on a narrow screen everything below the search folds behind this.
-            It names the filter in force, which otherwise disappears with it. */}
-        <button
-          type="button"
-          className="atlas-more-toggle"
-          aria-expanded={more}
-          aria-controls="atlas-more"
-          onClick={() => setMore(!more)}
-        >
-          <span>{text.filters}</span>
-          <span className="atlas-more-now">
-            {view !== "coverage"
-              ? text.views[view]
-              : provider !== null
-                ? brandOf(provider).name
-                : null}
-          </span>
-        </button>
-
-        <div className="atlas-more" id="atlas-more" data-open={more}>
-          <h2 className="atlas-head">{text.shown}</h2>
-          <ul className="atlas-operators">
-            {VIEWS.map((one) => (
-              <li key={one}>
-                <button
-                  type="button"
-                  className={`atlas-operator${view === one ? " atlas-operator-on" : ""}`}
-                  onClick={() => {
-                    setCell(null);
-                    setView(one);
-                  }}
-                >
-                  {text.views[one]}
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          {/* A checkbox, since this is an overlay that's on or off. As a pill it sat in a row
-              of mutually exclusive choices and looked like one of them. */}
-          <label className="atlas-toggle" title={text.regionsHint}>
-            <input
-              type="checkbox"
-              checked={regions}
-              onChange={(event) => setRegions(event.target.checked)}
-            />
-            <span>{text.regions}</span>
-          </label>
-
-          {view === "coverage" && (
-            <>
-              <h2 className="atlas-head">{text.operator}</h2>
-              <ul className="atlas-operators">
-                <li>
-                  <button
-                    type="button"
-                    className={`atlas-operator${provider === null ? " atlas-operator-on" : ""}`}
-                    onClick={() => setProvider(null)}
-                  >
-                    {text.anyOperator}
-                  </button>
-                </li>
-                {RETAILERS.map((code) => (
-                  <li key={code}>
-                    <button
-                      type="button"
-                      className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                      style={
-                        { "--brand": brandOf(code).colour } as React.CSSProperties
-                      }
-                      onClick={() => setProvider(provider === code ? null : code)}
-                    >
-                      {/* the brand people know: the code is a join key, and nobody shops at "OTE"
-                          when the shop, the bill and the router all say Telekom */}
-                      {brandOf(code).name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Wholesale builders, plus Metadosis (files services, publishes no tariff). Next
-                  to Telekom and Vodafone they looked like suppliers you could pick. Dropping them
-                  would hide the fiber that decides whether anyone sells a gigabit here. */}
-              <h2 className="atlas-head" title={text.infrastructureHint}>
-                {text.infrastructure}
-              </h2>
-              <ul className="atlas-operators">
-                {NETWORKS.map((code) => (
-                  <li key={code}>
-                    <button
-                      type="button"
-                      className={`atlas-operator${provider === code ? " atlas-operator-on" : ""}`}
-                      style={
-                        { "--brand": brandOf(code).colour } as React.CSSProperties
-                      }
-                      onClick={() => setProvider(provider === code ? null : code)}
-                    >
-                      {brandOf(code).name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          <h2 className="atlas-head">{text.legend[view]}</h2>
-          {/* Only the bands this view can paint. A filing can only cap a street below its retail
-              speed, so coverage never lands between 100 and 1000 and three ramp rows would be
-              colours the map never uses. Measured is continuous (median 60, p90 270). */}
-          <ul className="atlas-ramp">
-            {bandsPainted(view !== "coverage").map((band) => (
-              <li className="atlas-band" key={band.name}>
-                <span className="atlas-swatch" style={{ background: band.colour }} />
-                {band.name}
-              </li>
-            ))}
-            {/* Coverage: a street no line reaches, dark because it's absence and not a slow street.
-                Measured and Mobile: nobody has ever run a speed test here, which is most of Greece.
-                There used to be a third state, "reaches, no speed filed". The figure comes from
-                the technology now, so anything that reaches a street has a number. */}
-            <li className="atlas-band">
-              <span className="atlas-swatch" style={{ background: UNSERVED }} />
-              {view === "coverage" ? text.unreached : text.untested}
-            </li>
-          </ul>
-        </div>
-
-        {cell !== null && (
-          <section className="atlas-picked">
-            <button
-              type="button"
-              className="atlas-shut"
-              onClick={() => setCell(null)}
-              aria-label={text.back}
-            >
-              ×
-            </button>
-            <h2 className="atlas-picked-name">{text.measuredHere}</h2>
-            <p className="atlas-picked-where">
-              {text.views[cell.family === "mobile" ? "mobile" : "measured"]} · {cell.tests}{" "}
-              {text.tests}
-            </p>
-            <ul className="atlas-measured">
-              <li className="atlas-measure">
-                <span className="atlas-measure-name">{text.down}</span>
-                <span
-                  className="atlas-measure-speed"
-                  style={{ color: colourFor(mbps(Number(cell.down_mbps))) }}
-                >
-                  {Math.round(Number(cell.down_mbps))} Mbps
-                </span>
-              </li>
-              <li className="atlas-measure">
-                <span className="atlas-measure-name">{text.up}</span>
-                <span className="atlas-measure-speed">
-                  {Math.round(Number(cell.up_mbps))} Mbps
-                </span>
-              </li>
-            </ul>
-          </section>
-        )}
-
-        {chosen !== null && (
-          <section className="atlas-picked">
-            <button
-              type="button"
-              className="atlas-shut"
-              onClick={() => setChosen(null)}
-              aria-label={text.back}
-            >
-              ×
-            </button>
-            <h2 className="atlas-picked-name">{chosen.name}</h2>
-            <p className="atlas-picked-where">{chosen.municipality}</p>
-            {chosen.offers.length === 0 ? (
-              <p className="atlas-picked-none">{text.mapNothingHere}</p>
-            ) : (
-              <ul className="atlas-offers">
-                {chosen.offers.map((offer) => (
-                  <li className="atlas-offer" key={`${offer.provider}-${offer.technology}`}>
-                    <span
-                      className="atlas-offer-dot"
-                      style={{ background: brandOf(offer.provider).colour }}
-                    />
-                    <span className="atlas-offer-name">{offer.provider_name}</span>
-                    <span className="atlas-offer-tech">
-                      {offer.technology}
-                      {offer.infra_provider !== null &&
-                        offer.infra_provider !== offer.provider && (
-                          <span className="atlas-offer-infra">
-                            {" "}
-                            · {text.over} {offer.infra_provider}
-                          </span>
-                        )}
-                    </span>
-                    {/* The retail speed, held to the filing. The register's own band stays out of
-                        the panel: it's missing on seven filings in ten. */}
-                    <span className="atlas-offer-speed">
-                      {offer.sold_mbps === null || offer.sold_mbps === undefined
-                        ? text.unfiled
-                        : `${Number(offer.sold_mbps)} Mbps`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
-        <p className={`atlas-state atlas-state-${showing}`}>
-          {showing === "failed" && text.searchFailed}
-        </p>
-      </section>
+      <MapMenu
+        language={language}
+        open={open}
+        setOpen={setOpen}
+        view={view}
+        setView={(one) => {
+          setCell(null);
+          setView(one);
+        }}
+        provider={provider}
+        setProvider={setProvider}
+        regions={regions}
+        setRegions={setRegions}
+        picked={picked}
+        shutPicked={() => {
+          setChosen(null);
+          setCell(null);
+        }}
+      />
     </main>
   );
 }
 
 /**
- * The part of the map the panel doesn't cover. The panel floats over the map (232 px down the
- * left on wide screens, a band across the top on narrow ones, as tall as it's open), so
- * fitting a street to the whole canvas parked it under the panel about half the time.
+ * The part of the map nothing covers. The search bar runs along the top, and the menu's card
+ * takes the top-right corner on a wide screen and the whole top on a narrow one. Fitting a
+ * street to the whole canvas parked it under one or the other.
+ *
+ * The card is measured from its content, which is laid out at full size while the surface is
+ * still growing, so a camera aimed the moment a street is picked already knows the final box.
  */
 function clearOf(map: Maplibre): { top: number; right: number; bottom: number; left: number } {
   const pad = { top: EDGE, right: EDGE, bottom: EDGE, left: EDGE };
   const box = map.getContainer().getBoundingClientRect();
-  const panel = document.querySelector(".atlas-panel")?.getBoundingClientRect();
-  if (panel === undefined) return pad;
+  const bar = document.querySelector(".map-search")?.getBoundingClientRect();
+  if (bar !== undefined) pad.top = bar.bottom - box.top + EDGE;
 
-  // wide screens: a column down one side. narrow: a band across the top
-  if (panel.width >= box.width * 0.75) {
-    pad.top = Math.min(panel.bottom - box.top + EDGE, box.height * 0.6);
+  const card = document.querySelector(".map-menu-inner")?.getBoundingClientRect();
+  if (card === undefined) return pad;
+  if (card.width >= box.width * 0.75) {
+    pad.top = Math.min(Math.max(pad.top, card.bottom - box.top + EDGE), box.height * 0.6);
   } else {
-    pad.left = Math.min(panel.right - box.left + EDGE, box.width * 0.6);
+    pad.right = Math.min(box.right - card.left + EDGE, box.width * 0.6);
   }
   return pad;
 }

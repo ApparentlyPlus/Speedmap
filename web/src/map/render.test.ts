@@ -86,12 +86,19 @@ describe.skipIf(!running)("the map in a browser", () => {
     expect(drawn).toBeGreaterThan(0);
   }, 40_000);
 
+  /** The operators live in the menu, shut until its button is pressed. */
+  const openMenu = async (): Promise<void> => {
+    const options = page.getByRole("button", { name: "Επιλογές χάρτη" });
+    if ((await options.count()) > 0) await options.click();
+  };
+
   it("shows fewer streets for one operator than for anyone", async () => {
     const anyone = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["streets"] }).length,
     );
     // the button shows the brand, not the register code (it said OTE while the data said
     // Telekom, until that was fixed)
+    await openMenu();
     await page.getByRole("button", { name: "ΔΕΗ Fiber", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(
@@ -104,6 +111,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   it("keeps an operator that files no speeds at all", async () => {
     // Inalan reaches 112,739 addresses and files a speed for none of them, so a filter
     // testing for a number would hide them all
+    await openMenu();
     await page.getByRole("button", { name: "Inalan", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(

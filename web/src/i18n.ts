@@ -16,6 +16,9 @@ type Strings = {
   readonly searchPlaceholder: string;
   readonly browseMap: string;
   readonly mapTitle: string;
+  /** the map's menu button, shut and open */
+  readonly mapOptions: string;
+  readonly mapClose: string;
   readonly operator: string;
   /** Operators nobody retails from, under their own heading. */
   readonly infrastructure: string;
@@ -23,7 +26,6 @@ type Strings = {
   readonly shown: string;
   readonly views: Readonly<Record<string, string>>;
   readonly anyOperator: string;
-  readonly filters: string;
   readonly tilt: string;
   readonly sheet: string;
   readonly legend: Readonly<Record<string, string>>;
@@ -97,6 +99,8 @@ const el: Strings = {
   searchPlaceholder: "Οδός και αριθμός, ή περιοχή",
   browseMap: "ή δες τον χάρτη",
   mapTitle: "Ο χάρτης κάλυψης",
+  mapOptions: "Επιλογές χάρτη",
+  mapClose: "Κλείσιμο",
   operator: "Πάροχος",
   infrastructure: "Δίκτυο χωρίς λιανική",
   infrastructureHint:
@@ -104,7 +108,6 @@ const el: Strings = {
   shown: "Τι δείχνει",
   views: { coverage: "Κάλυψη", measured: "Μετρημένη", mobile: "Κινητή" },
   anyOperator: "Όλοι",
-  filters: "Φίλτρα και υπόμνημα",
   tilt: "Κλίση. Διπλό πάτημα για βορρά",
   sheet: "Αποτελέσματα σε όλη την οθόνη",
   legend: { coverage: "Ταχύτητα δρόμου", measured: "Ταχύτητα που μετρήθηκε", mobile: "Κάλυψη κινητής" },
@@ -195,6 +198,8 @@ const en: Strings = {
   searchPlaceholder: "Street and number, or an area",
   browseMap: "or browse the map",
   mapTitle: "The coverage map",
+  mapOptions: "Map options",
+  mapClose: "Close",
   operator: "Operator",
   infrastructure: "Network, not retail",
   infrastructureHint:
@@ -202,7 +207,6 @@ const en: Strings = {
   shown: "Showing",
   views: { coverage: "Coverage", measured: "Measured", mobile: "Mobile" },
   anyOperator: "Anyone",
-  filters: "Filters and legend",
   tilt: "Tilt. Double tap for north",
   sheet: "Results on the whole screen",
   legend: { coverage: "Street speed", measured: "Measured speed", mobile: "Mobile coverage" },
