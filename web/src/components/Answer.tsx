@@ -27,6 +27,7 @@ export function Answer({
   onBack,
   failed = false,
   addressId,
+  onRouters,
 }: {
   readonly name: string;
   readonly place: string;
@@ -37,6 +38,8 @@ export function Answer({
   /** The first answer isn't coming. Without this the panel waited for it forever. */
   readonly failed?: boolean;
   readonly addressId: number;
+  /** Opens the router page over this answer, so coming back finds it as it was. */
+  readonly onRouters?: (() => void) | undefined;
 }): React.ReactElement {
   const text = strings(language);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -102,7 +105,16 @@ export function Answer({
           <p className="split-verdict">{saidAbout(language, verdictOf(answer), name)}</p>
           {/* the two answers whose advice is a mobile router get a way to pick one */}
           {(verdictOf(answer) === "legacy" || verdictOf(answer) === "wireless") && (
-            <a className="split-routers" href={language === "el" ? "/routers" : "/en/routers"}>
+            <a
+              className="split-routers"
+              href={language === "el" ? "/routers" : "/en/routers"}
+              onClick={(event) => {
+                // a new tab, or a modified click, still gets the page by its address
+                if (onRouters === undefined || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                event.preventDefault();
+                onRouters();
+              }}
+            >
               {text.whichRouter} <span aria-hidden="true">→</span>
             </a>
           )}

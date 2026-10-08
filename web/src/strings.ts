@@ -77,6 +77,7 @@ export type Strings = {
   readonly routersLink: string;
   readonly routersCheck: string;
   readonly routersNote: string;
+  readonly routersBack: string;
   readonly whichRouter: string;
   readonly views: Readonly<Record<string, string>>;
   readonly legend: Readonly<Record<string, string>>;
@@ -166,6 +167,7 @@ export const el: Strings = {
   routersLink: "Δείτε το στο Skroutz",
   routersCheck: "Πριν αγοράσετε, ρωτήστε τον πάροχο της κάρτας σας αν το μοντέλο δουλεύει στο δικό του 5G. Δεν τα υποστηρίζουν όλοι όλα.",
   routersNote: "Οι σύνδεσμοι είναι απλοί: δεν κερδίζουμε τίποτα αν αγοράσετε.",
+  routersBack: "Πίσω στο αποτέλεσμα",
   whichRouter: "Ποιο router να πάρω;",
   views: {
     coverage: "Κάλυψη",
@@ -301,6 +303,7 @@ export const en: Strings = {
   routersLink: "See it on Skroutz",
   routersCheck: "Before you buy, ask the operator whose SIM you'll use whether the model works on its 5G. Not every router works with every operator.",
   routersNote: "These are plain links: we earn nothing if you buy.",
+  routersBack: "Back to your result",
   whichRouter: "Which router should I get?",
   views: {
     coverage: "Coverage",

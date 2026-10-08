@@ -20,10 +20,12 @@ export function Place({
   result,
   language,
   onBack,
+  onRouters,
 }: {
   readonly result: Result;
   readonly language: Language;
   readonly onBack: () => void;
+  readonly onRouters?: () => void;
 }): React.ReactElement {
   const [known, setKnown] = useState<Options | null>(null);
   const [where, setWhere] = useState<{ lon: number; lat: number } | null>(null);
@@ -103,7 +105,7 @@ export function Place({
     <Split where={where} shape={shape} streetId={road} language={language}>
       <Answer
         name={name} place={place} answer={known} language={language} onBack={onBack}
-        failed={failed} addressId={result.id}
+        failed={failed} addressId={result.id} onRouters={onRouters}
       />
     </Split>
   );

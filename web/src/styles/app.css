@@ -2125,61 +2125,67 @@ body {
   }
 }
 
-/* The router page, on the credits page's column: one card per situation. */
+/* The router page, on the credits page's column. No cards: each router is headed the way the
+   answer's groups are, and the type does the rest. */
 .routers-list {
   display: grid;
-  gap: 12px;
-  margin: 28px 0 0;
+  gap: 44px;
+  margin: 44px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.routers-one {
-  padding: 18px 20px;
-  border: 1px solid var(--rule-lit);
-  border-radius: var(--radius);
-  background: rgb(255 255 255 / 1.6%);
-}
-
-.routers-for {
-  margin: 0;
-  color: var(--ink-faint);
-  font-size: 12px;
-}
-
 .routers-name {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--ink);
-  font-size: 19px;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .routers-why {
-  margin: 8px 0 12px;
+  max-width: 54ch;
+  margin: 8px 0 14px;
   color: var(--ink-dim);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .routers-link {
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration-color: var(--rule-lit);
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--settle);
+}
+
+.routers-link:hover {
+  text-decoration-color: var(--ink);
 }
 
 .routers-check,
 .routers-note {
-  margin: 20px 0 0;
+  margin: 0;
   color: var(--ink-dim);
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.6;
+}
+
+.routers-check {
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
 }
 
 .routers-note {
   margin-top: 8px;
   color: var(--ink-faint);
+}
+
+/* The answer under the router page: no box of its own while shown, none at all while hidden. */
+.landing-answer:not([hidden]) {
+  display: contents;
 }
 
 /* under the answer, the way to the router page */

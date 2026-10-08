@@ -98,6 +98,8 @@ routersIntro = "Όπου η γραμμή δεν φτάνει ή είναι αρ�
 routersLink = "Δείτε το στο Skroutz"
 routersCheck = "Πριν αγοράσετε, ρωτήστε τον πάροχο της κάρτας σας αν το μοντέλο δουλεύει στο δικό του 5G. Δεν τα υποστηρίζουν όλοι όλα."
 routersNote = "Οι σύνδεσμοι είναι απλοί: δεν κερδίζουμε τίποτα αν αγοράσετε."
+# back from the router page to the answer it was opened from
+routersBack = "Πίσω στο αποτέλεσμα"
 # under the answer, when the best way in is a mobile router
 whichRouter = "Ποιο router να πάρω;"
 [el.views]
@@ -247,6 +249,8 @@ routersIntro = "Where the line doesn't reach or is slow, a router with a SIM car
 routersLink = "See it on Skroutz"
 routersCheck = "Before you buy, ask the operator whose SIM you'll use whether the model works on its 5G. Not every router works with every operator."
 routersNote = "These are plain links: we earn nothing if you buy."
+# back from the router page to the answer it was opened from
+routersBack = "Back to your result"
 # under the answer, when the best way in is a mobile router
 whichRouter = "Which router should I get?"
 [en.views]
