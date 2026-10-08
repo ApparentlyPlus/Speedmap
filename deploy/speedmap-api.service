@@ -14,7 +14,9 @@ WorkingDirectory=/opt/speedmap
 EnvironmentFile=/opt/speedmap/.env
 # No access log. A journal line per keystroke of every search would be most of what this
 # service writes, on an SD card. Errors still get logged, and Caddy can log access.
-ExecStart=/opt/speedmap/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000 --no-access-log
+# Caddy is the only thing that talks to it, so its X-Forwarded-For is trusted. Without that
+# every reader is 127.0.0.1 and the per-caller limits in api/throttle.py throttle everyone at once.
+ExecStart=/opt/speedmap/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000 --no-access-log --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=always
 RestartSec=5
 Slice=speedmap.slice

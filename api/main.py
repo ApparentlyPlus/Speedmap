@@ -19,6 +19,7 @@ from fastapi import FastAPI, HTTPException, Query
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel, Field
 
+from api.throttle import throttled
 from db.settings import settings
 from normalise.greeklish import from_latin, is_greeklish
 from normalise.propose import propose
@@ -56,6 +57,7 @@ app = FastAPI(
     summary="Greek broadband coverage, from the national register",
     lifespan=lifespan,
 )
+app.middleware("http")(throttled)
 
 
 class Health(BaseModel):
