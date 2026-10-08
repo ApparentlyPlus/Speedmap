@@ -5,6 +5,7 @@ import { strings, type Language } from "../i18n";
 import { brandOf } from "../brands";
 import { colourFor, mbps } from "../tokens";
 import { Logo } from "./Logo";
+import { Visit } from "./Visit";
 
 export function Offer({
   option,
@@ -76,6 +77,7 @@ export function Offer({
           <span className="offer-per">{text.perMonth}</span>
         </span>
       </footer>
+      <Visit provider={option.provider} language={language} />
     </li>
   );
 }

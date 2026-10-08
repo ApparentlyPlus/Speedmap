@@ -42,6 +42,7 @@ export type Strings = {
   readonly askFailed: string;
   readonly loadFailed: string;
   readonly answerFailed: string;
+  readonly visitSite: string;
   readonly cachedFrom: string;
   readonly cachedNever: string;
   readonly address: string;
@@ -122,6 +123,7 @@ export const el: Strings = {
   askFailed: "Δεν μπορέσαμε να ετοιμάσουμε αυτή τη διεύθυνση",
   loadFailed: "Η σελίδα δεν φόρτωσε. Ανανεώστε σε λίγο",
   answerFailed: "Δεν πήραμε απάντηση για αυτή τη διεύθυνση. Δοκιμάστε ξανά σε λίγο",
+  visitSite: "Δείτε το στο {site}",
   cachedFrom: "Η {operator} δεν απαντά αυτή τη στιγμή, οπότε βλέπετε ό,τι μας είχε πει στις {date}.",
   cachedNever: "Η {operator} δεν απαντά αυτή τη στιγμή, οπότε ό,τι βλέπετε γι' αυτήν προέρχεται από το μητρώο.",
   address: "διεύθυνση",
@@ -238,6 +240,7 @@ export const en: Strings = {
   askFailed: "We could not prepare that address",
   loadFailed: "The page didn't load. Refresh in a moment",
   answerFailed: "We could not get an answer for this address. Try again in a moment",
+  visitSite: "See it on {site}",
   cachedFrom: "{operator} isn't answering right now, so this is what it told us on {date}.",
   cachedNever: "{operator} isn't answering right now, so what's shown for it comes from the register.",
   address: "address",

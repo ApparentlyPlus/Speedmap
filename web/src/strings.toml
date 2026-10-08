@@ -57,6 +57,8 @@ askFailed = "Δεν μπορέσαμε να ετοιμάσουμε αυτή τη
 loadFailed = "Η σελίδα δεν φόρτωσε. Ανανεώστε σε λίγο"
 # the address screen, when the first answer never came
 answerFailed = "Δεν πήραμε απάντηση για αυτή τη διεύθυνση. Δοκιμάστε ξανά σε λίγο"
+# on an operator's card, the link to its own site, which opens in a new tab
+visitSite = "Δείτε το στο {site}"
 # under an answer, when an operator is blocking us and this is its last real answer
 cachedFrom = "Η {operator} δεν απαντά αυτή τη στιγμή, οπότε βλέπετε ό,τι μας είχε πει στις {date}."
 # the same, when it never gave this address a real answer
@@ -182,6 +184,8 @@ askFailed = "We could not prepare that address"
 loadFailed = "The page didn't load. Refresh in a moment"
 # the address screen, when the first answer never came
 answerFailed = "We could not get an answer for this address. Try again in a moment"
+# on an operator's card, the link to its own site, which opens in a new tab
+visitSite = "See it on {site}"
 # under an answer, when an operator is blocking us and this is its last real answer
 cachedFrom = "{operator} isn't answering right now, so this is what it told us on {date}."
 # the same, when it never gave this address a real answer

@@ -10,6 +10,7 @@ import { STREETS_INFRASTRUCTURE } from "../map/tiles";
 import { colourFor, mbps } from "../tokens";
 import { Logo } from "./Logo";
 import { Split } from "./Split";
+import { Visit } from "./Visit";
 import { Waiting } from "./Waiting";
 
 export function Road({
@@ -132,6 +133,7 @@ export function Road({
                     </li>
                   ))}
                 </ul>
+                <Visit provider={operator.provider} language={language} />
               </li>
             ))}
           </ol>

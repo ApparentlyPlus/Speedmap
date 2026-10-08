@@ -1100,6 +1100,31 @@ body {
   border-top: 1px solid var(--rule);
 }
 
+/* An operator's own site, under its card: a quiet row, since the card is the answer. */
+.visit {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 160ms;
+}
+
+.visit:hover,
+.visit:focus-visible {
+  color: var(--ink);
+}
+
+@media (width <= 560px) {
+  .visit {
+    padding-inline: 14px;
+  }
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;
