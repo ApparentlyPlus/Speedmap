@@ -12,7 +12,6 @@ import { strings, type Language } from "../i18n";
 /** Long enough that a typist doesn't fire a request per letter. */
 const SETTLE_MS = 250;
 
-/** Rows shown under the bar. */
 const ROWS = 6;
 
 export function MapSearch({

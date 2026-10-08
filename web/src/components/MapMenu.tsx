@@ -3,7 +3,7 @@
  * beside the search bar: shut, it's a button the bar's own height, and it grows out of that
  * button into the filters, a street or a measured square, and back into it.
  *
- * Its size is measured, not left to CSS. Animating to height: auto guessed at sizes the content
+ * Its size is measured. Left to CSS, animating to height: auto guessed at sizes the content
  * hadn't reached, the content vanished the instant it shut, and the button shrank and slid while
  * the panel grew round it. Now the content is laid out at full size from the start, the surface
  * animates between two measured boxes and uncovers it, the button never moves, and the content
@@ -98,6 +98,7 @@ export function MapMenu({
   const surface = grown ? size : { width: KNOB, height: KNOB };
   const filtered = filters.provider !== null || filters.view !== "coverage" || filters.regions;
   const card = kept.current;
+  const knob = target !== null ? " map-knob-open" : filtered ? " map-knob-filtered" : "";
 
   return (
     <div
@@ -122,7 +123,7 @@ export function MapMenu({
       )}
       <button
         type="button"
-        className={`map-knob${target !== null ? " map-knob-open" : ""}${filtered && target === null ? " map-knob-filtered" : ""}`}
+        className={`map-knob${knob}`}
         aria-label={target === null ? text.mapOptions : text.mapClose}
         aria-expanded={target !== null}
         onClick={() => {
@@ -317,7 +318,9 @@ function StreetCard({ language, street }: { readonly language: Language; readonl
                     {line.sold_mbps === null || line.sold_mbps === undefined ? (
                       <b className="map-card-unfiled">{text.unfiled}</b>
                     ) : (
-                      <b style={{ color: colourFor(mbps(Number(line.sold_mbps))) }}>{Number(line.sold_mbps)}</b>
+                      <b style={{ color: colourFor(mbps(Number(line.sold_mbps))) }}>
+                        {Number(line.sold_mbps)}
+                      </b>
                     )}
                   </span>
                 ))}
@@ -342,7 +345,9 @@ function CellCard({ language, cell }: { readonly language: Language; readonly ce
       <ul className="map-card-rows">
         <li>
           <span className="map-card-op">{text.down}</span>
-          <b style={{ color: colourFor(mbps(Number(cell.down_mbps))) }}>{Math.round(Number(cell.down_mbps))} Mbps</b>
+          <b style={{ color: colourFor(mbps(Number(cell.down_mbps))) }}>
+            {Math.round(Number(cell.down_mbps))} Mbps
+          </b>
         </li>
         <li>
           <span className="map-card-op">{text.up}</span>
