@@ -7,15 +7,19 @@ can't tell "we asked and they said no" from "we couldn't ask".
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import psycopg
 from psycopg.rows import TupleRow
+
+from probe.run import STREAK, resting
 
 HEALTHY = "healthy"
 DEGRADED = "degraded"
 BROKEN = "broken"
 UNTRIED = "untried"
+# Its bot protection answered instead of it, so it's resting and readers see the cache.
+BLOCKED = "blocked"
 
 # How far back an answer still shows the checker works. Longer than the nightly canary, so
 # one missed run doesn't raise an alarm.
@@ -55,10 +59,16 @@ class Health:
     last_ok_at: datetime | None
     attempts: int
     answered: int
+    # whose wall, and until when we leave it alone, while BLOCKED
+    blocked_by: str | None = None
+    resting_until: datetime | None = None
 
     @property
     def says(self) -> str:
         """What to tell the reader, in their terms."""
+        if self.state == BLOCKED and self.resting_until is not None:
+            # the database hands times back in its own zone, and this one says UTC
+            return f"blocked by {self.blocked_by}, asked again after {self.resting_until.astimezone(UTC):%H:%M} UTC"
         if self.state == HEALTHY:
             return "answering"
         if self.state == UNTRIED:
@@ -92,11 +102,18 @@ def health(conn: psycopg.Connection[TupleRow], codes: list[str], now: datetime) 
     rows = conn.execute(SINCE, {"since": now - WINDOW, "codes": codes}).fetchall()
     states: dict[str, Health] = {}
     for code, recent, answered, last_ok in rows:
+        until = resting(conn, str(code), now)
+        wall = None
+        if until is not None:
+            latest = conn.execute(STREAK, {"code": str(code)}).fetchone()
+            wall = None if latest is None else latest[0]
         states[str(code)] = Health(
             provider=str(code),
-            state=state(int(recent), int(answered), last_ok, now),
+            state=BLOCKED if until is not None else state(int(recent), int(answered), last_ok, now),
             last_ok_at=last_ok,
             attempts=int(recent),
             answered=int(answered),
+            blocked_by=wall,
+            resting_until=until,
         )
     return states

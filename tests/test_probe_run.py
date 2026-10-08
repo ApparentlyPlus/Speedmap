@@ -11,7 +11,8 @@ import pytest
 from psycopg.rows import TupleRow
 
 from probe.adapter import Offer, Probed
-from probe.run import Reply, best, due, store
+from probe.health import BLOCKED, health
+from probe.run import LONGEST_REST, PER_MINUTE, REST, Reply, best, crowded, due, resting, store
 from probe.ttl import CHANGING, SETTLED, VOLATILE
 
 NOW = datetime(2026, 9, 10, 12, 0, tzinfo=UTC)
@@ -144,3 +145,66 @@ def test_a_refusal_is_remembered_for_a_month(reply: psycopg.Connection[TupleRow]
     reply.commit()
     assert due(reply, 1, "NOVA", NOW + timedelta(days=7)) is False
     assert due(reply, 1, "NOVA", NOW + timedelta(days=31)) is True
+
+
+def blocked_at(conn: psycopg.Connection[TupleRow], at: datetime, wall: str | None = "Imperva") -> None:
+    store(conn, 1, Reply("TELEKOM", None, error="blocked", blocked=wall), at)
+
+
+def test_a_block_rests_the_whole_operator(reply: psycopg.Connection[TupleRow]) -> None:
+    """It's about us, not the address: no other door may ask it until the rest is over."""
+    blocked_at(reply, NOW)
+    assert resting(reply, "TELEKOM", NOW + timedelta(minutes=10)) == NOW + REST
+    assert resting(reply, "TELEKOM", NOW + REST + timedelta(seconds=1)) is None
+
+
+def test_each_block_in_a_row_doubles_the_rest(reply: psycopg.Connection[TupleRow]) -> None:
+    for i in range(3):
+        blocked_at(reply, NOW + timedelta(hours=i))
+    last = NOW + timedelta(hours=2)
+    assert resting(reply, "TELEKOM", last) == last + REST * 4
+
+
+def test_the_rest_never_passes_half_a_day(reply: psycopg.Connection[TupleRow]) -> None:
+    for i in range(8):
+        blocked_at(reply, NOW + timedelta(days=i))
+    last = NOW + timedelta(days=7)
+    assert resting(reply, "TELEKOM", last) == last + LONGEST_REST
+
+
+def test_an_answer_ends_the_streak(reply: psycopg.Connection[TupleRow]) -> None:
+    blocked_at(reply, NOW)
+    store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW + timedelta(minutes=1))
+    assert resting(reply, "TELEKOM", NOW + timedelta(minutes=2)) is None
+
+
+def test_the_block_is_recorded_with_whose_it_was(reply: psycopg.Connection[TupleRow]) -> None:
+    blocked_at(reply, NOW, "Cloudflare")
+    row = reply.execute("select ok, blocked from probe_attempt").fetchone()
+    assert row == (False, "Cloudflare")
+
+
+def test_a_busy_minute_holds_the_next_check(reply: psycopg.Connection[TupleRow]) -> None:
+    for i in range(PER_MINUTE):
+        store(reply, 1, Reply("TELEKOM", None, error="timeout"), NOW - timedelta(seconds=i))
+    assert crowded(reply, "TELEKOM", NOW)
+    assert not crowded(reply, "TELEKOM", NOW + timedelta(minutes=2))
+
+
+def test_you_hear_once_when_a_block_starts_and_once_when_it_ends(
+    reply: psycopg.Connection[TupleRow], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr("probe.run.alert_later", lambda title, message, urgent=False: sent.append(title))
+    blocked_at(reply, NOW)
+    blocked_at(reply, NOW + timedelta(hours=1))
+    store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW + timedelta(hours=2))
+    store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW + timedelta(hours=3))
+    assert sent == ["TELEKOM is blocking us", "TELEKOM is answering again"]
+
+
+def test_a_resting_operator_reads_as_blocked(reply: psycopg.Connection[TupleRow]) -> None:
+    blocked_at(reply, NOW)
+    states = health(reply, ["TELEKOM"], NOW + timedelta(minutes=5))
+    assert states["TELEKOM"].state == BLOCKED
+    assert states["TELEKOM"].says == "blocked by Imperva, asked again after 12:30 UTC"

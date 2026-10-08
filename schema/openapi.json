@@ -405,6 +405,19 @@
       },
       "Operator": {
         "properties": {
+          "answered_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when it last gave this address a real answer, for saying how old a cached one is",
+            "title": "Answered On"
+          },
           "known": {
             "description": "how this operator's answer was arrived at",
             "title": "Known",
@@ -424,7 +437,7 @@
             "type": "string"
           },
           "state": {
-            "description": "healthy, degraded, broken or untried",
+            "description": "healthy, degraded, broken, untried, or blocked by its bot protection",
             "title": "State",
             "type": "string"
           }

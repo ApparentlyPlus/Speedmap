@@ -18,6 +18,7 @@ from db.settings import settings
 from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import Naming, naming
+from probe.walls import refuse
 
 SPEC = Descriptor("TELEKOM")
 
@@ -143,6 +144,8 @@ class Cosmote:
         client = httpx.Client(
             base_url=BASE,
             timeout=30.0,
+            # a block page fails the request here, before it's read as an answer
+            event_hooks={"response": [refuse]},
             headers={
                 "User-Agent": self.user_agent,
                 "Referer": f"{BASE}{ELIGIBILITY}",

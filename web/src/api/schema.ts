@@ -371,6 +371,11 @@ export interface components {
         /** Operator */
         Operator: {
             /**
+             * Answered On
+             * @description when it last gave this address a real answer, for saying how old a cached one is
+             */
+            answered_on?: string | null;
+            /**
              * Known
              * @description how this operator's answer was arrived at
              */
@@ -386,7 +391,7 @@ export interface components {
             says: string;
             /**
              * State
-             * @description healthy, degraded, broken or untried
+             * @description healthy, degraded, broken, untried, or blocked by its bot protection
              */
             state: string;
         };
