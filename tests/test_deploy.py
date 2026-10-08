@@ -154,6 +154,13 @@ def test_the_alert_unit_can_read_the_log_it_sends() -> None:
     assert unit["SupplementaryGroups"] == "systemd-journal"
 
 
+def test_the_api_sees_the_reader_and_not_caddy() -> None:
+    """Without the forwarded address every reader is 127.0.0.1 and shares one limit."""
+    command = parsed(DEPLOY / "speedmap-api.service")["Service"]["ExecStart"]
+    assert "--proxy-headers" in command
+    assert "--forwarded-allow-ips 127.0.0.1" in command
+
+
 @pytest.mark.parametrize("name", ["speedmap-register.service", "speedmap-ookla.service"])
 def test_new_data_is_recut_into_the_map(name: str) -> None:
     """The last step after loading is cutting the tiles Caddy serves, so the map can't lag."""

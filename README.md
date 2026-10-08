@@ -171,6 +171,45 @@ npm run dev       # http://localhost:5173, proxies /api to :8000
 
 The dev server proxies the API so both run same-origin, matching production behind Caddy.
 
+## Running on the Pi
+
+The Pi runs everything unattended: Caddy in front, the API, Postgres, and these jobs on systemd timers, all under `speedmap.slice` with one memory ceiling.
+
+| Timer | When | Does |
+|---|---|---|
+| `speedmap-backup` | daily 01:00 | Dumps what can't be rebuilt: answers, attempts, tariffs, reports |
+| `speedmap-canary` | daily 02:00 | Asks each operator about addresses with a known answer |
+| `speedmap-sweep` | daily 02:30 | Re-asks about answers close to expiring, 200 addresses a night |
+| `speedmap-prices` | Mondays 04:00 | Reads the operators' tariffs |
+| `speedmap-ookla` | Sundays 05:00 | Loads the newest quarter of speed tests, then recuts the tiles |
+| `speedmap-register` | quarterly, the 15th, 03:00 | Reloads the register, rebuilds, then recuts the tiles |
+
+**Alerts.** Every unit has `OnFailure=speedmap-alert@%n.service`, which pushes the unit's name and the end of its log to an [ntfy](https://ntfy.sh) topic. Pick a long topic nobody would guess, subscribe to it in the ntfy app, and put its URL in `.env` as `SPEEDMAP_NTFY_URL`. Unset, alerts only go to the journal. The `speedmap` user needs to be in the `systemd-journal` group for the alert to quote the log. You're also told when an operator starts blocking us and when it answers again, once each, and the nightly canary warns when a disk the Pi writes to is down to its last tenth or 5 GB.
+
+**When an operator blocks us.** Telekom and Vodafone sit behind Imperva and Nova behind Cloudflare. When their bot protection answers instead of the operator, `probe/walls.py` recognises the page and the attempt is recorded with whose wall it was. The whole operator then rests, since a block is about us and not one address: 30 minutes, doubling with every block in a row, never more than 12 hours. Nothing asks it until then, and the next attempt after a rest is the test of whether the block has lifted. Readers see what the cache holds, with one line under the answer saying how old it is (`cachedFrom` in `web/src/strings.toml`). `/api/health/adapters` says who is blocking and until when. Separately, no operator is asked more than 12 times a minute, from the API and the sweep together, so a busy hour can't be what gets us blocked.
+
+**Limits per caller.** Caddy can't rate-limit without a plugin, so `api/throttle.py` does it, per address as forwarded by Caddy (which is why the API runs with `--proxy-headers`). A caller over a limit gets a 429 with `Retry-After`.
+
+| Request | Limit |
+|---|---|
+| Live checks (`POST /addresses/{id}/probe`) | 30 per 10 minutes |
+| Addresses made on request | 20 per hour |
+| Reports | 5 per hour |
+| Search | 240 per minute |
+| Everything else | 600 per minute |
+
+**Tiles.** The register and Ookla jobs end by cutting `speedmap.pmtiles` and `cells.pmtiles` straight into `/srv/speedmap/tiles`, so the map's colours always come from the rows the panels read. A full cut takes 15 seconds and about 470 MB on a desktop, a couple of minutes on a Pi 4. It needs tippecanoe, which ships `tile-join` too. Debian trixie packages 2.53 for arm64, but tiles identical to a desktop build need the desktop's version, 2.82.0, which has no release tag and is pinned here by commit. Build it once on the Pi and leave the binaries in `/opt/speedmap/bin`, where `publish/run.py` looks first:
+
+```bash
+git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+git -C /tmp/tippecanoe checkout 4f2621186acfec33b63ddf636f665623c0fef2dd
+make -C /tmp/tippecanoe -j4 && cp /tmp/tippecanoe/tippecanoe /tmp/tippecanoe/tile-join /opt/speedmap/bin/
+```
+
+The basemap and buildings archives still come from a desktop planetiler build. They change when OSM does, which for a map of who reaches which street is rarely.
+
+**Changing the wording.** Every piece of text the site shows is in `web/src/strings.toml`, Greek and English side by side. Edit it, run `make strings`, and rebuild the frontend. The command refuses a file where the two languages have different keys, or a sentence that lost a `{placeholder}` in one of them, and says which. The credits page's licence lines are the exception: they stay word for word in `web/src/credits.ts`.
+
 ## Make Targets
 
 | Target | Purpose |
@@ -182,14 +221,15 @@ The dev server proxies the API so both run same-origin, matching production behi
 | `audit` | Run data invariants against the built database |
 | `tiles` | Cut the map tiles |
 | `fonts` | Fetch the label glyphs |
-| `codegen` | Regenerate the tile contract and OpenAPI document |
+| `strings` | Check `strings.toml` and rebuild the text the site reads |
+| `codegen` | Regenerate the tile contract, the strings and the OpenAPI document |
 | `api` | Run the API |
 | `check` | Lint, typecheck, and both test suites |
 | `db-check` / `progress` | Database reachability and register load progress |
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, ESLint over the frontend, 738 Python tests and 56 frontend tests. Thirteen of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those thirteen cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
+`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, ESLint over the frontend, 779 Python tests and 56 frontend tests. Thirteen of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those thirteen cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
 
 `make audit` is separate and runs the nine SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
 
