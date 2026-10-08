@@ -4,15 +4,30 @@
 # held. The hashed assets beside them never change and are held forever. The tile archive
 # changes weekly, is tens of MB, and gets read by range request.
 #
-# Replace the site address with the real host. Caddy fetches its own certificate.
+# Visitors reach this through Cloudflare Tunnel: cloudflared on the Pi takes the request from
+# Cloudflare and hands it to Caddy over plain HTTP on localhost (its ingress for speedmap.gr is
+# service: http://localhost:80). Cloudflare holds the certificate, so Caddy holds none.
 
-speedmap.gr {
+{
+	servers {
+		# Every request arrives from cloudflared on this machine, so without these every
+		# visitor was 127.0.0.1: one caller to the rate limit, one line in the log. Cloudflare
+		# puts the visitor's address in CF-Connecting-IP and overwrites any a visitor sends.
+		trusted_proxies static 127.0.0.1/32 ::1/128
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+http://speedmap.gr {
 	encode zstd gzip
 
 	# The API on the same origin, so there's no CORS to set up and nothing to get wrong about
 	# credentials. The prefix is stripped because the app doesn't know where it's mounted.
 	handle_path /api/* {
 		reverse_proxy 127.0.0.1:8000 {
+			# the visitor, as worked out above, and nothing a visitor could have added: the
+			# API rate-limits on this
+			header_up X-Forwarded-For {client_ip}
 			# a live probe waits on the operator's checker, slow and sometimes silent, and the
 			# app gives up before this does
 			transport http {
