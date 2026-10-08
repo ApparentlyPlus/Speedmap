@@ -1265,8 +1265,16 @@ body {
   }
 }
 
-/* The map. Full bleed, with one panel floating on it. */
+/*
+ * The map. Full bleed, with two things on it: the search bar, and beside it a button the bar's
+ * height that grows into the menu or into whatever was pressed. They share a surface, a height
+ * and a white edge when in use, so they read as a pair.
+ */
 .atlas {
+  --glass: rgb(16 16 19 / 90%);
+  --in-use: rgb(255 255 255 / 45%);
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+
   display: block;
   position: relative;
   width: 100%;
@@ -1277,280 +1285,6 @@ body {
 .atlas-canvas {
   position: absolute;
   inset: 0;
-}
-
-.atlas-panel {
-  display: flex;
-  position: absolute;
-  z-index: 1;
-  top: 18px;
-  left: 18px;
-  flex-direction: column;
-  gap: 6px;
-  width: 232px;
-  max-height: calc(100% - 36px);
-  padding: 18px;
-  overflow-y: auto;
-  border: 1px solid var(--rule);
-  border-radius: 14px;
-  background: rgb(10 10 12 / 82%);
-  backdrop-filter: blur(20px);
-}
-
-.atlas-back {
-  color: var(--ink-faint);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-decoration: none;
-  text-transform: uppercase;
-  transition: color var(--settle);
-}
-
-.atlas-back:hover {
-  color: var(--ink);
-}
-
-.atlas-name {
-  margin: 8px 0 14px;
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-/* Same index as the landing search. Two search boxes disagreeing about what exists would
- * look like two products. */
-.atlas-search input {
-  width: 100%;
-  margin: 6px 0 2px;
-  padding: 9px 11px;
-  border: 1px solid var(--rule-lit);
-  border-radius: 9px;
-  background: rgb(255 255 255 / 3%);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12px;
-}
-
-.atlas-search input:focus {
-  border-color: rgb(255 255 255 / 45%);
-  outline: none;
-}
-
-.atlas-search input::placeholder {
-  color: var(--ink-faint);
-}
-
-.atlas-found {
-  display: grid;
-  gap: 1px;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.atlas-hit {
-  display: grid;
-  width: 100%;
-  padding: 7px 9px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-  transition: background var(--settle);
-}
-
-.atlas-hit:hover,
-.atlas-hit:focus-visible {
-  background: rgb(255 255 255 / 6%);
-}
-
-.atlas-hit-name {
-  font-size: 12px;
-}
-
-.atlas-hit-where {
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
-
-/* For screen readers only. */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.atlas-head {
-  margin: 12px 0 8px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.atlas-operators,
-.atlas-ramp {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.atlas-operator {
-  padding: 5px 9px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: none;
-  color: var(--ink-faint);
-  font: inherit;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition:
-    border-color var(--settle),
-    color var(--settle);
-}
-
-.atlas-operator:hover {
-  border-color: var(--rule-lit);
-  color: var(--ink-dim);
-}
-
-/* The chosen operator wears its own colour, the colour its streets are about to be
- * filtered to. */
-.atlas-operator-on {
-  border-color: color-mix(in srgb, var(--brand, #fff) 60%, transparent);
-  background: color-mix(in srgb, var(--brand, #fff) 12%, transparent);
-  color: var(--ink);
-}
-
-.atlas-ramp {
-  flex-direction: column;
-  gap: 4px;
-}
-
-.atlas-band {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--ink-faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.atlas-swatch {
-  width: 18px;
-  height: 3px;
-  border-radius: 2px;
-}
-
-/* What runs under one street: the cabinets it crosses, no quote for a door. */
-.atlas-picked {
-  position: relative;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--rule);
-}
-
-.atlas-shut {
-  position: absolute;
-  top: 10px;
-  right: 0;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: var(--ink-faint);
-  font: inherit;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.atlas-shut:hover {
-  color: var(--ink);
-}
-
-.atlas-picked-name {
-  margin: 0;
-  padding-inline-end: 18px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.atlas-picked-where {
-  margin: 2px 0 8px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-}
-
-.atlas-picked-none {
-  margin: 0;
-  color: var(--ink-faint);
-  font-size: 11px;
-}
-
-.atlas-offers {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.atlas-offer {
-  display: grid;
-  grid-template-columns: 6px 1fr auto;
-  gap: 2px 8px;
-  align-items: center;
-  font-size: 11px;
-}
-
-.atlas-offer-dot {
-  grid-row: 1 / span 2;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.atlas-offer-tech {
-  grid-row: 2;
-  grid-column: 2;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-}
-
-.atlas-offer-speed {
-  grid-row: 1 / span 2;
-  grid-column: 3;
-  color: var(--ink-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Which kind of empty this is. */
-.atlas-state {
-  margin: 14px 0 0;
-  min-height: 2.6em;
-  color: var(--ink-faint);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.atlas-state-failed {
-  color: #f87171;
 }
 
 /* MapLibre's controls, restyled to match the page. */
@@ -1574,93 +1308,547 @@ body {
   touch-action: manipulation;
 }
 
-/* Where the panel is wide enough, the filters are simply part of it. */
-.atlas-more {
-  display: contents;
+/* Over a city of lit streets a flat surface loses its edge, so these carry a little blur. */
+.map-search input,
+.map-search-found,
+.map-menu,
+.map-failed {
+  border: 1px solid var(--edge);
+  background: var(--glass);
+  box-shadow: var(--lift-high);
+  backdrop-filter: blur(16px) saturate(1.1);
 }
 
-.atlas-more-toggle {
-  display: none;
+.map-search {
+  position: absolute;
+  z-index: 15;
+  top: 20px;
+  left: 20px;
+  width: min(340px, calc(100vw - 40px));
 }
 
-@media (width <= 560px) {
-  .atlas-panel {
-    top: 12px;
-    left: 12px;
-    width: calc(100% - 24px);
-    max-height: 46%;
-  }
+.map-search input {
+  width: 100%;
+  height: 46px;
+  padding: 0 16px 0 42px;
+  border-radius: 23px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
 
-  .atlas-name {
-    margin: 4px 0 8px;
-  }
+.map-search input::placeholder {
+  color: var(--ink-faint);
+}
 
-  .atlas-more-toggle {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 6px;
-    padding: 8px 2px 2px;
-    border: 0;
-    border-top: 1px solid var(--rule);
-    background: none;
-    color: var(--ink-faint);
-    font: inherit;
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
+.map-search input:focus {
+  border-color: var(--in-use);
+  outline: none;
+}
 
-  .atlas-more-toggle::after {
-    content: "+";
-  }
+.map-search-glyph {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  left: 15px;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
 
-  .atlas-more-toggle[aria-expanded="true"]::after {
-    content: "−";
-  }
+.map-search-found {
+  margin: 6px 0 0;
+  padding: 6px;
+  border-radius: 16px;
+  list-style: none;
+}
 
-  .atlas-more-now {
-    flex: 1;
-    color: var(--accent);
-    text-align: right;
-  }
+.map-search-found button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
 
-  .atlas-more[data-open="false"] {
-    display: none;
-  }
+.map-search-found button:hover {
+  background: rgb(255 255 255 / 6%);
+}
 
-  /* Its reserved line keeps a wide panel from jumping. Here it was blank map under a thumb. */
-  .atlas-state-ready {
-    display: none;
+.map-search-where {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+/* The style failed to load: said under the bar, since the map behind it may be blank. */
+.map-failed {
+  position: absolute;
+  z-index: 14;
+  top: 76px;
+  left: 20px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  color: #f87171;
+  font-size: 13px;
+}
+
+/* The menu: one surface that grows out of its button and back into it (see MapMenu). */
+.map-menu {
+  position: absolute;
+  z-index: 20;
+  top: 20px;
+  right: 20px;
+  overflow: hidden;
+  border-radius: 23px;
+  transition:
+    width 480ms var(--spring),
+    height 480ms var(--spring),
+    border-color 200ms;
+}
+
+/* shutting is quicker than opening: the reader has already decided */
+.map-menu-shutting {
+  transition:
+    width 340ms var(--spring),
+    height 340ms var(--spring),
+    border-color 200ms;
+}
+
+.map-menu:has(.map-knob:hover):not(.map-menu-grown) {
+  border-color: var(--rule-lit);
+}
+
+/* laid out at full size from the start, so nothing reflows while the surface uncovers it */
+.map-menu-inner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  max-height: calc(100dvh - 42px);
+  overflow: auto;
+  animation: map-menu-in 240ms ease-out 60ms both;
+  transition: opacity 120ms;
+}
+
+.map-menu-menu {
+  width: 320px;
+}
+
+.map-menu-street {
+  width: 360px;
+}
+
+.map-menu-cell {
+  width: 300px;
+}
+
+.map-menu-shutting .map-menu-inner {
+  opacity: 0;
+}
+
+@keyframes map-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
 }
 
-.atlas-measured {
+.map-menu-title {
+  margin: 0;
+  padding: 0 56px 0 18px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 44px;
+}
+
+/* The button is the surface's top-right corner, so it carries no surface of its own. */
+.map-knob {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: transform 220ms cubic-bezier(0.3, 1.5, 0.6, 1), box-shadow 200ms;
+}
+
+.map-knob:active {
+  transform: scale(0.94);
+}
+
+/* the search bar's white edge while it's in use */
+.map-knob-open {
+  box-shadow: inset 0 0 0 1px var(--in-use);
+}
+
+/* some filter is on: a white dot, since a shut menu otherwise hides it */
+.map-knob-filtered::after {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  content: "";
+}
+
+/* three bars narrowing like a funnel, which fold into a cross */
+.map-knob-bar {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  transition: transform 320ms var(--spring), width 320ms var(--spring), opacity 160ms;
+}
+
+.map-knob-bar:nth-child(2) {
+  width: 11px;
+}
+
+.map-knob-bar:nth-child(3) {
+  width: 6px;
+}
+
+.map-knob-open .map-knob-bar:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.map-knob-open .map-knob-bar:nth-child(2) {
+  opacity: 0;
+}
+
+.map-knob-open .map-knob-bar:nth-child(3) {
+  width: 16px;
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* inside the menu */
+
+.map-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 18px 18px;
+}
+
+.map-choices-head {
+  margin: 4px 0 -6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.map-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.map-seg-one {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 200ms, color 200ms;
+}
+
+.map-seg-on {
+  background: var(--raised-high);
+  box-shadow: inset 0 0 0 1px var(--rule-lit);
+  color: var(--ink);
+}
+
+.map-ops {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.atlas-measure {
+.map-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--rule-lit);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background 200ms, border-color 200ms, color 200ms;
+}
+
+.map-op:hover {
+  color: var(--ink);
+}
+
+.map-op-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand, var(--ink-faint));
+}
+
+.map-op-any .map-op-dot {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--ink-dim);
+}
+
+/* the chosen operator wears its own colour, the colour its streets are about to be drawn in */
+.map-op-on {
+  border-color: var(--brand, var(--ink-dim));
+  background: color-mix(in srgb, var(--brand, #fff) 14%, transparent);
+  color: var(--ink);
+}
+
+.map-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-dim);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.map-switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.map-switch-track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 12%);
+  transition: background 200ms;
+}
+
+.map-switch-track::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  content: "";
+  transition: transform 220ms cubic-bezier(0.3, 1.4, 0.6, 1), background 200ms;
+}
+
+.map-switch input:checked + .map-switch-track {
+  background: var(--ink);
+}
+
+.map-switch input:checked + .map-switch-track::after {
+  background: var(--ground);
+  transform: translateX(12px);
+}
+
+.map-switch input:focus-visible + .map-switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.map-legend .map-choices-head {
+  margin-bottom: 10px;
+}
+
+.map-legend-bar {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.map-legend-bar span,
+.map-legend-marks span {
+  flex: 1;
+}
+
+.map-legend-marks {
+  display: flex;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-legend-none {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.map-legend-none span {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.map-choices-back {
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.map-choices-back:hover {
+  color: var(--ink);
+}
+
+/* a street or a square, in the menu's place; the button beside the name shuts it */
+
+.map-card {
+  padding: 11px 18px 16px;
+}
+
+.map-card-name {
+  margin: 0;
+  padding-right: 40px;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.map-card-where {
+  margin: 3px 0 0;
+  padding-right: 40px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.map-card-none {
+  margin: 12px 0 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.map-card-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-card-rows li {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  font-size: 11px;
+  padding: 9px 0;
+  border-top: 1px solid var(--rule);
 }
 
-.atlas-measure-name {
-  color: var(--ink-faint);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.map-card-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
 }
 
-.atlas-measure-speed {
-  font-variant-numeric: tabular-nums;
+.map-card-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+
+.map-card-rows b {
+  margin-left: 8px;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.map-card-over {
+  color: var(--ink-faint);
+}
+
+.map-card-unfiled {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+@media (width <= 560px) {
+  .map-search {
+    top: 16px;
+    right: 72px;
+    left: 16px;
+    width: auto;
+  }
+
+  .map-failed {
+    top: 70px;
+    left: 16px;
+  }
+
+  .map-menu {
+    top: 16px;
+    right: 16px;
+  }
+
+  .map-menu-menu,
+  .map-menu-street,
+  .map-menu-cell {
+    width: calc(100vw - 32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-menu,
+  .map-menu-inner,
+  .map-knob-bar {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
 }
 
 /* Nothing filed here. */
@@ -1843,66 +2031,8 @@ body {
 }
 
 /* Who built the line, under the seller's name. */
-.road-infra,
-.atlas-offer-infra {
+.road-infra {
   color: var(--ink-faint);
-}
-
-
-
-/* The per-municipality overlay, a switch and not a choice. */
-.atlas-toggle {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 10px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color var(--settle);
-}
-
-.atlas-toggle:hover {
-  color: var(--ink-dim);
-}
-
-.atlas-toggle input {
-  appearance: none;
-  width: 13px;
-  height: 13px;
-  margin: 0;
-  border: 1px solid var(--rule-lit);
-  border-radius: 3px;
-  background: transparent;
-  cursor: pointer;
-  transition:
-    border-color var(--settle),
-    background var(--settle);
-}
-
-.atlas-toggle input:checked {
-  border-color: color-mix(in srgb, #fff 55%, transparent);
-  background: color-mix(in srgb, #fff 16%, transparent);
-}
-
-/* The tick is drawn in CSS. One glyph doesn't justify an icon font, and a unicode check
- * renders differently on every platform. */
-.atlas-toggle input:checked::after {
-  content: "";
-  display: block;
-  width: 3px;
-  height: 6px;
-  margin: 1px 0 0 4px;
-  border: solid var(--ink);
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
-.atlas-toggle input:focus-visible {
-  outline: 1px solid var(--rule-lit);
-  outline-offset: 2px;
 }
 
 /* The corner link: easy to ignore, visible enough to satisfy the licences. */
