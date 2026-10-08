@@ -15,6 +15,8 @@ import psycopg
 import yaml
 from psycopg.rows import TupleRow
 
+from alert import alert
+from alert.disk import short
 from db.connect import connect
 from probe.adapter import Adapter
 from probe.cosmote import Cosmote
@@ -131,6 +133,11 @@ def main(argv: list[str] | None = None) -> int:
     for verdict in verdicts:
         mark = "ok  " if verdict.passed else "FAIL"
         print(f"  [{mark}] {verdict.canary:18} {verdict.provider:9} {verdict.detail}")
+
+    # once a night is often enough to see a disk filling, and this already runs once a night
+    for line in short():
+        print(f"  [LOW ] disk {line}")
+        alert("The Pi is running out of room", line, urgent=True)
     failed = [v for v in verdicts if not v.passed]
     if failed:
         print(f"  {len(failed)} of {len(verdicts)} canaries failed")

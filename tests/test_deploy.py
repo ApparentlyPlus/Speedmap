@@ -23,7 +23,8 @@ SERVICES = sorted(DEPLOY.glob("*.service"))
 
 def parsed(path: Path) -> configparser.ConfigParser:
     # units allow a key more than once, and ExecStart repeats to run steps in order
-    unit = configparser.ConfigParser(strict=False)
+    # and % is systemd's (%n, %i), not ConfigParser's
+    unit = configparser.ConfigParser(strict=False, interpolation=None)
     unit.optionxform = str  # type: ignore[method-assign, assignment]
     unit.read_string(path.read_text(encoding="utf-8"))
     return unit
@@ -139,3 +140,22 @@ def test_nothing_is_loaded_from_anywhere_else() -> None:
     policy = next(line for line in caddyfile().splitlines() if "Content-Security-Policy" in line)
     assert "default-src 'self'" in policy
     assert "http://" not in policy
+
+
+@pytest.mark.parametrize("path", sorted(p for p in DEPLOY.glob("*.service") if "@" not in p.name), ids=lambda p: p.name)
+def test_a_failure_reaches_the_owner(path: Path) -> None:
+    """Every unit pushes its failures to the owner's phone. Nobody reads the Pi's journal."""
+    assert parsed(path)["Unit"]["OnFailure"] == "speedmap-alert@%n.service"
+
+
+def test_the_alert_unit_can_read_the_log_it_sends() -> None:
+    unit = parsed(DEPLOY / "speedmap-alert@.service")["Service"]
+    assert "-m alert --failed %i" in unit["ExecStart"]
+    assert unit["SupplementaryGroups"] == "systemd-journal"
+
+
+@pytest.mark.parametrize("name", ["speedmap-register.service", "speedmap-ookla.service"])
+def test_new_data_is_recut_into_the_map(name: str) -> None:
+    """The last step after loading is cutting the tiles Caddy serves, so the map can't lag."""
+    steps = [line for line in (DEPLOY / name).read_text().splitlines() if line.startswith("ExecStart=")]
+    assert steps[-1].endswith("-m publish.run --out /srv/speedmap/tiles/speedmap.pmtiles")
