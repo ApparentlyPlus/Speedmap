@@ -1303,7 +1303,7 @@ body {
   filter: invert(1);
 }
 
-/* Its double tap resets the camera; the browser would otherwise take it as a page zoom. */
+/* Its double tap resets the camera, which the browser would otherwise take as a page zoom. */
 .atlas-tilt {
   touch-action: manipulation;
 }
@@ -1544,8 +1544,6 @@ body {
   transform: translateY(-6px) rotate(-45deg);
 }
 
-/* inside the menu */
-
 .map-choices {
   display: flex;
   flex-direction: column;
@@ -1737,7 +1735,7 @@ body {
   color: var(--ink);
 }
 
-/* a street or a square, in the menu's place; the button beside the name shuts it */
+/* a street or a square, shown where the menu was. The button beside its name shuts it */
 
 .map-card {
   padding: 11px 18px 16px;

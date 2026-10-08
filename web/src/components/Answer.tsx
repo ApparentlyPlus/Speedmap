@@ -35,7 +35,6 @@ export function Answer({
   readonly onBack: () => void;
   /** The first answer isn't coming. Without this the panel waited for it forever. */
   readonly failed?: boolean;
-  /** What a report from this screen is about. */
   readonly addressId: number;
 }): React.ReactElement {
   const text = strings(language);
