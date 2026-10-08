@@ -62,14 +62,28 @@ speedmap.gr {
 	}
 
 	log {
-		output file /var/log/caddy/speedmap.log
+		# Two weeks is enough to look into a fault or an abuse; the privacy page promises it.
+		output file /var/log/caddy/speedmap.log {
+			roll_keep_for 336h
+		}
 		# The query string holds what people searched for, which is a street they live on, so
-		# q is dropped before the line is written. It used to be logged whole.
+		# q is dropped before the line is written. It used to be logged whole. The path still
+		# names the address someone opened, so the IP beside it loses its last part: enough to
+		# see one network hammering us, not enough to point at a house.
 		format filter {
 			fields {
 				request>uri query {
 					delete q
 				}
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>headers>X-Forwarded-For delete
 			}
 			wrap json
 		}
