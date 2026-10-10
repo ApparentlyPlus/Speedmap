@@ -183,32 +183,23 @@ export function Anchored({
     };
   }, []);
 
-  // a late-arriving address is a move, not a rebuild
+  /**
+   * The descent and the turn, once there's somewhere to go. The light runs along the street when
+   * we hold it. A door we couldn't pin to a street (a third of them, mostly names the register
+   * and the map spell differently) still gets the fall and the turn, around the door itself: it
+   * used to get a 1.2 s ease to street zoom and then sat still, which read as broken.
+   */
   useEffect(() => {
     const map = mapRef.current;
-    if (map === null || lon === null || lat === null) return;
-    if (here.current !== null) return;
-    here.current = [lon, lat];
-    /**
-     * With a street, skip the door. Both come from one response, and the effect below frames
-     * the whole road. Flying to the door first meant one 1.2 s climb to one pitch and then a cut
-     * to another. An address with no street still gets this move.
-     */
-    if (shape !== null && shape !== undefined) return;
-    map.easeTo({ center: [lon, lat], zoom: ZOOM, pitch: PITCH, duration: 1200 });
-  }, [lon, lat, shape]);
-
-  /** The light runs once the street is known and goes with it. */
-  useEffect(() => {
-    const map = mapRef.current;
-    if (map === null || shape === null || shape === undefined) return;
+    if (map === null) return;
+    const door: [number, number] | null = lon !== null && lat !== null ? [lon, lat] : null;
     let running = 0;
     let stopped = false; // the map can be removed from under us
     let turning = false; // set once the camera lands, so the turn can start
     let last = 0;
 
-    const path = pathOf(shape);
-    if (path === null) return;
+    const path = shape === null || shape === undefined ? null : pathOf(shape);
+    if (path === null && door === null) return;
 
     const reduced = stillness();
 
@@ -292,7 +283,7 @@ export function Anchored({
       };
       map.on("sourcedata", onSourceData);
 
-      if (streetId !== null && streetId !== undefined && map.getLayer(SUBJECT) === undefined) {
+      if (path !== null && streetId !== null && streetId !== undefined && map.getLayer(SUBJECT) === undefined) {
         map.addLayer(
           {
             id: SUBJECT,
@@ -314,17 +305,43 @@ export function Anchored({
         );
       }
 
-      for (const layer of traceLayers()) map.addLayer(layer, under);
-      // set once, the light moves but never dims
-      for (const [layer, opacity] of traceOpacity()) {
-        map.setPaintProperty(layer, "line-opacity", opacity);
+      if (path !== null) {
+        for (const layer of traceLayers()) map.addLayer(layer, under);
+        // set once, the light moves but never dims
+        for (const [layer, opacity] of traceOpacity()) {
+          map.setPaintProperty(layer, "line-opacity", opacity);
+        }
       }
 
       /**
        * Frame the street. A fixed zoom on the door shows a building and 100 m of road, and the
        * light spends most of its pass off screen.
        */
-      const extent = focusOf(shape);
+      const extent = shape === null || shape === undefined ? null : focusOf(shape);
+      const descend = (center: [number, number], zoom: number): void => {
+        /**
+         * One continuous fall from the country to the street, eased at both ends, and the turn
+         * starts where it lands. It used to be two moves (1.2 s to the midpoint at a fixed zoom,
+         * then 1.6 s to the real frame at another pitch), and the camera lurched twice. Cutting
+         * straight to the frame fixed that and lost the sense of where in Greece the street was.
+         */
+        map.flyTo({
+          center,
+          zoom,
+          pitch: TILT,
+          bearing: 0,
+          curve: DESCENT_CURVE,
+          easing: SMOOTH,
+          // reduced motion: arrive, don't fly
+          duration: reduced ? 0 : DESCENT_MS,
+        });
+        map.once("moveend", () => {
+          turning = true;
+          arrived = true;
+          landed();
+        });
+      };
+      if (extent === null && door !== null) descend(door, ZOOM);
       if (extent !== null) {
         // However far out that is. One name can be 30 km of rural road, and then that's the answer.
         //
@@ -345,29 +362,9 @@ export function Anchored({
         ];
 
         if (camera !== undefined && camera.zoom !== undefined) {
-          /**
-           * One continuous fall from the country to the street, eased at both ends, and the turn
-           * starts where it lands. It used to be two moves (1.2 s to the midpoint at a fixed zoom,
-           * then 1.6 s to the real frame at another pitch), and the camera lurched twice. Cutting
-           * straight to the frame fixed that and lost the sense of where in Greece the street was.
-           */
-          map.flyTo({
-            center: middle,
-            // Room for the tilt. The fit is computed flat, and a tilted camera throws the far half
-            // of the view up and off the top.
-            zoom: (camera.zoom ?? CLOSEST) - PITCH_ROOM,
-            pitch: TILT,
-            bearing: 0,
-            curve: DESCENT_CURVE,
-            easing: SMOOTH,
-            // reduced motion: arrive, don't fly
-            duration: reduced ? 0 : DESCENT_MS,
-          });
-          map.once("moveend", () => {
-            turning = true;
-            arrived = true;
-            landed();
-          });
+          // Room for the tilt. The fit is computed flat, and a tilted camera throws the far half
+          // of the view up and off the top.
+          descend(middle, (camera.zoom ?? CLOSEST) - PITCH_ROOM);
         }
       }
 
@@ -378,8 +375,6 @@ export function Anchored({
       const frame = (now: number): void => {
         running = requestAnimationFrame(frame);
         if (stopped || !awake) return;
-        const source = map.getSource(TRACE);
-        if (source === undefined || map.getLayer(TRACE) === undefined) return;
 
         // Degrees per second, not per frame, so slow and fast machines turn alike. The turn waits
         // for the tilt to finish.
@@ -388,6 +383,8 @@ export function Anchored({
         }
         last = now;
 
+        const source = map.getSource(TRACE);
+        if (path === null || source === undefined || map.getLayer(TRACE) === undefined) return;
         if (now - painted < TRACE_MS) return;
         painted = now;
         const along = ((now - began) % PASS_MS) / PASS_MS;
@@ -405,7 +402,7 @@ export function Anchored({
       if (reduced) {
         // Reduced motion still gets an answer: the whole street lit, standing still.
         const source = map.getSource(TRACE);
-        if (source !== undefined) {
+        if (path !== null && source !== undefined) {
           (source as maplibregl.GeoJSONSource).setData({
             type: "FeatureCollection",
             features: path.parts.map((line) => ({
