@@ -16,7 +16,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The geo pipeline
 pipeline = [
     "shapely>=2.0",
     "duckdb>=1.1",
@@ -35,15 +34,13 @@ dev = [
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
-# Flat layout: each worker directory is an importable package, so a systemd unit
-# can run `python -m ingest.register` without depending on the working directory.
+# flat layout, so a unit can `python -m ingest.register` from anywhere
 [tool.setuptools.package-data]
 "*" = ["*.sql"]
 
 [tool.setuptools.packages.find]
 exclude = ["tests*", "web*", "schema*", "data*", "tiles*", "bin*", ".venv*"]
 
-# Ruff
 [tool.ruff]
 line-length = 100
 target-version = "py313"

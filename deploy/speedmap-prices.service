@@ -2,6 +2,7 @@
 Description=speedmap.gr refresh the tariff catalogues
 After=network-online.target postgresql.service
 Wants=network-online.target
+OnFailure=speedmap-alert@%n.service
 
 [Service]
 Type=oneshot
@@ -9,7 +10,6 @@ User=speedmap
 WorkingDirectory=/opt/speedmap
 EnvironmentFile=/opt/speedmap/.env
 ExecStart=/opt/speedmap/.venv/bin/python -m prices.load
-# one catalogue failing mustn't empty the others: yesterday's price beats none
 SuccessExitStatus=0
 TimeoutStartSec=30m
 Slice=speedmap.slice

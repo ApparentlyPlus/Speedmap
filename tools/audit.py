@@ -1,7 +1,4 @@
-"""Run the data invariants against a database that has really been built.
-
-`make check` runs them against the empty test fixture, which proves something different.
-"""
+"""Run the data invariants against a real built database (make check only sees the empty fixture)."""
 
 from __future__ import annotations
 
@@ -9,19 +6,11 @@ import argparse
 import sys
 from pathlib import Path
 
-import psycopg
-from psycopg.rows import TupleRow
-
 from db.connect import connect
 
 INVARIANTS = Path(__file__).parent.parent / "tests" / "invariants"
 
-# enough rows to recognise a violation, not four thousand of the same shape
 SHOWN = 5
-
-
-def check(conn: psycopg.Connection[TupleRow], path: Path) -> list[TupleRow]:
-    return conn.execute(path.read_text(encoding="utf-8")).fetchall()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     with connect(args.dsn) as conn:
         for path in files:
-            rows = check(conn, path)
+            rows = conn.execute(path.read_text(encoding="utf-8")).fetchall()
             if not rows:
                 print(f"  ok    {path.stem}")
                 continue

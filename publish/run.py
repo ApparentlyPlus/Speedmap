@@ -1,10 +1,4 @@
-"""Build the map tiles, and move them into place only once complete.
-
-Two archives, each a single file a web server can range-request: no tile server, no directory
-of a million small files. Streets and municipalities go in one, measured squares in the other.
-The map draws squares or streets, never both, so a shared archive had every zoom out fetching
-squares nobody was looking at: at zoom 5, 679 kB of a 1.7 MB tile.
-"""
+"""Cut the map tiles: streets and municipalities in one archive, measured squares in another."""
 
 from __future__ import annotations
 
@@ -23,30 +17,24 @@ from psycopg.rows import TupleRow
 from db.settings import settings
 from publish import features, fields
 
-# no reachable zoom may be empty
-MIN_ZOOM = 4
+MIN_ZOOM = 4  # no reachable zoom may be empty
 MAX_ZOOM = 14
 
-# Streets are what the map is for, so they're never dropped to save room. Coarse zooms
-# coalesce them instead.
-STREET_RULES = ("--drop-densest-as-needed", "--coalesce-densest-as-needed")
+# tippecanoe flags apply to the whole archive, not the layer they follow
+COVERAGE_RULES = ("--no-feature-limit",)  # never drop a street
+OVERVIEW_RULES = ("--coalesce",)  # only overview streets have identical neighbours
 CELL_RULES = ("--drop-densest-as-needed",)
 
-# 333 polygons, the only thing drawn at zooms where the whole country fits
-REGION_RULES = ("--no-feature-limit", "--no-tile-size-limit")
-
-# Where regions stop, because streets have taken over. web/src/map/style.ts fades them out
-# at the same zoom.
-REGIONS_STOP = 10
+REGIONS_STOP = 10  # style.ts fades them out at the same zoom
 FILTER = json.dumps({fields.REGIONS_LAYER: ["<=", "$zoom", REGIONS_STOP]})
 
-# Measured squares, in an archive of their own. MapLibre doesn't fetch a source no visible
-# layer reads, so the coverage map downloads none of them.
+# 2^10 per tile edge below DETAIL_FROM, still 2 per pixel
+LOW_DETAIL = 10
+
 CELLS_ARCHIVE = "cells.pmtiles"
 
 
 def tool(name: str) -> str:
-    """Path to a build tool, or an exit saying which one is missing."""
     vendored = pathlib.Path(__file__).resolve().parent.parent / "bin" / name
     if vendored.is_file():
         return str(vendored)
@@ -59,24 +47,19 @@ def tool(name: str) -> str:
     return found
 
 
-def layer(name: str, path: pathlib.Path, rules: tuple[str, ...]) -> list[str]:
-    return [
-        "--named-layer", f"{name}:{path}",
-        *rules,
-    ]
+def layer(name: str, path: pathlib.Path) -> list[str]:
+    return ["--named-layer", f"{name}:{path}"]
 
 
-def cut(staged: pathlib.Path, layers: list[str], rules: list[str]) -> subprocess.Popen[bytes]:
-    """One tippecanoe run, one archive. Returns the running process."""
+def cut(staged: pathlib.Path, layers: list[str], rules: list[str],
+        zooms: tuple[int, int] = (MIN_ZOOM, MAX_ZOOM)) -> subprocess.Popen[bytes]:
     return subprocess.Popen(
         [
             tool("tippecanoe"),
             "--output", str(staged),
-            "--minimum-zoom", str(MIN_ZOOM),
-            "--maximum-zoom", str(MAX_ZOOM),
-            # Attributes are the contract, so tippecanoe may not drop any it thinks are dull,
-            # which it otherwise does to save room.
-            "--no-tile-size-limit",
+            "--minimum-zoom", str(zooms[0]),
+            "--maximum-zoom", str(zooms[1]),
+            "--no-tile-size-limit",  # or it drops attributes, which are the contract
             "--preserve-input-order",
             *layers,
             *rules,
@@ -85,62 +68,82 @@ def cut(staged: pathlib.Path, layers: list[str], rules: list[str]) -> subprocess
 
 
 def finish(*runs: subprocess.Popen[bytes]) -> None:
-    """Wait for every cut, failing if any did."""
-    failed = [run for run in runs if run.wait() != 0]
+    failed = [r for r in runs if r.wait() != 0]
     if failed:
         raise subprocess.CalledProcessError(failed[0].returncode, failed[0].args)
 
 
 def build(out: pathlib.Path, work: pathlib.Path) -> None:
-    """Cut the two archives."""
     streets = work / "streets.geojsonl"
+    overview = work / "streets_overview.geojsonl"
     cells = work / "cells.geojsonl"
     regions = work / "regions.geojsonl"
 
-    # Each layer on its own connection, all four at once. They share nothing, and run one
-    # after another the streets sat waiting on the cells.
-    def export(
-        layer: Callable[[psycopg.Connection[TupleRow], pathlib.Path], int],
-        path: pathlib.Path,
-    ) -> int:
+    # a connection per layer, all at once
+    def export(layer: Callable[[psycopg.Connection[TupleRow], pathlib.Path], int], path: pathlib.Path) -> int:
         with psycopg.connect(settings.dsn) as conn:
             return layer(conn, path)
 
-    # beside the archive: it's one shape, wanted before the first tile arrives
     edge = out.parent / "greece.json"
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         made = {
             name: pool.submit(export, layer, path)
             for name, layer, path in (
                 ("streets", features.streets, streets),
+                ("overview", features.streets_overview, overview),
                 ("cells", features.cells, cells),
                 ("regions", features.regions, regions),
                 ("outline", features.outline, edge),
             )
         }
         print(f"streets: {made['streets'].result()} features")
+        print(f"overview: {made['overview'].result()} features")
         print(f"cells:   {made['cells'].result()} features")
         print(f"regions: {made['regions'].result()} features")
         print(f"outline: {made['outline'].result() / 1_000_000:.1f} MB -> {edge}")
 
-    # The two archives share nothing, so they're cut at once. Same inputs and flags each, so
-    # the same two archives.
-    coverage = work / "coverage.pmtiles"
-    streets_cut = cut(
-        coverage,
-        [
-            *layer(fields.STREETS_LAYER, streets, STREET_RULES),
-            *layer(fields.REGIONS_LAYER, regions, REGION_RULES),
-        ],
-        ["--feature-filter", FILTER],
+    # tippecanoe has one detail setting below the top zoom, so cut coarse and fine apart and join
+    split = features.DETAIL_FROM
+    coarse = work / "coarse.pmtiles"
+    fine = work / "fine.pmtiles"
+    measured = work / "measured.pmtiles"
+    finish(
+        cut(
+            coarse,
+            [
+                *layer(fields.STREETS_LAYER, overview),  # same name as the fine streets
+                *layer(fields.REGIONS_LAYER, regions),
+            ],
+            [
+                *COVERAGE_RULES, *OVERVIEW_RULES,
+                "--feature-filter", FILTER,
+                "--low-detail", str(LOW_DETAIL), "--full-detail", str(LOW_DETAIL),
+            ],
+            (MIN_ZOOM, split - 1),
+        ),
+        cut(
+            fine,
+            [
+                *layer(fields.STREETS_LAYER, streets),
+                *layer(fields.REGIONS_LAYER, regions),
+            ],
+            [*COVERAGE_RULES, "--feature-filter", FILTER],
+            (split, MAX_ZOOM),
+        ),
+        cut(measured, layer(fields.CELLS_LAYER, cells), list(CELL_RULES)),
     )
 
-    measured = work / "measured.pmtiles"
-    cells_cut = cut(measured, layer(fields.CELLS_LAYER, cells, CELL_RULES), [])
-    finish(streets_cut, cells_cut)
+    coverage = work / "coverage.pmtiles"
+    subprocess.run(
+        [
+            tool("tile-join"), "--quiet", "--no-tile-size-limit",
+            "--output", str(coverage), str(coarse), str(fine),
+        ],
+        check=True,
+    )
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    # atomic within one filesystem, which is why the work directory sits beside the output
+    # work dir sits beside the output so this is an atomic rename
     for staged, name in ((coverage, out), (measured, out.parent / CELLS_ARCHIVE)):
         staged.replace(name)
         print(f"wrote {name} ({name.stat().st_size / 1_000_000:.1f} MB)")
@@ -148,15 +151,13 @@ def build(out: pathlib.Path, work: pathlib.Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--out", type=pathlib.Path, default=pathlib.Path("tiles/speedmap.pmtiles"),
-        help="where the archive lands",
-    )
-    asked = parser.parse_args()
+    parser.add_argument("--out", type=pathlib.Path, default=pathlib.Path("tiles/speedmap.pmtiles"),
+                        help="where the archive lands")
+    args = parser.parse_args()
 
-    asked.out.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=asked.out.parent, prefix="publish.") as work:
-        build(asked.out, pathlib.Path(work))
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=args.out.parent, prefix="publish.") as work:
+        build(args.out, pathlib.Path(work))
     return 0
 
 

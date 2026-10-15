@@ -1,4 +1,4 @@
-/** Which picture to draw for an offer. */
+// which picture to draw for an offer
 
 import type { Mode } from "./house3d";
 

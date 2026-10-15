@@ -1,4 +1,4 @@
-"""Generated from schema/tiles.yaml. Do not edit; edit the schema and regenerate."""
+"""Generated from schema/tiles.yaml. Edit the schema and regenerate, never this file."""
 
 from __future__ import annotations
 
@@ -6,9 +6,7 @@ from typing import Final
 
 VERSION: Final = 1
 
-# One feature per street, carrying the best each operator reaches on it. Painted by
-# best_mbps and filtered by the per-operator fields, which is why both exist: a filter over
-# a single best paints a street in one operator's colour while claiming another's.
+# One feature per street. Painted by best_mbps, filtered by the per-operator fields.
 STREETS_LAYER: Final = "streets"
 STREETS_FIELDS: Final = (
     "id",
@@ -27,9 +25,7 @@ STREETS_FIELDS: Final = (
     "p_netfiber",
 )
 
-# The operator each per-operator field belongs to. The builder pivots the
-# provider table through this, so an operator with no field here is not
-# written rather than written under a guessed name.
+# operator code -> field, an operator missing here isn't written
 STREETS_BY_PROVIDER: Final[dict[str, str]] = {
     "TELEKOM": "p_telekom",
     "VODAFONE": "p_vodafone",
@@ -44,9 +40,7 @@ STREETS_BY_PROVIDER: Final[dict[str, str]] = {
     "NETFIBER": "p_netfiber",
 }
 
-# The operators here who retail nothing to a household: wholesale builders,
-# and anyone who files services and publishes no tariff. Drawn like the rest
-# and listed apart, because they are not a supplier anyone can choose.
+# drawn but listed apart, nobody can buy from them directly
 STREETS_INFRASTRUCTURE: Final[tuple[str, ...]] = (
     "METADOSIS",
     "FIBERGRID",
@@ -56,7 +50,9 @@ STREETS_INFRASTRUCTURE: Final[tuple[str, ...]] = (
 )
 
 STREETS_NULLABLE: Final = (
+    "id",
     "best_mbps",
+    "nprov",
     "p_telekom",
     "p_vodafone",
     "p_nova",
@@ -70,11 +66,8 @@ STREETS_NULLABLE: Final = (
     "p_netfiber",
 )
 
-# One feature per municipality, for the zooms where a street is a fraction of a pixel. A map
-# with no basemap and nothing drawn at low zoom is a black rectangle telling the reader to
-# zoom in, somewhere, with no clue where — so the country has to have a shape before it has
-# streets. Fiber rather than the fastest anything: the fastest anything is 5G, which reaches
-# nearly every address, and a map of it is one colour.
+# One feature per municipality, for the low zooms. Painted by fiber share, since 5G reaches
+# nearly everywhere and would make it one colour.
 REGIONS_LAYER: Final = "regions"
 REGIONS_FIELDS: Final = (
     "id",
@@ -97,10 +90,8 @@ REGIONS_NULLABLE: Final = (
     "mobile_tests",
 )
 
-# One feature per Ookla tile that has ever been tested, drawn as the square that was
-# measured rather than the centroid they publish. About 600 m across, and only a few per
-# cent of the country has any at all, so an empty view is the normal case and must never be
-# rendered as a failure.
+# One square per tested Ookla tile, ~600 m across. Most of the country has none, so an empty
+# view is normal.
 CELLS_LAYER: Final = "cells"
 CELLS_FIELDS: Final = (
     "quadkey",
@@ -118,3 +109,18 @@ LAYERS: Final = (
     "regions",
     "cells",
 )
+
+# archive -> layer -> fields the style reads, for tools/slim_basemap.py
+BASEMAP: Final[dict[str, dict[str, tuple[str, ...]]]] = {
+    "greece.pmtiles": {
+        "landcover": (),
+        "park": (),
+        "water": (),
+        "transportation": ("class",),
+        "transportation_name": ("name", "name:el"),
+        "place": ("class", "name", "name:el"),
+    },
+    "buildings.pmtiles": {
+        "building": ("height", "num_floors", "min_height"),
+    },
+}

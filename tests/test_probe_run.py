@@ -1,5 +1,3 @@
-"""Asking the operators, and keeping only what is worth keeping."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -11,7 +9,8 @@ import pytest
 from psycopg.rows import TupleRow
 
 from probe.adapter import Offer, Probed
-from probe.run import Reply, best, due, store
+from probe.health import BLOCKED, health
+from probe.run import LONGEST_REST, PER_MINUTE, REST, Reply, best, crowded, due, resting, store
 from probe.ttl import CHANGING, SETTLED, VOLATILE
 
 NOW = datetime(2026, 9, 10, 12, 0, tzinfo=UTC)
@@ -36,43 +35,47 @@ def reply(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[Tuple
     db.commit()
 
 
-def result(*offers: Offer, serviceable: bool = True, conclusive: bool = True) -> Probed:
+def _result(*offers: Offer, serviceable: bool = True, conclusive: bool = True) -> Probed:
     return Probed(serviceable=serviceable, offers=offers, conclusive=conclusive)
 
 
-def offer(technology: str, mbps: int | None) -> Offer:
-    return Offer(technology=technology,
-                 max_down_mbps=None if mbps is None else Decimal(mbps))
+def _offer(technology: str, mbps: int | None) -> Offer:
+    return Offer(technology=technology, max_down_mbps=None if mbps is None else Decimal(mbps))
 
 
-def rows(conn: psycopg.Connection[TupleRow], table: str) -> int:
+def _count(conn: psycopg.Connection[TupleRow], table: str) -> int:
     found = conn.execute(f"select count(*) from {table}").fetchone()
     assert found is not None
     return int(found[0])
 
 
-def test_the_fastest_offer_sets_the_lifetime() -> None:
-    """A gigabit among the offers makes the whole answer a settled one."""
-    assert best(result(offer("ADSL", 24), offer("FTTH", 1000))) == Decimal(1000)
-    assert best(result(offer("FWA", None))) is None
-    assert best(result()) is None
+def _clear(conn: psycopg.Connection[TupleRow]) -> None:
+    conn.execute("truncate probe_attempt, availability")
+    conn.commit()
 
 
-def test_an_answer_is_kept_for_as_long_as_it_is_worth(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    written = store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW)
-    assert written == 1
-    row = reply.execute("select expires_at - observed_at from availability").fetchone()
-    assert row == (SETTLED,)
+def _blocked(conn: psycopg.Connection[TupleRow], at: datetime, wall: str | None = "Imperva") -> None:
+    store(conn, 1, Reply("TELEKOM", None, error="blocked", blocked=wall), at)
 
 
-def test_a_slow_answer_is_asked_again_sooner(reply: psycopg.Connection[TupleRow]) -> None:
-    store(reply, 1, Reply("TELEKOM", result(offer("VDSL", 50))), NOW)
-    row = reply.execute("select expires_at - observed_at from availability").fetchone()
-    assert row == (VOLATILE,)
+GIGABIT = Reply("TELEKOM", _result(_offer("FTTH", 1000)))
 
-    store(reply, 1, Reply("VODAFONE", result(offer("VECT_VDSL", 100))), NOW)
+
+def test_best() -> None:
+    assert best(_result(_offer("ADSL", 24), _offer("FTTH", 1000))) == Decimal(1000)
+    assert best(_result(_offer("FWA", None))) is None
+    assert best(_result()) is None
+
+
+def test_store_ttl(reply: psycopg.Connection[TupleRow]) -> None:
+    assert store(reply, 1, GIGABIT, NOW) == 1
+    assert reply.execute("select expires_at - observed_at from availability").fetchone() == (SETTLED,)
+
+    _clear(reply)
+    store(reply, 1, Reply("TELEKOM", _result(_offer("VDSL", 50))), NOW)
+    assert reply.execute("select expires_at - observed_at from availability").fetchone() == (VOLATILE,)
+
+    store(reply, 1, Reply("VODAFONE", _result(_offer("VECT_VDSL", 100))), NOW)
     row = reply.execute(
         "select expires_at - observed_at from availability v join provider p "
         "on p.id = v.provider_id where p.code = 'VODAFONE'"
@@ -80,80 +83,101 @@ def test_a_slow_answer_is_asked_again_sooner(reply: psycopg.Connection[TupleRow]
     assert row == (CHANGING,)
 
 
-def test_a_failure_is_recorded_as_a_failure_and_nothing_else(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    """A checker that could not be reached has not said an address is unserved."""
+def test_store_failed(reply: psycopg.Connection[TupleRow]) -> None:
+    # unreachable isn't unserved
     assert store(reply, 1, Reply("TELEKOM", None, error="timed out"), NOW) == 0
-    assert rows(reply, "availability") == 0
-    row = reply.execute("select ok, serviceable, detail from probe_attempt").fetchone()
-    assert row == (False, None, "timed out")
+    assert _count(reply, "availability") == 0
+    assert reply.execute("select ok, serviceable, detail from probe_attempt").fetchone() == (False, None, "timed out")
 
-
-def test_an_address_we_cannot_spell_is_not_the_operator_failing(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    """Recorded, and not counted against them. See migration 0057.
-
-    Both adapters that want an address in words want their own spelling of it, and we hold
-    that for 43% of streets, Πατησίων is not among them.
-    """
+    # our gap, not theirs (migration 0057). We hold their spelling for 43% of streets
+    _clear(reply)
     gap = Reply("NOVA", None, error="no spelling recorded for ΠΑΤΗΣΙΩΝ", askable=False)
     assert store(reply, 1, gap, NOW) == 0
     row = reply.execute("select ok, askable, detail from probe_attempt").fetchone()
     assert row == (False, False, "no spelling recorded for ΠΑΤΗΣΙΩΝ")
 
-
-def test_a_real_failure_is_still_theirs(reply: psycopg.Connection[TupleRow]) -> None:
-    """The default stays askable, so nothing that was counted before stops being counted."""
+    _clear(reply)
     assert store(reply, 1, Reply("VODAFONE", None, error="qualification returned 500"), NOW) == 0
     assert reply.execute("select ok, askable from probe_attempt").fetchone() == (False, True)
 
-
-def test_being_told_to_investigate_is_not_an_answer_either(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    assert store(reply, 1, Reply("TELEKOM", result(conclusive=False, serviceable=False)), NOW) == 0
-    assert rows(reply, "availability") == 0
+    _clear(reply)
+    assert store(reply, 1, Reply("TELEKOM", _result(conclusive=False, serviceable=False)), NOW) == 0
+    assert _count(reply, "availability") == 0
     assert reply.execute("select ok from probe_attempt").fetchone() == (False,)
 
-
-def test_an_explicit_refusal_is_an_answer_but_not_an_offer(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    """They were asked and said no, which is worth recording and is not a row of coverage."""
-    assert store(reply, 1, Reply("NOVA", result(serviceable=False)), NOW) == 0
-    assert rows(reply, "availability") == 0
+    # a no is an answer, but not a coverage row
+    _clear(reply)
+    assert store(reply, 1, Reply("NOVA", _result(serviceable=False)), NOW) == 0
+    assert _count(reply, "availability") == 0
     assert reply.execute("select ok, serviceable from probe_attempt").fetchone() == (True, False)
 
 
-def test_a_broken_checker_is_left_alone_for_a_few_hours(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    """Asking it on every request is how a rate limit becomes a ban."""
+def test_due(reply: psycopg.Connection[TupleRow]) -> None:
+    assert due(reply, 1, "TELEKOM", NOW) is True
+
     store(reply, 1, Reply("TELEKOM", None, error="503"), NOW)
     reply.commit()
     assert due(reply, 1, "TELEKOM", NOW + timedelta(hours=1)) is False
     assert due(reply, 1, "TELEKOM", NOW + timedelta(hours=7)) is True
 
-
-def test_an_operator_that_answered_may_be_asked_again(
-    reply: psycopg.Connection[TupleRow],
-) -> None:
-    """The backoff is for failure. A real answer is governed by its own lifetime."""
-    store(reply, 1, Reply("TELEKOM", result(offer("FTTH", 1000))), NOW)
+    _clear(reply)
+    store(reply, 1, GIGABIT, NOW)
     reply.commit()
     assert due(reply, 1, "TELEKOM", NOW + timedelta(minutes=1)) is True
 
-
-def test_an_operator_never_asked_is_due(reply: psycopg.Connection[TupleRow]) -> None:
-    assert due(reply, 1, "TELEKOM", NOW) is True
-
-
-def test_a_refusal_is_remembered_for_a_month(reply: psycopg.Connection[TupleRow]) -> None:
-    """It leaves no row in availability to expire, so nothing else would ever stop us
-    asking again on every visit to the address."""
-    store(reply, 1, Reply("NOVA", result(serviceable=False)), NOW)
+    # a no leaves nothing in availability to expire
+    store(reply, 1, Reply("NOVA", _result(serviceable=False)), NOW)
     reply.commit()
     assert due(reply, 1, "NOVA", NOW + timedelta(days=7)) is False
     assert due(reply, 1, "NOVA", NOW + timedelta(days=31)) is True
+
+
+def test_resting(reply: psycopg.Connection[TupleRow]) -> None:
+    _blocked(reply, NOW)
+    assert resting(reply, "TELEKOM", NOW + timedelta(minutes=10)) == NOW + REST
+    assert resting(reply, "TELEKOM", NOW + REST + timedelta(seconds=1)) is None
+
+    _clear(reply)
+    for i in range(3):
+        _blocked(reply, NOW + timedelta(hours=i))
+    last = NOW + timedelta(hours=2)
+    assert resting(reply, "TELEKOM", last) == last + REST * 4
+
+    _clear(reply)
+    for i in range(8):
+        _blocked(reply, NOW + timedelta(days=i))
+    last = NOW + timedelta(days=7)
+    assert resting(reply, "TELEKOM", last) == last + LONGEST_REST
+
+    _clear(reply)
+    _blocked(reply, NOW)
+    store(reply, 1, GIGABIT, NOW + timedelta(minutes=1))
+    assert resting(reply, "TELEKOM", NOW + timedelta(minutes=2)) is None
+
+    _clear(reply)
+    _blocked(reply, NOW, "Cloudflare")
+    assert reply.execute("select ok, blocked from probe_attempt").fetchone() == (False, "Cloudflare")
+
+
+def test_crowded(reply: psycopg.Connection[TupleRow]) -> None:
+    for i in range(PER_MINUTE):
+        store(reply, 1, Reply("TELEKOM", None, error="timeout"), NOW - timedelta(seconds=i))
+    assert crowded(reply, "TELEKOM", NOW)
+    assert not crowded(reply, "TELEKOM", NOW + timedelta(minutes=2))
+
+
+def test_block_alerts(reply: psycopg.Connection[TupleRow], monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr("probe.run.alert_later", lambda title, message, urgent=False: sent.append(title))
+    _blocked(reply, NOW)
+    _blocked(reply, NOW + timedelta(hours=1))
+    store(reply, 1, GIGABIT, NOW + timedelta(hours=2))
+    store(reply, 1, GIGABIT, NOW + timedelta(hours=3))
+    assert sent == ["TELEKOM is blocking us", "TELEKOM is answering again"]
+
+
+def test_block_health(reply: psycopg.Connection[TupleRow]) -> None:
+    _blocked(reply, NOW)
+    states = health(reply, ["TELEKOM"], NOW + timedelta(minutes=5))
+    assert states["TELEKOM"].state == BLOCKED
+    assert states["TELEKOM"].says == "blocked by Imperva, asked again after 12:30 UTC"

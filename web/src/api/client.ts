@@ -1,4 +1,4 @@
-/** The API. Response shapes come from its own OpenAPI schema, never declared here. */
+// response types come from the OpenAPI schema
 
 import type { components } from "./schema";
 
@@ -9,8 +9,10 @@ export type Operator = components["schemas"]["Operator"];
 export type Probed = components["schemas"]["Probed"];
 export type StreetDetail = components["schemas"]["StreetDetail"];
 export type AddressDetail = components["schemas"]["AddressDetail"];
+export type ReportIn = components["schemas"]["ReportIn"];
+export type Report = components["schemas"]["Report"];
 
-/** Same origin behind Caddy in production, proxied the same way in development. */
+// same origin, proxied the same way in dev
 const BASE = "/api";
 
 export class ApiError extends Error {
@@ -68,7 +70,6 @@ export function options(addressId: number, signal?: AbortSignal): Promise<Option
   return get<Options>(`/addresses/${addressId}/options`, signal);
 }
 
-/** Ask one operator. */
 export function probe(
   addressId: number,
   provider: string,
@@ -78,10 +79,7 @@ export function probe(
   return send<Probed[]>("POST", where, signal);
 }
 
-/**
- * Make an address the register never filed, on a street it did. A known street with an
- * unknown door is the common case.
- */
+// make an unfiled door on a known street, the common case
 export function askFor(
   streetId: number,
   streetNo: string,
@@ -93,6 +91,10 @@ export function askFor(
 }
 
 
+
+export function report(filed: ReportIn, signal?: AbortSignal): Promise<Report> {
+  return send<Report>("POST", "/reports", signal, filed);
+}
 
 export function street(streetId: number, signal?: AbortSignal): Promise<StreetDetail> {
   return get<StreetDetail>(`/streets/${streetId}`, signal);

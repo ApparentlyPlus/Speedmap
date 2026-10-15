@@ -1,7 +1,4 @@
-"""Gather what the decision needs, for one address and each provider that could serve it.
-
-The street is the unit of evidence.
-"""
+"""Inputs to decide.verdict for one address and each provider, with the street as evidence."""
 
 from __future__ import annotations
 
@@ -13,8 +10,7 @@ from psycopg.rows import TupleRow
 
 from probe.decide import Answer, verdict
 
-# The one provider whose checker was walked street by street. Only its silence below a
-# ceiling counts as a refusal. Nobody else was ever asked.
+# the only checker walked street by street, so only its silence counts as a no
 SCANNED_BY = "TELEKOM"
 
 INPUTS = """
@@ -23,15 +19,13 @@ with here as (
            case when street_no ~ '^[0-9]+$' then street_no::int end as street_no
     from address where id = %(address_id)s
 ),
--- Whose presence on a street lets a seller offer it: its own, plus every network it resells
--- over. A seller with no wholesale deal reaches only itself.
+-- a seller's own network plus whatever it resells over
 reach as (
     select id as seller_id, id as infra_id from provider
     union
     select seller_id, infra_id from wholesale
 ),
--- Doors on this street by 065's pin, so fiber on a same-named road across town isn't
--- evidence here. By name only when there's no pin.
+-- by 065's pin, by name only if there's none
 neighbours as (
     select a.id from address a, here h
     where h.street_id is not null and a.street_id = h.street_id
@@ -63,8 +57,7 @@ left join lateral (
     select bool_or(v.serviceable) as serviceable, max(v.expires_at) as expires_at
     from availability v where v.address_id = h.id and v.provider_id = p.id
 ) ans on true
--- What they last said when asked. availability can't record a refusal, since it holds
--- offers and a refusal has none.
+-- refusals only live in probe_attempt
 left join lateral (
     select a.serviceable
     from probe_attempt a
@@ -81,33 +74,15 @@ order by p.code
 """
 
 
-def verdicts(
-    conn: psycopg.Connection[TupleRow],
-    address_id: int,
-    providers: list[str],
-    *,
-    now: datetime,
-) -> dict[str, str]:
-    """What each provider's answer for this address rests on, and whether to ask them."""
-    rows = conn.execute(
-        INPUTS,
-        {"address_id": address_id, "providers": providers, "scanned_by": SCANNED_BY},
-    ).fetchall()
-
-    verdicts: dict[str, str] = {}
-    for code, serviceable, expires_at, refused, street_no, checked_to, fiber, best in rows:
-        answer = (
-            Answer(serviceable=serviceable, expires_at=expires_at)
-            if expires_at is not None
-            else None
-        )
-        verdicts[str(code)] = verdict(
-            answer,
-            now=now,
-            street_no=street_no,
-            checked_to=checked_to,
+def verdicts(conn: psycopg.Connection[TupleRow], address_id: int, providers: list[str], *,
+             now: datetime) -> dict[str, str]:
+    rows = conn.execute(INPUTS, {"address_id": address_id, "providers": providers, "scanned_by": SCANNED_BY}).fetchall()
+    out: dict[str, str] = {}
+    for code, serviceable, expires_at, refused, no, checked_to, fiber, best in rows:
+        answer = Answer(serviceable=serviceable, expires_at=expires_at) if expires_at is not None else None
+        out[str(code)] = verdict(
+            answer, now=now, street_no=no, checked_to=checked_to,
             street_best_mbps=Decimal(best) if best is not None else None,
-            street_fiber=bool(fiber),
-            refused=bool(refused),
+            street_fiber=bool(fiber), refused=bool(refused),
         )
-    return verdicts
+    return out

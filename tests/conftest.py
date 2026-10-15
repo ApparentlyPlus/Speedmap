@@ -1,5 +1,4 @@
-"""A scratch database, rebuilt from the migrations once per session."""
-
+# a scratch database, rebuilt from the migrations once per session
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -38,8 +37,7 @@ def db() -> Iterator[psycopg.Connection[TupleRow]]:
 
 @pytest.fixture
 def tx(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow]]:
-    """The session connection, rolled back after the test."""
-    # Rollback cannot undo work that committed itself. Code that commits needs a fixture that truncates instead.
+    # anything that commits needs a fixture that truncates instead
     db.rollback()
     yield db
     db.rollback()
@@ -47,7 +45,6 @@ def tx(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow
 
 @pytest.fixture
 def seeded(tx: psycopg.Connection[TupleRow]) -> psycopg.Connection[TupleRow]:
-    """One provider and one source, enough to hang a coverage row off."""
     tx.execute("insert into provider (code, display_name, kind) values ('TEST', 'Test', 'altnet')")
     tx.execute("insert into source (name, url) values ('test', 'https://example.invalid')")
     return tx

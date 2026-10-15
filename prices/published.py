@@ -1,7 +1,4 @@
-"""Tariffs recorded by hand, for providers with no catalogue an adapter can read.
-
-Vodafone answers with JSON and Nova quotes through an eligibility check, so both are fetched.
-"""
+"""Tariffs recorded by hand from published.yaml, for providers with no readable catalogue."""
 
 from __future__ import annotations
 
@@ -16,7 +13,6 @@ from prices.catalogue import Tariff
 
 PUBLISHED = Path(__file__).parent / "published.yaml"
 
-# technology to family, so a plan lands in the same vocabulary as coverage
 FAMILY = {
     "FTTH": "fiber",
     "DOCSIS": "coax",
@@ -56,27 +52,18 @@ def tariff(plan: dict[str, Any]) -> Tariff:
 
 
 def sections(path: Path = PUBLISHED) -> list[tuple[str, list[Tariff], date]]:
-    """Every recorded page: the provider, its plans, and the day that page was read.
-
-    Providers put lines and airtime on different pages, read on different days, so the date
-    belongs to the page. Pooled by provider, the first page's date landed on every plan.
-    """
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    """(provider, plans, day read) per page."""
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
     return [
-        (
-            # a section is a page, and names the company when it differs from the section name
-            str(entry.get("provider", section)),
-            [tariff(plan) for plan in entry["plans"]],
-            entry["observed_on"],
-        )
-        for section, entry in document.items()
+        (str(entry.get("provider", name)), [tariff(p) for p in entry["plans"]], entry["observed_on"])
+        for name, entry in doc.items()
     ]
 
 
 def load(path: Path = PUBLISHED) -> dict[str, tuple[list[Tariff], date]]:
-    """Every recorded catalogue by provider, with the latest day it was read."""
+    """Plans by provider, with the latest day any of its pages was read."""
     found: dict[str, tuple[list[Tariff], date]] = {}
-    for provider, plans, observed_on in sections(path):
-        held, seen = found.get(provider, ([], observed_on))
-        found[provider] = (held + plans, max(seen, observed_on))
+    for provider, plans, day in sections(path):
+        held, seen = found.get(provider, ([], day))
+        found[provider] = (held + plans, max(seen, day))
     return found

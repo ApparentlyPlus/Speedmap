@@ -1,0 +1,19 @@
+[Unit]
+Description=speedmap.gr tell the owner %i failed
+# OnFailure= of every other unit, pushes the unit and its last log lines to ntfy
+
+[Service]
+Type=oneshot
+User=speedmap
+# to read another unit's log
+SupplementaryGroups=systemd-journal
+WorkingDirectory=/opt/speedmap
+EnvironmentFile=/opt/speedmap/.env
+ExecStart=/opt/speedmap/.venv/bin/python -m alert --failed %i
+TimeoutStartSec=1min
+Slice=speedmap.slice
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes

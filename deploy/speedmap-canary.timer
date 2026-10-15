@@ -2,7 +2,7 @@
 Description=speedmap.gr nightly canary
 
 [Timer]
-# before the sweep, so a night of asking isn't spent on an adapter already known broken
+# before the sweep, so the night isn't spent on a broken adapter
 OnCalendar=*-*-* 02:00:00
 Persistent=true
 RandomizedDelaySec=15m

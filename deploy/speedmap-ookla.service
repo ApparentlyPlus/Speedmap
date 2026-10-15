@@ -2,15 +2,16 @@
 Description=speedmap.gr load the latest quarter of measurements
 After=network-online.target postgresql.service
 Wants=network-online.target
+OnFailure=speedmap-alert@%n.service
 
 [Service]
 Type=oneshot
 User=speedmap
 WorkingDirectory=/opt/speedmap
 EnvironmentFile=/opt/speedmap/.env
-# It looks for the newest published quarter itself, since Ookla publishes some weeks after
-# a quarter ends and the delay varies.
+# finds the newest published quarter itself, Ookla's delay varies
 ExecStart=/opt/speedmap/.venv/bin/python -m ingest.ookla --latest
+ExecStart=/opt/speedmap/.venv/bin/python -m publish.run --out /srv/speedmap/tiles/speedmap.pmtiles
 TimeoutStartSec=2h
 Slice=speedmap.slice
 
@@ -18,4 +19,5 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=full
 ProtectHome=yes
-MemoryMax=1G
+# three tile cuts at once, ~0.5 GB at peak
+MemoryMax=2G

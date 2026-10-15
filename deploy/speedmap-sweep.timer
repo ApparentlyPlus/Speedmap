@@ -3,11 +3,9 @@ Description=speedmap.gr nightly sweep
 
 [Timer]
 OnCalendar=*-*-* 02:30:00
-# A Pi that was off at half two still sweeps when it's back, or the addresses nobody visits
-# are the ones that never get refreshed.
+# catch up after the Pi was off
 Persistent=true
-# Jittered off the half hour. Three operators asked by everyone's cron at once is how a
-# polite job starts looking like an attack.
+# jittered, everyone's cron at :30 looks like an attack
 RandomizedDelaySec=45m
 
 [Install]

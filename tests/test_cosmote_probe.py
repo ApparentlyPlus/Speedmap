@@ -1,5 +1,3 @@
-"""Asking Cosmote, and being told to look into it by hand."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -10,11 +8,10 @@ import pytest
 from psycopg.rows import TupleRow
 
 from probe.adapter import Target
-from probe.cosmote import Cosmote, offers, read, technology_of
+from probe.cosmote import Cosmote, SpeedTable, line, offers, read, technology_of
 from probe.naming import Naming, naming
 
-# As their estimate table is built: one tbody per nominal rung, download on the second row and
-# upload on the third, each a label followed by maximum, usual and minimum.
+# as their page builds it: a tbody per rung, then label, max, usual, min
 TABLE = """
 <table id="speedTable">
  <tbody style="display: none;" id="speed24">
@@ -34,10 +31,8 @@ TABLE = """
 
 INVESTIGATE = "<div>Απαιτείται περαιτέρω διερεύνηση για τη διαθεσιμότητα στη διεύθυνση</div>"
 
-NAMED = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area="ΑΘΗΝΑ-ΠΑΤΗΣΙΑ",
-               street="ΑΧΑΡΝΩΝ", street_type="ΟΔΟΣ")
-TARGET = Target(address_id=1, lat=0.0, lon=0.0, street="ΑΧΑΡΝΩΝ", street_no="100",
-                municipality="ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ")
+NAMED = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area="ΑΘΗΝΑ-ΠΑΤΗΣΙΑ", street="ΑΧΑΡΝΩΝ", street_type="ΟΔΟΣ")
+TARGET = Target(address_id=1, lat=0.0, lon=0.0, street="ΑΧΑΡΝΩΝ", street_no="100", municipality="ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ")
 
 
 @pytest.fixture
@@ -53,52 +48,46 @@ def scraped(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[Tup
     db.commit()
 
 
-def test_speed_names_the_medium() -> None:
+def test_technology_of() -> None:
     assert technology_of(1000) == "FTTH"
     assert technology_of(200) == "FTTH"
     assert technology_of(100) == "VECT_VDSL"
     assert technology_of(50) == "VDSL"
     assert technology_of(24) == "ADSL"
-
-
-def test_thirty_over_copper_is_not_adsl() -> None:
-    """ADSL cannot pass 24, which the technology table records as its ceiling."""
+    # ADSL tops out at 24
     assert technology_of(30) == "VDSL"
     assert technology_of(25) == "VDSL"
 
 
-def test_being_told_to_investigate_is_not_a_refusal() -> None:
-    """Neither yes nor no. Cached as either, it would be repeated for six months."""
+def test_read() -> None:
+    # neither yes nor no, caching it as a no would stick for months
     probed = read(INVESTIGATE)
     assert probed.serviceable is False
     assert probed.conclusive is False
 
-
-def test_a_real_answer_is_conclusive() -> None:
     probed = read(TABLE)
     assert probed.conclusive is True
     assert probed.serviceable is True
+    assert read("<html></html>").serviceable is False
 
 
-def test_each_rung_is_read_with_its_estimate() -> None:
-    """The usual speed is what the line carries. The maximum is what the advert says."""
+def test_offers() -> None:
     found = {o.technology: o for o in offers(TABLE)}
     assert found["ADSL"].max_down_mbps == Decimal("18.09")
     assert found["ADSL"].avg_down_mbps == Decimal("12.01")
     assert found["ADSL"].avg_up_mbps == Decimal("0.85")
     assert found["VDSL"].max_down_mbps == Decimal("50")
     assert found["VDSL"].avg_down_mbps == Decimal("28.15")
-
-
-def test_an_empty_table_offers_nothing() -> None:
     assert offers("<table id='speedTable'></table>") == ()
-    assert read("<html></html>").serviceable is False
+
+    t = SpeedTable()
+    t.feed(TABLE)
+    header = t.rows[24][0]
+    assert header[1].startswith("Μέγ")
+    assert line(t.rows[24], "DOWNLOAD") == ["Download (Mbps)", "18.09", "12.01", "5.08"]
 
 
-def test_their_hierarchy_is_read_back_not_reconstructed(
-    scraped: psycopg.Connection[TupleRow],
-) -> None:
-    """Only 164 of their 506 municipalities share a name with a Καλλικράτης one."""
+def test_naming(scraped: psycopg.Connection[TupleRow]) -> None:
     scraped.execute(
         "insert into raw_cosmote (id, nomos, dimos, area, street_type, street, street_no, "
         "plans, observed_at, municipality_id, street_fold) values (1, 'ΑΤΤΙΚΗΣ', 'ΑΘΗΝΑΙΩΝ', "
@@ -106,12 +95,10 @@ def test_their_hierarchy_is_read_back_not_reconstructed(
     )
     scraped.commit()
     assert naming(scraped, 999, "ΑΧΑΡΝΩΝ") is None
-    found = naming(scraped, 1, "ΑΧΑΡΝΩΝ")
-    assert found == NAMED
+    assert naming(scraped, 1, "ΑΧΑΡΝΩΝ") == NAMED
 
 
-def test_the_form_carries_their_prefixes() -> None:
-    """Their fields want Ν. and Δ. in front, which is why our names alone do not work."""
+def test_form() -> None:
     form = Cosmote().form(TARGET, NAMED)
     assert form["mState"] == "Ν. ΑΤΤΙΚΗΣ"
     assert form["mPrefecture"] == "Δ. ΑΘΗΝΑΙΩΝ"
@@ -119,32 +106,10 @@ def test_the_form_carries_their_prefixes() -> None:
     assert form["mAddress"] == "ΑΧΑΡΝΩΝ (ΟΔΟΣ)"
     assert form["mNumber"] == "100"
 
-
-def test_a_street_with_no_area_falls_back_to_the_municipality() -> None:
-    """Their own form does the same when the area dropdown comes back empty."""
-    bare = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None,
-                  street="ΑΧΑΡΝΩΝ", street_type="ΟΔΟΣ")
+    # their own form falls back the same way
+    bare = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None, street="ΑΧΑΡΝΩΝ", street_type="ΟΔΟΣ")
     assert Cosmote().form(TARGET, bare)["mArea"] == "ΑΘΗΝΑΙΩΝ"
 
-
-def test_the_street_type_is_what_makes_them_answer() -> None:
-    """A bare name is told to be investigated by hand, whatever else the request gets right."""
     assert Cosmote().addressed(NAMED) == "ΑΧΑΡΝΩΝ (ΟΔΟΣ)"
-
-
-def test_a_street_with_no_recorded_type_is_sent_bare() -> None:
-    """Better a name they may refuse than a type invented for them."""
-    untyped = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None,
-                     street="ΑΧΑΡΝΩΝ", street_type=None)
+    untyped = Naming(nomos="ΑΤΤΙΚΗΣ", dimos="ΑΘΗΝΑΙΩΝ", area=None, street="ΑΧΑΡΝΩΝ", street_type=None)
     assert Cosmote().addressed(untyped) == "ΑΧΑΡΝΩΝ"
-
-
-def test_the_header_row_is_not_a_measurement() -> None:
-    """Its cells read Μέγιστη, Συνήθης, Ελάχιστη. Read as numbers they are silently None."""
-    from probe.cosmote import SpeedTable, line
-
-    table = SpeedTable()
-    table.feed(TABLE)
-    header = table.rows[24][0]
-    assert header[1].startswith("Μέγ")
-    assert line(table.rows[24], "DOWNLOAD") == ["Download (Mbps)", "18.09", "12.01", "5.08"]

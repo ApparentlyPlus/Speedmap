@@ -1,33 +1,27 @@
-"""How each operator's checker is doing.
-
-Leaving an operator out of a comparison is a worse lie than showing the gap: the reader
-can't tell "we asked and they said no" from "we couldn't ask".
-"""
+"""How each operator's checker is doing, so a reader can tell "they said no" from "we couldn't ask"."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import psycopg
 from psycopg.rows import TupleRow
+
+from probe.run import STREAK, resting
 
 HEALTHY = "healthy"
 DEGRADED = "degraded"
 BROKEN = "broken"
 UNTRIED = "untried"
+BLOCKED = "blocked"  # resting behind a bot wall, readers get the cache
 
-# How far back an answer still shows the checker works. Longer than the nightly canary, so
-# one missed run doesn't raise an alarm.
+# longer than the nightly canary so one missed run isn't an alarm
 WINDOW = timedelta(days=3)
 
-# Below this success rate something's wrong even with answers arriving. One in three isn't
-# working.
 SHAKY = 0.8
 
-# Askable attempts only. Both parts read (provider_id, attempted_at desc): the window as a
-# range, the last success by walking back from the newest. It used to aggregate every
-# attempt ever, on a table the sweep grows by hundreds of rows a night.
+# askable attempts only, both halves use the (provider_id, attempted_at desc) index
 SINCE = """
 select p.code, coalesce(recent.n, 0), coalesce(recent.ok, 0), last.at
 from provider p
@@ -55,21 +49,22 @@ class Health:
     last_ok_at: datetime | None
     attempts: int
     answered: int
+    # set while BLOCKED
+    blocked_by: str | None = None
+    resting_until: datetime | None = None
 
     @property
     def says(self) -> str:
-        """What to tell the reader, in their terms."""
+        if self.state == BLOCKED and self.resting_until is not None:
+            # postgres hands back its own zone
+            return f"blocked by {self.blocked_by}, asked again after {self.resting_until.astimezone(UTC):%H:%M} UTC"
         if self.state == HEALTHY:
             return "answering"
         if self.state == UNTRIED:
-            # untried covers two silences that shouldn't read alike: never asked, and not
-            # asked lately
             if self.last_ok_at is None:
                 return "not asked yet"
             return f"last answered {self.last_ok_at:%-d %B}"
         if self.state == DEGRADED:
-            # degraded means it is answering, just not every time (state only gets here when
-            # answered > 0)
             return f"answering {self.answered} times in {self.attempts}"
         if self.last_ok_at is None:
             return "has never answered"
@@ -77,30 +72,30 @@ class Health:
 
 
 def state(recent: int, answered: int, last_ok: datetime | None, now: datetime) -> str:
-    """Healthy, shaky or gone."""
     if recent == 0:
-        # Nothing asked lately. Fine if it answered within the window, the sweep may just
-        # have had nothing due.
+        # the sweep may just have had nothing due
         return HEALTHY if last_ok is not None and now - last_ok <= WINDOW else UNTRIED
     if answered == 0:
         return BROKEN
     return HEALTHY if answered / recent >= SHAKY else DEGRADED
 
 
-def health(
-    conn: psycopg.Connection[TupleRow], codes: list[str], now: datetime
-) -> dict[str, Health]:
-    """One state per operator, worked out from what happened. No stored flag."""
-    rows = conn.execute(
-        SINCE, {"since": now - WINDOW, "codes": codes}
-    ).fetchall()
+def health(conn: psycopg.Connection[TupleRow], codes: list[str], now: datetime) -> dict[str, Health]:
+    rows = conn.execute(SINCE, {"since": now - WINDOW, "codes": codes}).fetchall()
     states: dict[str, Health] = {}
     for code, recent, answered, last_ok in rows:
+        until = resting(conn, str(code), now)
+        wall = None
+        if until is not None:
+            hit = conn.execute(STREAK, {"code": str(code)}).fetchone()
+            wall = None if hit is None else hit[0]
         states[str(code)] = Health(
             provider=str(code),
-            state=state(int(recent), int(answered), last_ok, now),
+            state=BLOCKED if until is not None else state(int(recent), int(answered), last_ok, now),
             last_ok_at=last_ok,
             attempts=int(recent),
             answered=int(answered),
+            blocked_by=wall,
+            resting_until=until,
         )
     return states

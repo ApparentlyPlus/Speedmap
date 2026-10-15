@@ -1,8 +1,4 @@
-"""Ask Telekom (Cosmote's checker) what it sells at an address.
-
-They want their own hierarchy: only 164 of their 506 municipalities share a name with a
-Καλλικράτης one, because theirs is the pre-Καλλικράτης list.
-"""
+"""Telekom's (Cosmote's) checker. Wants pre-Καλλικράτης names, only 164 of 506 match ours."""
 
 from __future__ import annotations
 
@@ -18,6 +14,7 @@ from db.settings import settings
 from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import Naming, naming
+from probe.walls import refuse
 
 SPEC = Descriptor("TELEKOM")
 
@@ -25,12 +22,8 @@ BASE = SPEC.text("base")
 ELIGIBILITY = SPEC.text("warm")
 AVAILABILITY = SPEC.text("availability")
 
-# what their answer says when it won't decide online
 INCONCLUSIVE = SPEC.text("inconclusive")
-
-# Speed names the medium, as in their plan codes: vectored copper stops short of 200 Mbps,
-# and 100 over copper is vectored by definition.
-RUNGS = SPEC.rungs()
+RUNGS = SPEC.rungs()  # speed implies the medium, like their plan codes
 
 
 def technology_of(mbps: int) -> str:
@@ -42,17 +35,13 @@ def technology_of(mbps: int) -> str:
 
 def mbps(value: str) -> Decimal | None:
     try:
-        return Decimal(value.replace(",", ".").strip())
+        return Decimal(value.replace(",", ".").strip())  # 12,5
     except (InvalidOperation, ValueError):
         return None
 
 
 class SpeedTable(HTMLParser):
-    """Their estimate table, keyed by nominal speed.
-
-    One tbody per rung (id "speed100" and so on). Row two is download, row three upload, each
-    a label then maximum, usual and minimum.
-    """
+    """Their estimate table. A tbody per rung (id="speed100"), rows of label, max, usual, min."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -62,11 +51,11 @@ class SpeedTable(HTMLParser):
         self.cell: list[str] | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        value = dict(attrs)
+        a = dict(attrs)
         if tag == "tbody":
-            found = str(value.get("id", ""))
-            digits = found[len("speed"):]
-            self.rung = int(digits) if found.startswith("speed") and digits.isdigit() else None
+            id_ = str(a.get("id", ""))
+            n = id_[len("speed"):]
+            self.rung = int(n) if id_.startswith("speed") and n.isdigit() else None
         elif tag == "tr" and self.rung is not None:
             self.row = []
         elif tag == "td" and self.row is not None:
@@ -88,8 +77,7 @@ class SpeedTable(HTMLParser):
 
 
 def line(rows: list[list[str]], label: str) -> list[str] | None:
-    """The row for one direction. The first four-cell row is the header (Μέγιστη, Συνήθης,
-    Ελάχιστη), which parses as no speed at all."""
+    # the header row has four cells too but no speeds in it
     for row in rows:
         if len(row) >= 4 and row[0].upper().startswith(label):
             return row
@@ -97,31 +85,30 @@ def line(rows: list[list[str]], label: str) -> list[str] | None:
 
 
 def offers(html: str) -> tuple[Offer, ...]:
-    """Every rung the table quotes, keeping the fastest per technology."""
-    table = SpeedTable()
-    table.feed(html)
+    """Fastest rung per technology."""
+    t = SpeedTable()
+    t.feed(html)
 
     best: dict[str, Offer] = {}
-    for rung, rows in sorted(table.rows.items()):
-        download = line(rows, "DOWNLOAD")
-        if download is None:
+    for rung, rows in sorted(t.rows.items()):
+        down = line(rows, "DOWNLOAD")
+        if down is None:
             continue
-        upload = line(rows, "UPLOAD")
-        technology = technology_of(rung)
-        held = best.get(technology)
+        up = line(rows, "UPLOAD")
+        tech = technology_of(rung)
+        held = best.get(tech)
         if held is not None and held.max_down_mbps is not None and held.max_down_mbps >= rung:
             continue
-        best[technology] = Offer(
-            technology=technology,
-            max_down_mbps=mbps(download[1]),
-            avg_down_mbps=mbps(download[2]),
-            avg_up_mbps=None if upload is None else mbps(upload[2]),
+        best[tech] = Offer(
+            technology=tech,
+            max_down_mbps=mbps(down[1]),
+            avg_down_mbps=mbps(down[2]),
+            avg_up_mbps=None if up is None else mbps(up[2]),
         )
-    return tuple(best[code] for code in sorted(best))
+    return tuple(best[k] for k in sorted(best))
 
 
 def read(html: str) -> Probed:
-    """Parse the answer. Pure, so the shape can be tested offline."""
     if INCONCLUSIVE in html:
         return Probed(serviceable=False, conclusive=False, raw={"reason": "needs investigation"})
     found = offers(html)
@@ -131,8 +118,6 @@ def read(html: str) -> Probed:
 
 @dataclass
 class Cosmote:
-    """A session on their eligibility page, reused across checks."""
-
     code: str = "TELEKOM"
     client: httpx.Client | None = None
     user_agent: str = settings.user_agent
@@ -143,6 +128,7 @@ class Cosmote:
         client = httpx.Client(
             base_url=BASE,
             timeout=30.0,
+            event_hooks={"response": [refuse]},
             headers={
                 "User-Agent": self.user_agent,
                 "Referer": f"{BASE}{ELIGIBILITY}",
@@ -155,11 +141,7 @@ class Cosmote:
         return client
 
     def addressed(self, named: Naming) -> str:
-        """Their spelling of a street, with its type in brackets.
-
-        Without the brackets they answer that the address needs checking by hand, whatever else
-        is right. Case and accents don't matter to them.
-        """
+        # ΑΧΑΡΝΩΝ (ΟΔΟΣ). Without the brackets every answer is "needs checking by hand"
         if named.street_type is None:
             return named.street
         return f"{named.street} ({named.street_type})"
@@ -177,13 +159,11 @@ class Cosmote:
         }
 
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed:
-        """Only streets the scrape walked. We tried guessing the rest against their live
-        checker, and it didn't work.
-        """
+        # only streets the scrape walked, guessing spellings didn't work
         named = naming(conn, target.municipality_id, target.street_fold)
         if named is None:
             raise NotAskableError(f"no spelling recorded for {target.street}")
-        response = self.session().post(AVAILABILITY, data=self.form(target, named))
-        if response.status_code != httpx.codes.OK:
-            raise ProbeError(f"availability returned {response.status_code}")
-        return replace(read(response.text), body=response.text)
+        r = self.session().post(AVAILABILITY, data=self.form(target, named))
+        if r.status_code != httpx.codes.OK:
+            raise ProbeError(f"availability returned {r.status_code}")
+        return replace(read(r.text), body=r.text)

@@ -19,9 +19,7 @@ from db.connect import connect
 EXTRACT = Path("data/greece-latest.osm.pbf")
 SOURCE_URL = "https://download.geofabrik.de/europe/greece-latest.osm.pbf"
 
-# A way needs two placed nodes to be a line. Ways running past the extract's edge lose their
-# outside nodes, and get dropped before they're drawn wrong.
-MIN_NODES = 2
+MIN_NODES = 2  # ways cut by the extract's edge can end up with fewer
 
 
 @dataclass(frozen=True)
@@ -33,24 +31,17 @@ class Street:
 
 
 def line_wkt(coordinates: list[tuple[float, float]]) -> str | None:
-    """WKT for a line, or None when there are too few placed nodes to make one."""
     if len(coordinates) < MIN_NODES:
         return None
-    points = ", ".join(f"{lon} {lat}" for lon, lat in coordinates)
-    return f"LINESTRING({points})"
+    return "LINESTRING(" + ", ".join(f"{lon} {lat}" for lon, lat in coordinates) + ")"
 
 
 def streets(path: Path) -> Iterator[Street]:
-    """Every named highway in the extract, with its geometry resolved."""
-    processor = (
-        osmium.FileProcessor(str(path), osmium.osm.NODE | osmium.osm.WAY)
-        .with_locations()
-        .with_filter(osmium.filter.EntityFilter(osmium.osm.WAY))
-        .with_filter(osmium.filter.KeyFilter("highway"))
-    )
-    for way in processor:
-        # the entity filter already guarantees this, the check is for mypy
-        if not isinstance(way, osmium.osm.Way):
+    fp = osmium.FileProcessor(str(path), osmium.osm.NODE | osmium.osm.WAY).with_locations()
+    fp = fp.with_filter(osmium.filter.EntityFilter(osmium.osm.WAY)).with_filter(osmium.filter.KeyFilter("highway"))
+
+    for way in fp:
+        if not isinstance(way, osmium.osm.Way):  # for mypy
             continue
         name = way.tags.get("name")
         highway = way.tags.get("highway")
@@ -63,23 +54,17 @@ def streets(path: Path) -> Iterator[Street]:
 
 
 def write(conn: psycopg.Connection[TupleRow], found: Iterator[Street]) -> int:
-    """Replace the table wholesale, since an extract is a snapshot."""
     conn.execute("truncate raw_osm_street")
-    written = 0
-    with conn.cursor().copy(
-        "copy raw_osm_street (osm_id, name, highway, geom) from stdin"
-    ) as copy:
-        for street in found:
-            copy.write_row((street.osm_id, street.name, street.highway, street.wkt))
-            written += 1
-    return written
+    n = 0
+    with conn.cursor().copy("copy raw_osm_street (osm_id, name, highway, geom) from stdin") as copy:
+        for s in found:
+            copy.write_row((s.osm_id, s.name, s.highway, s.wkt))
+            n += 1
+    return n
 
 
 def download(into: Path) -> Path:
-    """Fetch the extract unless it's already here.
-
-    Geofabrik rebuild it daily and it's most of a gigabyte, so it's downloaded once and kept.
-    """
+    # most of a gigabyte, fetched once and kept
     if into.exists():
         return into
     into.parent.mkdir(parents=True, exist_ok=True)
@@ -89,7 +74,7 @@ def download(into: Path) -> Path:
         with partial.open("wb") as out:
             for chunk in answer.iter_bytes():
                 out.write(chunk)
-    # renamed once complete: a half-written extract parses as a small one, silently
+    # a half written extract parses fine as a smaller one
     shutil.move(partial, into)
     return into
 
@@ -106,9 +91,9 @@ def main(argv: list[str] | None = None) -> int:
         download(args.pbf)
 
     with connect() as conn:
-        written = write(conn, streets(args.pbf))
+        n = write(conn, streets(args.pbf))
         conn.commit()
-    print(f"  osm streets: {written} rows loaded")
+    print(f"  osm streets: {n} rows loaded")
     return 0
 
 

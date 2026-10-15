@@ -1,7 +1,4 @@
-"""What each operator's checker looks like, read at runtime from adapters.yaml.
-
-A third party's private API can't be made stable, so it lives in data we can edit.
-"""
+"""Each operator's checker as described in adapters.yaml, their APIs change too often for code."""
 
 from __future__ import annotations
 
@@ -17,13 +14,11 @@ ADAPTERS = Path(__file__).parent / "adapters.yaml"
 
 @cache
 def descriptors(path: Path = ADAPTERS) -> dict[str, dict[str, Any]]:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return {str(code): dict(entry) for code, entry in document.items()}
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return {str(code): dict(entry) for code, entry in doc.items()}
 
 
 class Descriptor:
-    """One operator's descriptor, with typed reads."""
-
     def __init__(self, code: str, path: Path = ADAPTERS) -> None:
         self.code = code
         self.held = descriptors(path)[code]
@@ -32,18 +27,14 @@ class Descriptor:
         return str(self.held[key])
 
     def url(self, key: str) -> str:
-        """A path joined to the operator's base, so a domain move is one line."""
         return f"{self.text('base')}{self.text(key)}"
 
     def mapping(self, key: str) -> dict[str, str]:
         return {str(k): str(v) for k, v in self.held.get(key, {}).items()}
 
     def rungs(self) -> tuple[tuple[Decimal, str], ...]:
-        """Speed to technology, fastest first, as the operator's own codes imply."""
-        return tuple(
-            (Decimal(str(floor)), str(technology))
-            for floor, technology in self.held.get("rungs", ())
-        )
+        """(speed, technology), fastest first."""
+        return tuple((Decimal(str(lo)), str(tech)) for lo, tech in self.held.get("rungs", ()))
 
     def payload(self, key: str) -> dict[str, Any]:
         return dict(self.held.get(key, {}))

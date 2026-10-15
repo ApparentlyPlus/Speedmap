@@ -1,7 +1,4 @@
-"""Ask about addresses whose answer we already know.
-
-An adapter whose checker got redesigned under it doesn't error. It just answers wrong.
-"""
+"""Ask about addresses whose answer we already know, a redesigned checker answers wrong without erroring."""
 
 from __future__ import annotations
 
@@ -15,6 +12,8 @@ import psycopg
 import yaml
 from psycopg.rows import TupleRow
 
+from alert import alert
+from alert.disk import short
 from db.connect import connect
 from probe.adapter import Adapter
 from probe.cosmote import Cosmote
@@ -24,8 +23,7 @@ from probe.vodafone import Vodafone
 
 CANARIES = Path(__file__).parent / "canaries.yaml"
 
-# All a canary may expect. Anything subtler cries wolf, which is worse than no canary: it
-# gets ignored, and the real failure with it.
+# keep it this coarse, a canary that cries wolf gets ignored
 OFFERS = "offers"
 REFUSAL = "refusal"
 
@@ -58,43 +56,38 @@ class Verdict:
 
 
 def load(path: Path = CANARIES) -> list[Canary]:
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
     return [
         Canary(
-            name=str(entry["name"]),
-            why=str(entry["why"]),
-            municipality=str(entry["municipality"]),
-            street=str(entry["street"]),
-            street_no=str(entry["street_no"]),
-            expect=str(entry["expect"]),
-            providers=tuple(entry.get("providers", ())),
+            name=str(e["name"]),
+            why=str(e["why"]),
+            municipality=str(e["municipality"]),
+            street=str(e["street"]),
+            street_no=str(e["street_no"]),
+            expect=str(e["expect"]),
+            providers=tuple(e.get("providers", ())),
         )
-        for entry in document
+        for e in doc
     ]
 
 
 def judge(canary: Canary, reply: Reply) -> Verdict:
-    """Whether the adapter works, which is a different question from whether there's service."""
+    """Does the adapter work (not: is there service)."""
     result = reply.result
     if result is None:
         return Verdict(canary.name, reply.provider, False, f"unreachable: {reply.error}")
     if not result.conclusive:
         return Verdict(canary.name, reply.provider, False, "answered nothing conclusive")
     if canary.expect == OFFERS and not result.offers:
-        # what this exists for: a 200, a page, and no offers on a street served for years
+        # the case this is for: a 200 with no offers on a street served for years
         return Verdict(canary.name, reply.provider, False, "no offers where there are some")
     if canary.expect == REFUSAL and result.serviceable:
         return Verdict(canary.name, reply.provider, False, "offers where there are none")
     return Verdict(canary.name, reply.provider, True, f"{len(result.offers)} offers")
 
 
-def run(
-    conn: psycopg.Connection[TupleRow],
-    canaries: list[Canary],
-    adapters: list[Adapter],
-    now: datetime,
-) -> list[Verdict]:
-    """Ask each canary of every adapter it names, keeping the bodies to compare later."""
+def run(conn: psycopg.Connection[TupleRow], canaries: list[Canary], adapters: list[Adapter],
+        now: datetime) -> list[Verdict]:
     verdicts: list[Verdict] = []
     for canary in canaries:
         row = conn.execute(FIND, {
@@ -108,12 +101,13 @@ def run(
         target = target_for(conn, int(row[0]))
         if target is None:
             continue
+
         wanted = [a for a in adapters if not canary.providers or a.code in canary.providers]
         for adapter in wanted:
-            # asked directly, past the backoff: the point is to notice while it's still broken
-            answer = ask(conn, adapter, target)
-            store(conn, target.address_id, answer, now, keep_raw=True)
-            verdicts.append(judge(canary, answer))
+            # straight past the backoff
+            reply = ask(conn, adapter, target)
+            store(conn, target.address_id, reply, now, keep_raw=True)
+            verdicts.append(judge(canary, reply))
         conn.commit()
     return verdicts
 
@@ -127,9 +121,14 @@ def main(argv: list[str] | None = None) -> int:
     with connect() as conn:
         verdicts = run(conn, load(args.file), adapters, datetime.now(UTC))
 
-    for verdict in verdicts:
-        mark = "ok  " if verdict.passed else "FAIL"
-        print(f"  [{mark}] {verdict.canary:18} {verdict.provider:9} {verdict.detail}")
+    for v in verdicts:
+        mark = "ok  " if v.passed else "FAIL"
+        print(f"  [{mark}] {v.canary:18} {v.provider:9} {v.detail}")
+
+    # piggybacks on the nightly run
+    for line in short():
+        print(f"  [LOW ] disk {line}")
+        alert("The Pi is running out of room", line, urgent=True)
     failed = [v for v in verdicts if not v.passed]
     if failed:
         print(f"  {len(failed)} of {len(verdicts)} canaries failed")

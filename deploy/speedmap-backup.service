@@ -2,6 +2,7 @@
 Description=speedmap.gr back up the state that cannot be rebuilt
 After=postgresql.service
 Requires=postgresql.service
+OnFailure=speedmap-alert@%n.service
 
 [Service]
 Type=oneshot

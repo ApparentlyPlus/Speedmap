@@ -1,24 +1,21 @@
-"""Ask the operators that are due, and keep what they say.
-
-All three at once: they don't depend on each other, and a reader waiting shouldn't pay for
-three round trips in a row.
-"""
+"""Ask the operators that are due, all at once, and keep what they say."""
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 import psycopg
 from psycopg.rows import TupleRow
 from psycopg.types.json import Jsonb
 
+from alert import alert_later
 from probe.adapter import Adapter, NotAskableError, Probed, Target
 from probe.ttl import FAILED, VOLATILE, ttl
+from probe.walls import BlockedError
 
-# three operators, three sessions, one wait
 WIDTH = 3
 
 LAST = """
@@ -30,9 +27,33 @@ limit 1
 """
 
 ATTEMPT = """
-insert into probe_attempt (address_id, provider_id, attempted_at, ok, askable, serviceable, detail, raw)
-select %(address)s, p.id, %(at)s, %(ok)s, %(askable)s, %(serviceable)s, %(detail)s, %(raw)s
+insert into probe_attempt (
+    address_id, provider_id, attempted_at, ok, askable, serviceable, detail, raw, blocked
+)
+select %(address)s, p.id, %(at)s, %(ok)s, %(askable)s, %(serviceable)s, %(detail)s, %(raw)s,
+       %(blocked)s
 from provider p where p.code = %(code)s
+"""
+
+# a block rests the whole operator, doubling per block in a row
+REST = timedelta(minutes=30)
+LONGEST_REST = timedelta(hours=12)
+
+STREAK = """
+select a.blocked, a.attempted_at
+from probe_attempt a
+where a.provider_id = (select id from provider where code = %(code)s)
+order by a.attempted_at desc
+limit 8
+"""
+
+PER_MINUTE = 12  # API and sweep together, per operator
+
+RECENT = """
+select count(*)
+from probe_attempt a
+where a.provider_id = (select id from provider where code = %(code)s)
+  and a.attempted_at > %(since)s
 """
 
 KEEP = """
@@ -55,9 +76,7 @@ on conflict (address_id, provider_id, technology) do update set
     raw = excluded.raw
 """
 
-# A conclusive answer is everything the operator sells here now. A line they dropped, or an
-# address they now refuse, used to stay serviceable until the old answer expired, up to two
-# years later, because nothing ever wrote a no. It's recorded now, with a refusal's lifetime.
+# a conclusive answer is the full list, so anything missing from it is now a no
 RETIRE = """
 update availability v
 set serviceable = false, observed_at = %(at)s, expires_at = %(until)s
@@ -72,33 +91,25 @@ where p.code = %(code)s and v.provider_id = p.id
 
 @dataclass(frozen=True)
 class Reply:
-    """What came back from one operator, or why nothing did."""
-
     provider: str
     result: Probed | None
     error: str | None = None
-    # False when we couldn't put the address to them at all: no spelling for the street, or
-    # their list has no such street.
-    askable: bool = True
+    askable: bool = True  # False if we had no spelling of the street for them
+    blocked: str | None = None  # whose wall answered
 
 
 def best(result: Probed) -> Decimal | None:
-    """The fastest offer, which sets how long the answer is trusted."""
     quoted = [o.max_down_mbps for o in result.offers if o.max_down_mbps is not None]
     return max(quoted) if quoted else None
 
 
 def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: datetime) -> bool:
-    """Whether this operator may be asked again yet.
-
-    A failure gets a few hours' rest. Hitting a broken endpoint on every request is how a rate
-    limit becomes a ban, and the answer won't have improved in between.
-    """
+    # hammering a broken endpoint is how a rate limit becomes a ban
     row = conn.execute(LAST, {"address": address_id, "code": code}).fetchone()
     if row is None:
         return True
-    ok, serviceable, attempted_at = row
-    since: datetime = attempted_at
+    ok, serviceable, at = row
+    since: datetime = at
     if not ok:
         return since + FAILED <= now
     if serviceable is False:
@@ -106,30 +117,55 @@ def due(conn: psycopg.Connection[TupleRow], address_id: int, code: str, now: dat
     return True
 
 
+def resting(conn: psycopg.Connection[TupleRow], code: str, now: datetime) -> datetime | None:
+    """When this operator may be asked again, or None if it may now."""
+    streak = conn.execute(STREAK, {"code": code}).fetchall()
+    n = 0
+    for blocked, _ in streak:
+        if blocked is None:
+            break
+        n += 1
+    if n == 0:
+        return None
+    last: datetime = streak[0][1]
+    until = last + min(REST * 2 ** (n - 1), LONGEST_REST)
+    return until if until > now else None
+
+
+def crowded(conn: psycopg.Connection[TupleRow], code: str, now: datetime) -> bool:
+    row = conn.execute(RECENT, {"code": code, "since": now - timedelta(minutes=1)}).fetchone()
+    return row is not None and int(row[0]) >= PER_MINUTE
+
+
 def ask(conn: psycopg.Connection[TupleRow], adapter: Adapter, target: Target) -> Reply:
-    """One operator, failures caught so one being down can't take the others with it."""
+    # catch everything, one operator down mustn't take the others with it
     try:
         return Reply(provider=adapter.code, result=adapter.check(conn, target))
-    except NotAskableError as gap:
-        # our gap: the adapter had nothing to look the address up by, and said so
-        return Reply(provider=adapter.code, result=None, error=str(gap), askable=False)
-    except Exception as error:
-        return Reply(provider=adapter.code, result=None, error=str(error))
+    except BlockedError as e:
+        return Reply(provider=adapter.code, result=None, error=str(e), blocked=e.wall)
+    except NotAskableError as e:
+        return Reply(provider=adapter.code, result=None, error=str(e), askable=False)
+    except Exception as e:
+        return Reply(provider=adapter.code, result=None, error=str(e))
 
 
-def store(
-    conn: psycopg.Connection[TupleRow],
-    address_id: int,
-    reply: Reply,
-    now: datetime,
-    keep_raw: bool = False,
-) -> int:
-    """Always record the attempt, and the answer when there was one.
-
-    The raw body is kept on request, which canaries make so it can be compared over time.
-    """
+def store(conn: psycopg.Connection[TupleRow], address_id: int, reply: Reply, now: datetime,
+          keep_raw: bool = False) -> int:
+    """Record the attempt, and the answer if there was one. keep_raw is for the canary."""
     result = reply.result
     conclusive = result is not None and result.conclusive
+    prev = conn.execute(STREAK, {"code": reply.provider}).fetchone()
+    was_blocked = prev is not None and prev[0] is not None
+    if reply.blocked is not None and not was_blocked:
+        alert_later(
+            f"{reply.provider} is blocking us",
+            f"{reply.blocked} answered instead of {reply.provider}. It rests for "
+            f"{int(REST.total_seconds() // 60)} minutes, longer if it keeps blocking, and readers "
+            "see what the cache holds until then.",
+            urgent=True,
+        )
+    elif conclusive and was_blocked:
+        alert_later(f"{reply.provider} is answering again", "Live checks are back on.")
     conn.execute(ATTEMPT, {
         "address": address_id,
         "code": reply.provider,
@@ -138,9 +174,8 @@ def store(
         "askable": reply.askable,
         "serviceable": result.serviceable if result is not None and conclusive else None,
         "detail": reply.error if result is None else None,
-        "raw": (
-            result.body if result is not None and (keep_raw or not conclusive) else None
-        ),
+        "raw": result.body if result is not None and (keep_raw or not conclusive) else None,
+        "blocked": reply.blocked,
     })
     if result is None or not conclusive:
         return 0
@@ -150,19 +185,19 @@ def store(
         "code": reply.provider,
         "at": now,
         "until": now + VOLATILE,
-        "offered": [offer.technology for offer in result.offers],
+        "offered": [o.technology for o in result.offers],
     })
 
     until = now + ttl(best(result), serviceable=result.serviceable)
     kept = 0
-    for offer in result.offers:
+    for o in result.offers:
         conn.execute(KEEP, {
             "address": address_id,
             "code": reply.provider,
-            "technology": offer.technology,
-            "max_down": offer.max_down_mbps,
-            "avg_down": offer.avg_down_mbps,
-            "avg_up": offer.avg_up_mbps,
+            "technology": o.technology,
+            "max_down": o.max_down_mbps,
+            "avg_down": o.avg_down_mbps,
+            "avg_up": o.avg_up_mbps,
             "at": now,
             "until": until,
             "raw": Jsonb(result.raw) if result.raw is not None else None,
@@ -171,31 +206,28 @@ def store(
     return kept
 
 
-def refresh(
-    conn: psycopg.Connection[TupleRow],
-    target: Target,
-    adapters: list[Adapter],
-    now: datetime,
-    keep_raw: bool = False,
-) -> dict[str, Reply]:
-    """Ask every due operator at once and keep what comes back."""
-    todo = [a for a in adapters if due(conn, target.address_id, a.code, now)]
+def refresh(conn: psycopg.Connection[TupleRow], target: Target, adapters: list[Adapter], now: datetime,
+            keep_raw: bool = False) -> dict[str, Reply]:
+    todo = [
+        a for a in adapters
+        if due(conn, target.address_id, a.code, now)
+        and resting(conn, a.code, now) is None
+        and not crowded(conn, a.code, now)
+    ]
     if not todo:
         return {}
 
-    # One shared connection: psycopg serialises its use across threads, and the adapters only
-    # read a row of spelling. The waiting is all network.
+    # psycopg serialises the shared connection, the adapters barely touch it
     with ThreadPoolExecutor(max_workers=min(WIDTH, len(todo))) as pool:
         replies = list(pool.map(lambda a: ask(conn, a, target), todo))
 
-    for answer in replies:
-        store(conn, target.address_id, answer, now, keep_raw=keep_raw)
+    for r in replies:
+        store(conn, target.address_id, r, now, keep_raw=keep_raw)
     conn.commit()
-    return {a.provider: a for a in replies}
+    return {r.provider: r for r in replies}
 
 
 def target_for(conn: psycopg.Connection[TupleRow], address_id: int) -> Target | None:
-    """One address in every form an operator might want it."""
     row = conn.execute(
         "select a.id, st_y(a.geom::geometry), st_x(a.geom::geometry), a.street, a.street_no, "
         "coalesce(m.name, ''), coalesce(a.municipality_id, 0), a.street_fold, a.locality, "

@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Address
-         * @description Everything filed at one address, with each offer's evidence and freshness.
+         * @description Everything filed at one address.
          */
         get: operations["address_addresses__address_id__get"];
         put?: never;
@@ -33,9 +33,7 @@ export interface paths {
         };
         /**
          * Address Options
-         * @description What can be bought here, best first, from what is already known.
-         *
-         *     Nothing is asked of an operator on this path.
+         * @description What can be bought here, best first. Asks no operator.
          */
         get: operations["address_options_addresses__address_id__options_get"];
         put?: never;
@@ -57,10 +55,7 @@ export interface paths {
         put?: never;
         /**
          * Address Probe
-         * @description Ask the operators that are due, and keep what they say.
-         *
-         *     One operator at a time is the caller's choice, and the reason it exists: a checker takes
-         *     between two and eight seconds.
+         * @description Ask the operators that are due, 2 to 8 seconds each.
          */
         post: operations["address_probe_addresses__address_id__probe_post"];
         delete?: never;
@@ -76,10 +71,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Health
-         * @description Whether the database answers, and whether it has been built.
-         */
+        /** Health */
         get: operations["health_health_get"];
         put?: never;
         post?: never;
@@ -98,10 +90,7 @@ export interface paths {
         };
         /**
          * Adapter Health
-         * @description How each operator's checker is faring, derived from what happened when it was asked.
-         *
-         *     Not stored anywhere: a status field is one more thing that can be stale while the thing
-         *     it describes has moved on.
+         * @description How each operator's checker is doing, worked out from recent attempts.
          */
         get: operations["adapter_health_health_adapters_get"];
         put?: never;
@@ -124,9 +113,6 @@ export interface paths {
         /**
          * Report
          * @description Record that something here looks wrong.
-         *
-         *     The only write in the API. Rate limiting belongs at the reverse proxy rather than in
-         *     process, where it would be per worker and reset on deploy.
          */
         post: operations["report_reports_post"];
         delete?: never;
@@ -144,7 +130,7 @@ export interface paths {
         };
         /**
          * Search
-         * @description Addresses and streets, in Greek or Greeklish, folded the way the index was built.
+         * @description Addresses and streets, in Greek or Greeklish.
          */
         get: operations["search_search_get"];
         put?: never;
@@ -164,7 +150,7 @@ export interface paths {
         };
         /**
          * Street
-         * @description A street where no address is filed: coverage comes from the cabinets it crosses.
+         * @description A street and what reaches it.
          */
         get: operations["street_streets__street_id__get"];
         put?: never;
@@ -186,9 +172,7 @@ export interface paths {
         put?: never;
         /**
          * Ask For
-         * @description Make the address at this number, so it can be probed and kept like any other.
-         *
-         *     The register knows the street and not the number.
+         * @description Make the address at this number on a street the register has without it.
          */
         post: operations["ask_for_streets__street_id__addresses_post"];
         delete?: never;
@@ -205,7 +189,7 @@ export interface components {
         AddressDetail: {
             /**
              * Connected
-             * @description null when not filed, not false
+             * @description null when not filed
              */
             connected: boolean | null;
             /** Id */
@@ -228,7 +212,7 @@ export interface components {
             street: string;
             /**
              * Street Id
-             * @description the street this door is on, when it is one we hold
+             * @description the street this door is on, if we have it
              */
             street_id?: number | null;
             /** Street No */
@@ -253,25 +237,21 @@ export interface components {
             basis: string;
             /**
              * Confidence
-             * @description evidence from tests alone; a quote has none
+             * @description from speed tests only, a quote has none
              */
             confidence: number;
-            /** @description always a figure; see Cost.complete for whether it is exact */
             cost: components["schemas"]["Cost"];
             /**
              * Data Cap Gb
-             * @description null is unlimited, not unknown
+             * @description null is unlimited
              */
             data_cap_gb: number | null;
             /**
              * Enough
-             * @description covers an ordinary household, on speed and allowance
+             * @description covers an ordinary household, speed and allowance
              */
             enough: boolean;
-            /**
-             * Expected Mbps
-             * @description null when nothing here can say
-             */
+            /** Expected Mbps */
             expected_mbps: string | null;
             /** Family */
             family: string;
@@ -289,22 +269,16 @@ export interface components {
             provider_name: string;
             /** Technology */
             technology: string;
-            /**
-             * Tests
-             * @description measurements behind it, zero when it rests on none
-             */
+            /** Tests */
             tests: number;
             /** Why */
             why: string;
         };
-        /**
-         * Cost
-         * @description A monthly cost in its parts, so a card can say why a cheap headline is not cheap.
-         */
+        /** Cost */
         Cost: {
             /**
              * Complete
-             * @description false when a one-off was never published, which makes total a floor: the offer costs this or more. The monthly rate is always known
+             * @description false if a one-off is unpublished, so total is a floor
              * @default true
              */
             complete: boolean;
@@ -351,7 +325,7 @@ export interface components {
             infra_provider: string | null;
             /**
              * Matched By
-             * @description point for a filing here, area for a cabinet, built for fiber in the ground that the register never gave an address
+             * @description point (filed here), area (cabinet) or built (unaddressed fiber)
              */
             matched_by: string;
             /** Provider */
@@ -360,7 +334,7 @@ export interface components {
             provider_name: string;
             /**
              * Sold Mbps
-             * @description what this kind of line is retailed at, which is what the map is painted by. `speed` is the register's own band and is not what anything is drawn from
+             * @description retail speed of the line, what the map paints
              */
             sold_mbps?: string | null;
             /** @description null when the operator filed no speed */
@@ -371,8 +345,13 @@ export interface components {
         /** Operator */
         Operator: {
             /**
+             * Answered On
+             * @description last real answer for this address
+             */
+            answered_on?: string | null;
+            /**
              * Known
-             * @description how this operator's answer was arrived at
+             * @description a decide verdict
              */
             known: string;
             /** Provider */
@@ -381,12 +360,12 @@ export interface components {
             provider_name: string;
             /**
              * Says
-             * @description what to tell the reader when it is not answering
+             * @description for the reader, when it isn't answering
              */
             says: string;
             /**
              * State
-             * @description healthy, degraded, broken or untried
+             * @description healthy, degraded, broken, untried or blocked
              */
             state: string;
         };
@@ -396,20 +375,17 @@ export interface components {
             address_id: number;
             /**
              * Known
-             * @description per operator: how the answer was arrived at
+             * @description verdict per operator
              */
             known: {
                 [key: string]: string;
             };
             /**
              * Need Mbps
-             * @description the bar used, which the caller may move
+             * @description the bar used
              */
             need_mbps: string;
-            /**
-             * Operators
-             * @description an operator missing from a comparison is a worse lie than a visible gap
-             */
+            /** Operators */
             operators: components["schemas"]["Operator"][];
             /** Options */
             options: components["schemas"]["Buyable"][];
@@ -418,21 +394,18 @@ export interface components {
         Probed: {
             /**
              * Asked
-             * @description false when the operator was inside its backoff
+             * @description false inside its backoff
              */
             asked: boolean;
             /** Detail */
             detail: string | null;
             /** Provider */
             provider: string;
-            /**
-             * Reached
-             * @description false when the checker could not be reached at all
-             */
+            /** Reached */
             reached: boolean;
             /**
              * Serviceable
-             * @description null when nothing conclusive came back
+             * @description null if inconclusive
              */
             serviceable: boolean | null;
         };
@@ -477,7 +450,7 @@ export interface components {
         Result: {
             /**
              * Best Mbps
-             * @description the fastest known to reach here; null is not filed, not zero
+             * @description null if nothing's filed
              */
             best_mbps: string | null;
             /** Id */
@@ -489,7 +462,7 @@ export interface components {
             kind: string;
             /**
              * Locality
-             * @description for a door, as the register filed it. For a street, where most of its doors say they are, the one thing separating two runs of a name in one municipality. Null when it has no filed doors to ask
+             * @description as filed for a door, the doors' majority for a street
              */
             locality: string | null;
             /**
@@ -505,12 +478,12 @@ export interface components {
             postcode: string | null;
             /**
              * Premises
-             * @description dwellings passed, null when not filed
+             * @description dwellings passed
              */
             premises: number | null;
             /**
              * Street Id
-             * @description for a proposed address, the street to ask for it on
+             * @description for a proposed address
              */
             street_id?: number | null;
             /** Street No */
@@ -537,7 +510,7 @@ export interface components {
         StreetDetail: {
             /**
              * Bbox
-             * @description west, south, east, north — a street has no point, only an extent
+             * @description west, south, east, north
              */
             bbox: [
                 number,
@@ -557,7 +530,7 @@ export interface components {
             offers: components["schemas"]["Offer"][];
             /**
              * Shape
-             * @description the street as GeoJSON, for drawing along rather than pointing at
+             * @description GeoJSON line
              */
             shape: {
                 [key: string]: unknown;
@@ -657,7 +630,7 @@ export interface operations {
     address_probe_addresses__address_id__probe_post: {
         parameters: {
             query?: {
-                /** @description ask only these; omit to ask every operator that is due */
+                /** @description omit for every operator that's due */
                 provider?: string[] | null;
             };
             header?: never;
@@ -767,7 +740,7 @@ export interface operations {
                 /** @description street, optionally with a town */
                 q: string;
                 limit?: number;
-                /** @description street: streets only, for a map that has no doors on it */
+                /** @description street: streets only, for the map */
                 kind?: "any" | "street";
             };
             header?: never;

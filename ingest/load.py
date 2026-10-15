@@ -19,15 +19,14 @@ from ingest.register import BY_NAME, LOOKUPS, Dataset, RegisterClient, Row
 
 
 class GeometryCrsError(RuntimeError):
-    """A geometry arrived in an unexpected projection."""
+    pass
 
 
 @dataclass(frozen=True)
 class Target:
     table: str
     keys: tuple[str, ...]
-    # column -> the SRID the register serves it in.
-    geometry: Mapping[str, int] = field(default_factory=dict)
+    geometry: Mapping[str, int] = field(default_factory=dict)  # column -> SRID
 
 
 TARGETS: dict[str, Target] = {
@@ -44,43 +43,34 @@ TARGETS: dict[str, Target] = {
 
 
 def geojson_srid(value: Mapping[str, Any]) -> int | None:
-    """The EPSG code from a GeoJSON crs member, or None when it carries no crs."""
     crs = value.get("crs")
     if not isinstance(crs, Mapping):
         return None
-    properties = crs.get("properties")
-    if not isinstance(properties, Mapping):
+    props = crs.get("properties")
+    if not isinstance(props, Mapping):
         return None
-    name = str(properties.get("name", ""))
-    _, _, code = name.rpartition(":")
+    code = str(props.get("name", "")).rpartition(":")[2]
     return int(code) if code.isdigit() else None
 
 
 def geometry_param(column: str, value: object, expected: int) -> str | None:
-    """Validate the projection, then hand PostGIS the raw GeoJSON."""
     if value is None:
         return None
     if not isinstance(value, Mapping):
         raise GeometryCrsError(f"{column}: expected GeoJSON, got {type(value).__name__}")
-    found = geojson_srid(value)
-    if found is not None and found != expected:
-        raise GeometryCrsError(f"{column}: expected EPSG:{expected}, got EPSG:{found}")
+    srid = geojson_srid(value)
+    if srid is not None and srid != expected:
+        raise GeometryCrsError(f"{column}: expected EPSG:{expected}, got EPSG:{srid}")
     return json.dumps(value)
 
 
 def upsert_sql(target: Target, columns: tuple[str, ...]) -> str:
     placeholders = [
-        f"st_setsrid(st_geomfromgeojson(%s), {target.geometry[c]})"
-        if c in target.geometry
-        else "%s"
+        f"st_setsrid(st_geomfromgeojson(%s), {target.geometry[c]})" if c in target.geometry else "%s"
         for c in columns
     ]
-    updatable = [c for c in columns if c not in target.keys]
-    action = (
-        "nothing"
-        if not updatable
-        else "update set " + ", ".join(f"{c} = excluded.{c}" for c in updatable)
-    )
+    rest = [c for c in columns if c not in target.keys]
+    action = "update set " + ", ".join(f"{c} = excluded.{c}" for c in rest) if rest else "nothing"
     return (
         f"insert into {target.table} ({', '.join(columns)}) "
         f"values ({', '.join(placeholders)}) "
@@ -88,81 +78,53 @@ def upsert_sql(target: Target, columns: tuple[str, ...]) -> str:
     )
 
 
-def row_params(target: Target, columns: tuple[str, ...], row: Row) -> tuple[object, ...]:
-    return tuple(
-        geometry_param(c, row[c], target.geometry[c]) if c in target.geometry else row[c]
-        for c in columns
-    )
-
-
 def write_page(conn: psycopg.Connection[TupleRow], target: Target, rows: Iterable[Row]) -> int:
     batch = list(rows)
     if not batch:
         return 0
-    columns = tuple(batch[0])
-    conn.cursor().executemany(
-        upsert_sql(target, columns), [row_params(target, columns, r) for r in batch]
-    )
+    cols = tuple(batch[0])
+    params = [
+        tuple(geometry_param(c, r[c], target.geometry[c]) if c in target.geometry else r[c] for c in cols)
+        for r in batch
+    ]
+    conn.cursor().executemany(upsert_sql(target, cols), params)
     return len(batch)
 
 
-def begin_run(conn: psycopg.Connection[TupleRow], dataset: str) -> str | None:
-    """Mark a run as starting and return the key to resume after."""
+def load(conn: psycopg.Connection[TupleRow], client: RegisterClient, dataset: Dataset, *,
+         max_pages: int | None = None) -> int:
+    name = dataset.name
+    target = TARGETS[name]
+    total = client.count(dataset)
+    cap = client.page_cap(dataset)
     conn.execute(
         "insert into register_fetch (dataset, run_started_at) values (%s, now()) "
         "on conflict (dataset) do update set run_started_at = now(), run_fetched = 0",
-        (dataset,),
+        (name,),
     )
-    row = conn.execute(
-        "select last_key from register_fetch where dataset = %s", (dataset,)
-    ).fetchone()
-    return None if row is None else row[0]
-
-
-def record_progress(conn: psycopg.Connection[TupleRow], dataset: str, *, last_key: str,
-    added: int, total: int | None,
-) -> None:
-    conn.execute(
-        "update register_fetch set last_key = %s, fetched = fetched + %s, "
-        "run_fetched = run_fetched + %s, total = coalesce(%s, total), "
-        "updated_at = now() where dataset = %s",
-        (last_key, added, added, total, dataset),
-    )
-
-
-def load(conn: psycopg.Connection[TupleRow], client: RegisterClient, dataset: Dataset,*,
-    max_pages: int | None = None,
-) -> int:
-    target = TARGETS[dataset.name]
-    total = client.count(dataset)
-    cap = client.page_cap(dataset)
-    after = begin_run(conn, dataset.name)
+    row = conn.execute("select last_key from register_fetch where dataset = %s", (name,)).fetchone()
+    after = None if row is None else row[0]
     conn.commit()
 
     loaded = 0
-    for page_number, page in enumerate(client.pages(dataset, cap=cap, after=after), start=1):
+    for i, page in enumerate(client.pages(dataset, cap=cap, after=after), start=1):
         loaded += write_page(conn, target, page)
-        record_progress(
-            conn,
-            dataset.name,
-            last_key=str(page[-1][dataset.key]),
-            added=len(page),
-            total=total,
+        conn.execute(
+            "update register_fetch set last_key = %s, fetched = fetched + %s, "
+            "run_fetched = run_fetched + %s, total = coalesce(%s, total), "
+            "updated_at = now() where dataset = %s",
+            (str(page[-1][dataset.key]), len(page), len(page), total, name),
         )
         conn.commit()
-        print(f"  {dataset.name}: {loaded} rows", end="\r", file=sys.stderr)
-        if max_pages is not None and page_number >= max_pages:
+        print(f"  {name}: {loaded} rows", end="\r", file=sys.stderr)
+        if max_pages is not None and i >= max_pages:
             break
     else:
-        # Finished, so the next run starts from the top. The resume key is for interrupted runs.
-        # Left behind after a full one, the quarterly refresh only fetched rows added since and
-        # never re-read a changed row.
-        conn.execute(
-            "update register_fetch set last_key = null where dataset = %s", (dataset.name,)
-        )
+        # the resume key is only for interrupted runs, a full one starts over next time
+        conn.execute("update register_fetch set last_key = null where dataset = %s", (name,))
         conn.commit()
 
-    print(f"\r  {dataset.name}: {loaded} rows loaded ")
+    print(f"\r  {name}: {loaded} rows loaded ")
     return loaded
 
 

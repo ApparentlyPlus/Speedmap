@@ -21,10 +21,11 @@ fmt: # apply the autofixable lint rules
 	.venv/bin/ruff check --fix .
 
 .PHONY: lint
-lint: # ruff, the numeric fallback ban, and the two generated contracts
+lint: # ruff, the numeric fallback ban, and the generated contracts and strings
 	.venv/bin/ruff check .
 	$(PY) tools/lint_numeric_fallback.py .
 	$(PY) tools/codegen_tiles.py --check
+	$(PY) tools/codegen_strings.py --check
 	$(PY) -m tools.openapi_schema --check
 
 .PHONY: typecheck
@@ -36,9 +37,9 @@ test: # pytest
 	$(PY) -m pytest -q
 
 .PHONY: web-check
-web-check: # typecheck and test the frontend, when it has been installed
+web-check: # typecheck, lint and test the frontend, when it has been installed
 	@test -d web/node_modules \
-		&& (cd web && npm run --silent typecheck && npm run --silent test) \
+		&& (cd web && npm run --silent typecheck && npm run --silent lint && npm run --silent test) \
 		|| echo "  web: no node_modules, skipped"
 
 .PHONY: check
@@ -72,13 +73,22 @@ web-build: # build the frontend for deployment
 tiles: fonts # cut the map tiles; needs tippecanoe, so a desktop rather than the Pi
 	$(PY) -m publish.run
 
+.PHONY: slim
+slim: # cut the basemap and buildings down to what the style reads, after copying them into tiles/
+	$(PY) -m tools.slim_basemap
+
 .PHONY: fonts
 fonts: # fetch the label glyphs once, to be served beside the tiles
 	$(PY) -m tools.fonts
 
+.PHONY: strings
+strings: # check web/src/strings.toml and rebuild the text the site reads from it
+	$(PY) tools/codegen_strings.py
+
 .PHONY: codegen
 codegen: # regenerate the tile contract and the OpenAPI document
 	$(PY) tools/codegen_tiles.py
+	$(PY) tools/codegen_strings.py
 	$(PY) -m tools.openapi_schema
 	@test -d web/node_modules && (cd web && npm run --silent api:types) || true
 

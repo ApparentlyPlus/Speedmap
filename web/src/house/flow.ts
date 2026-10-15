@@ -1,4 +1,4 @@
-/** The signal as light flowing along a path. Particles were the wrong primitive. */
+// the signal as light flowing along a path (particles didn't work)
 import * as THREE from "three";
 
 const VERT = `
@@ -19,20 +19,18 @@ uniform float uBright;
 uniform float uFadeIn;   // how much of the start to ease in over
 
 void main() {
-  // One sawtooth per band. fract() is continuous under scrolling, so there is no seam.
+  // a sawtooth per band, fract() has no seam under scrolling
   float wave = fract(vUv.x * uDensity - uTime * uSpeed);
 
-  // A head that rises quickly and a tail that falls away slowly: the asymmetry is what
-  // reads as direction. Symmetrical bands look like a barber's pole and have no flow.
+  // fast rise, slow tail, which is what reads as direction. Symmetric bands look like a barber's pole
   float head = smoothstep(0.0, 0.06, wave);
   float tail = 1.0 - smoothstep(0.06, 0.62, wave);
   float band = head * tail;
 
-  // Faded at both ends of the path, so light is never seen appearing or vanishing at a cut.
+  // faded at both ends so nothing pops in at a cut
   float ends = smoothstep(0.0, uFadeIn, vUv.x) * (1.0 - smoothstep(0.86, 1.0, vUv.x));
 
-  // Brightest along the centre line of the tube, so it reads as a filament in a glow
-  // rather than as a painted pipe.
+  // brightest on the centre line, a filament in a glow and not a painted pipe
   float core = 1.0 - abs(vUv.y - 0.5) * 2.0;
   core = pow(max(core, 0.0), 1.6);
 
@@ -78,8 +76,7 @@ export function flow(points: readonly Point[], options: FlowOptions = {}): Flow 
       uSpeed: { value: options.speed ?? 0.3 },
       uDensity: { value: options.density ?? 3 },
       uBright: { value: options.bright ?? 1.6 },
-      // A path that leaves a visible emitter (a dish on the roof) should be bright right
-      // there. One coming in from off screen can ease in.
+      // bright at a visible emitter (the dish), eased in when it comes from off screen
       uFadeIn: { value: options.fadeIn ?? 0.1 },
     },
   });
@@ -99,21 +96,18 @@ export function flow(points: readonly Point[], options: FlowOptions = {}): Flow 
   };
 }
 
-/** An expanding, fading ring, the way a signal leaves an aerial. */
+// expanding, fading ring leaving an aerial
 export function ring(colour: string): THREE.Mesh {
-  // left upright: it gets turned to face the camera every frame, and one already laid
-  // flat would be turned twice
+  // left upright, it gets turned to the camera every frame
   const geometry = new THREE.RingGeometry(0.92, 1.0, 72);
   const material = new THREE.MeshBasicMaterial({
     color: colour, transparent: true, opacity: 0.4,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     depthWrite: false,
-    // No depth test. Sorting is per object, and a ring centred on the router passes through
-    // the house, part in front and part behind.
+    // no depth test, the ring passes through the house and per-object sorting gets it wrong
     depthTest: false,
   });
   const mesh = new THREE.Mesh(geometry, material);
-  // after the house, so overlaps resolve to "in front"
-  mesh.renderOrder = 4;
+  mesh.renderOrder = 4; // after the house, so overlaps resolve to "in front"
   return mesh;
 }

@@ -1,8 +1,4 @@
-"""Ask Nova what it sells at an address.
-
-They want their own spelling, which their address API hands out. A street there is a
-(region, municipality, city, street, zipcode) tuple.
-"""
+"""Nova's checker. A street there is (region, municipality, city, street, zipcode) from their own API."""
 
 from __future__ import annotations
 
@@ -20,6 +16,7 @@ from db.settings import settings
 from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import TRIES, namings
+from probe.walls import refuse
 
 SPEC = Descriptor("NOVA")
 
@@ -28,16 +25,13 @@ LANDING = SPEC.url("warm")
 STREETS = SPEC.text("streets")
 ELIGIBILITY = SPEC.text("eligibility")
 
-# the package their plan page starts every visitor on
 PRESELECTED = SPEC.payload("preselect")
 
-# The code names a speed, never the medium: 2P_FIBER_100 is vectored copper on a copper
-# street and fiber on a fiber one, same as Telekom's FBR codes.
+# 2P_FIBER_100 is vectored copper on a copper street, the code only names a speed
 RUNGS = SPEC.rungs()
 
 
 def speed_of(code: str) -> int | None:
-    """The megabits a package code names, or None."""
     for part in reversed(code.replace("-", "_").split("_")):
         if part.isdigit():
             return int(part)
@@ -63,45 +57,40 @@ def euros(value: object) -> Decimal | None:
 
 
 def read(payload: dict[str, Any]) -> Probed:
-    """Parse the answer. Pure, so the shape can be tested offline."""
-    result = payload.get("result")
-    result = result if isinstance(result, dict) else {}
-    packages = result.get("packages")
+    res = payload.get("result")
+    res = res if isinstance(res, dict) else {}
+    packages = res.get("packages")
     packages = packages if isinstance(packages, list) else []
 
     best: dict[str, Offer] = {}
     tariffs: list[dict[str, object]] = []
-    for package in packages:
-        if not isinstance(package, dict):
+    for p in packages:
+        if not isinstance(p, dict):
             continue
-        code = str(package.get("code", ""))
+        code = str(p.get("code", ""))
         mbps = speed_of(code)
         tariffs.append({
             "code": code,
-            "title": package.get("title"),
-            "monthly_eur": str(euros(package.get("monthlyFeeDisplay"))),
-            "contract_months": package.get("bindPeriod"),
+            "title": p.get("title"),
+            "monthly_eur": str(euros(p.get("monthlyFeeDisplay"))),
+            "contract_months": p.get("bindPeriod"),
         })
         if mbps is None:
             continue
-        technology = technology_of(mbps)
-        held = best.get(technology)
-        # one technology, several packages: keep the fastest
-        faster = held is None or held.max_down_mbps is None or held.max_down_mbps < mbps
-        if faster:
-            best[technology] = Offer(technology=technology, max_down_mbps=Decimal(mbps))
+        tech = technology_of(mbps)
+        held = best.get(tech)
+        if held is None or held.max_down_mbps is None or held.max_down_mbps < mbps:
+            best[tech] = Offer(technology=tech, max_down_mbps=Decimal(mbps))
 
     return Probed(
         serviceable=bool(best),
-        offers=tuple(best[code] for code in sorted(best)),
-        raw={"address": result.get("formattedAddress"), "packages": tariffs},
+        offers=tuple(best[k] for k in sorted(best)),
+        raw={"address": res.get("formattedAddress"), "packages": tariffs},
     )
 
 
 @dataclass
 class Nova:
-    """A session on their plan pages, reused across checks."""
-
     code: str = "NOVA"
     client: httpx.Client | None = None
     user_agent: str = settings.user_agent
@@ -113,6 +102,7 @@ class Nova:
         client = httpx.Client(
             base_url=BASE,
             timeout=30.0,
+            event_hooks={"response": [refuse]},
             headers={
                 "Accept": "application/json, text/plain, */*",
                 "Content-Type": "application/json",
@@ -126,76 +116,56 @@ class Nova:
         return client
 
     def streets(self, region: str, municipality: str, initial: str) -> list[dict[str, Any]]:
-        """Their streets under one initial, cached since one call covers a whole town."""
-        # keyed on region too: pre-Καλλικράτης municipality names repeat across prefectures
+        """Their streets under one initial, cached per town."""
+        # municipality names repeat across prefectures
         key = (region, municipality, initial)
         if key in self.seen:
             return self.seen[key]
-        response = self.session().get(
-            f"{STREETS}/{quote(initial)}",
-            params={"region": region, "municipality": municipality},
-        )
-        if response.status_code != httpx.codes.OK:
-            raise ProbeError(f"street list returned {response.status_code}")
-        found = response.json().get("result")
+        r = self.session().get(f"{STREETS}/{quote(initial)}", params={"region": region, "municipality": municipality})
+        if r.status_code != httpx.codes.OK:
+            raise ProbeError(f"street list returned {r.status_code}")
+        found = r.json().get("result")
         found = found if isinstance(found, list) else []
         self.seen[key] = found
         return found
 
     def locate(self, target: Target, region: str, municipality: str) -> dict[str, Any] | None:
-        """Which of their street entries this address is, picked by postcode."""
         name = target.street.upper()
-        candidates = [
-            s for s in self.streets(region, municipality, name[:1])
-            if str(s.get("street", "")).upper() == name
-        ]
-        if not candidates:
+        hits = [s for s in self.streets(region, municipality, name[:1]) if str(s.get("street", "")).upper() == name]
+        if not hits:
             return None
-        # A name repeats across postcodes, and the wrong one answers about the wrong end of
-        # the street. ΑΧΑΡΝΩΝ runs through three, and only ours says which.
+        # ΑΧΑΡΝΩΝ spans three postcodes, the wrong one answers for the wrong end
         if target.postcode is not None:
-            exact = [s for s in candidates if str(s.get("zipcode")) == target.postcode]
+            exact = [s for s in hits if str(s.get("zipcode")) == target.postcode]
             if exact:
                 return exact[0]
-        return candidates[0] if len(candidates) == 1 else None
+        return hits[0] if len(hits) == 1 else None
 
-    def check(
-        self,
-        conn: psycopg.Connection[TupleRow],
-        target: Target,
-        preselect: Mapping[str, object] | None = None,
-    ) -> Probed:
-        """Their prefecture and municipality are the ones Telekom wants, prefixed, so one
-        recorded spelling serves both.
-        """
-        tried = namings(conn, target.municipality_id, target.street_fold,
-                        target.lat, target.lon)
+    def check(self, conn: psycopg.Connection[TupleRow], target: Target,
+              preselect: Mapping[str, object] | None = None) -> Probed:
+        # same names Telekom wants, just prefixed
+        tried = namings(conn, target.municipality_id, target.street_fold, target.lat, target.lon)
         if not tried:
             raise NotAskableError(f"no spelling recorded for {target.street}")
 
         for named in tried[:TRIES]:
             region = SPEC.text("prefecture_prefix") + named.nomos
             municipality = SPEC.text("municipality_prefix") + named.dimos
-            # checked here, so a municipality without this street moves on to the next one
-            # instead of ending the attempt
+            # a municipality without the street moves on to the next
             if self.locate(target, region, municipality) is not None:
                 return self.ask(target, region, municipality, preselect)
 
         where = tried[0].dimos if len(tried) == 1 else f"{len(tried[:TRIES])} municipalities"
         raise NotAskableError(f"no street matched {target.street} in {where}")
 
-    def ask(
-        self,
-        target: Target,
-        region: str,
-        municipality: str,
-        preselect: Mapping[str, object] | None = None,
-    ) -> Probed:
+    def ask(self, target: Target, region: str, municipality: str,
+            preselect: Mapping[str, object] | None = None) -> Probed:
         street = self.locate(target, region, municipality)
         if street is None:
             raise NotAskableError(f"no street matched {target.street} in {municipality}")
+
         payload = {
-            # their flow arrives with a package already chosen, and an empty one returns no offers
+            # empty returns no offers
             "packagePreselected": PRESELECTED if preselect is None else preselect,
             "packageSelected": {"code": "", "title": "", "price": None, "packageGroupType": ""},
             "customerInfo": {
@@ -215,7 +185,7 @@ class Nova:
             "fixedPackagesType": "TwoP",
             "eligibleFixedPackagesType": None,
         }
-        response = self.session().post(ELIGIBILITY, json=payload)
-        if response.status_code != httpx.codes.OK:
-            raise ProbeError(f"eligibility returned {response.status_code}")
-        return replace(read(response.json()), body=response.text)
+        r = self.session().post(ELIGIBILITY, json=payload)
+        if r.status_code != httpx.codes.OK:
+            raise ProbeError(f"eligibility returned {r.status_code}")
+        return replace(read(r.json()), body=r.text)

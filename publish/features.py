@@ -1,11 +1,8 @@
-"""The tile layers as newline-delimited GeoJSON.
-
-Postgres builds the JSON and COPY streams it out, so 214,000 features never become 214,000
-Python dicts on the way to a file.
-"""
+"""The tile layers as GeoJSON lines, built by Postgres so Python never holds 214k dicts."""
 
 from __future__ import annotations
 
+import gzip
 import os
 import pathlib
 import tempfile
@@ -15,10 +12,9 @@ from psycopg.rows import TupleRow
 
 from publish import fields
 
-# One row per street, each operator's best under the field name the contract gives it. The
-# pivot is generated, so adding an operator is a schema edit. It's one grouped pass over
-# street_provider, hash-joined: twelve correlated subqueries per street came to a million
-# index probes over 80,000 streets.
+# below it streets drop id and nprov so tippecanoe merges them (z6 had 56,439 streets, 642 distinct)
+DETAIL_FROM = 10
+
 STREETS = """
 with reach as (
     select sp.street_id, count(*) as nprov
@@ -29,6 +25,7 @@ with reach as (
 )
 select json_build_object(
     'type', 'Feature',
+    'tippecanoe', json_build_object('minzoom', {detail_from}),
     'geometry', st_asgeojson(st_transform(s.geom::geometry, 4326), 6)::json,
     'properties', json_build_object(
         'id', s.id,
@@ -40,14 +37,36 @@ select json_build_object(
 from street s
 left join reach r on r.street_id = s.id
 where s.geom is not null
--- Ordered, because tippecanoe writes features in the order it reads them and the renderer
--- draws them in that order. Unordered, Postgres can return them differently next build, and
--- two crossing streets swap which is on top. A rebuild with no data change once moved
--- several hundred pixels that way.
+-- draw order follows read order, unordered crossings swap between builds
 order by s.id
 """
 
-# one feature per municipality, for zooms where a street is a fraction of a pixel
+# below DETAIL_FROM. Slowest first so fast lines draw on top, identical ones adjacent
+STREETS_OVERVIEW = """
+with reach as (
+    select sp.street_id
+           {aggregates}
+    from street_provider sp
+    join provider p on p.id = sp.provider_id
+    group by sp.street_id
+),
+drawn as (
+    select s.id, s.best_mbps, s.geom,
+           json_build_object('best_mbps', s.best_mbps {operators}) as properties
+    from street s
+    left join reach r on r.street_id = s.id
+    where s.geom is not null
+)
+select json_build_object(
+    'type', 'Feature',
+    'tippecanoe', json_build_object('maxzoom', {detail_from} - 1),
+    'geometry', st_asgeojson(st_transform(geom::geometry, 4326), 6)::json,
+    'properties', properties
+)::text
+from drawn
+order by best_mbps nulls first, properties::text, id
+"""
+
 REGION_SMOOTH = 0.0005
 
 REGIONS = """
@@ -61,8 +80,7 @@ select json_build_object(
         'name', m.name,
         'addresses', coalesce(mc.addresses, 0),
         'fiber', coalesce(mc.fiber, 0),
-        -- 0 to 1, and 0 when nothing is filed, never null. It's a share, and a share of no
-        -- addresses means the register hasn't described the place.
+        -- 0 when nothing's filed, never null
         'fiber_share', case
             when coalesce(mc.addresses, 0) = 0 then 0
             else round(mc.fiber::numeric / mc.addresses, 4)
@@ -81,14 +99,10 @@ order by m.id
 """
 
 
-# half a zoom 16 tile, in Web Mercator metres
-HALF_TILE = 40075016.686 / (1 << 16) / 2
+HALF_TILE = 40075016.686 / (1 << 16) / 2  # web mercator metres
+SHORE = 0.02  # ~2 km offshore still counts
 
-# how far past the coast a cell can sit and still count as Greek, in degrees (about 2 km)
-SHORE = 0.02
-
-# Only tested cells exist and the figure is why they're there, so nothing is nullable. About
-# 4% of Greece is tested, so an empty view is normal.
+# only tested cells exist, so nothing's nullable. ~4% of Greece is tested
 CELLS = """
 with greece as (
     select st_buffer(st_union(geom::geometry), {shore}) as area from municipality
@@ -111,8 +125,7 @@ select json_build_object(
     )
 )::text
 from (
-    -- One square per tile and family, the latest quarter. Every quarter is kept, and drawing
-    -- them all stacks a copy per quarter, each darker than the last.
+    -- latest quarter only, or the squares stack up darker each quarter
     select distinct on (quadkey, family) *
     from speed_cell
     order by quadkey, family, observed_on desc
@@ -123,12 +136,11 @@ order by c.quadkey
 """
 
 
-# an operator that reaches a street with no speed filed (49,897 street-operator pairs)
-SERVED_UNFILED = -1
+SERVED_UNFILED = -1  # reaches the street, no speed filed (49,897 pairs)
 
 
 def aggregates() -> str:
-    """Each operator's best, and whether it reaches at all: two columns per field."""
+    # one grouped pass, correlated subqueries were a million index probes
     return "".join(
         f", max(sp.mbps) filter (where p.code = '{code}') as {field}_mbps"
         f", count(*) filter (where p.code = '{code}') as {field}_n"
@@ -137,10 +149,7 @@ def aggregates() -> str:
 
 
 def operators() -> str:
-    """The per-operator columns, named by the contract.
-
-    Null where the operator doesn't reach, SERVED_UNFILED where it reaches with no speed.
-    """
+    # null where the operator doesn't reach
     return "".join(
         f", '{field}', case when r.{field}_n > 0 "
         f"then coalesce(r.{field}_mbps, {SERVED_UNFILED}) end"
@@ -149,51 +158,43 @@ def operators() -> str:
 
 
 def write(conn: psycopg.Connection[TupleRow], sql: str, out: pathlib.Path) -> int:
-    """Stream one layer to a file, renaming it into place only when complete.
-
-    A build that dies halfway leaves its temp file behind and the previous layer intact, so no
-    renderer ever reads half of one.
-    """
+    """Stream one layer to a temp file and rename it into place when done."""
     out.parent.mkdir(parents=True, exist_ok=True)
-    count = 0
-    descriptor, name = tempfile.mkstemp(dir=out.parent, prefix=out.name + ".")
+    n = 0
+    fd, name = tempfile.mkstemp(dir=out.parent, prefix=out.name + ".")
     tmp = pathlib.Path(name)
     try:
-        with (
-            os.fdopen(descriptor, "w", encoding="utf-8") as handle,
-            conn.cursor(name="publish") as cursor,
-        ):
-            # server-side, so the layer streams instead of building up in memory
-            cursor.itersize = 5000
-            cursor.execute(sql)
-            for (feature,) in cursor:
-                handle.write(feature)
-                handle.write("\n")
-                count += 1
+        # named cursor, so it streams server side
+        with os.fdopen(fd, "w", encoding="utf-8") as f, conn.cursor(name="publish") as cur:
+            cur.itersize = 5000
+            cur.execute(sql)
+            for (feature,) in cur:
+                f.write(feature)
+                f.write("\n")
+                n += 1
         tmp.replace(out)
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
-    return count
+    return n
 
 
 def streets(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    return write(conn, STREETS.format(aggregates=aggregates(), operators=operators()), out)
+    sql = STREETS.format(aggregates=aggregates(), operators=operators(), detail_from=DETAIL_FROM)
+    return write(conn, sql, out)
 
 
-# coastline smoothing, in degrees (about 20 m)
-SMOOTH = 0.0002
+def streets_overview(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
+    sql = STREETS_OVERVIEW.format(aggregates=aggregates(), operators=operators(), detail_from=DETAIL_FROM)
+    return write(conn, sql, out)
 
-# Closes the slivers between neighbouring municipalities without moving the coast anywhere
-# you'd notice: about 150 m.
-KNIT = 0.0015
 
-# The country as one polygon. We publish the land and not the sea, which is the way round
-# that works.
+SMOOTH = 0.0002  # ~20 m
+KNIT = 0.0015  # ~150 m, closes the slivers between municipalities
+
 OUTLINE = """
 select st_asgeojson(
-    -- Made valid: a self-crossing ring triangulates into whatever the renderer makes of it,
-    -- which turned out to be a slab over somebody's island.
+    -- a self crossing ring triangulates into a slab over some island
     st_makevalid(
         st_simplifypreservetopology(st_buffer(st_union(geom::geometry), {knit}), {smooth})
     ),
@@ -204,17 +205,16 @@ from municipality
 
 
 def outline(conn: psycopg.Connection[TupleRow], out: pathlib.Path) -> int:
-    """The country as a single GeoJSON feature."""
     row = conn.execute(OUTLINE.format(knit=KNIT, smooth=SMOOTH)).fetchone()
     if row is None or row[0] is None:
         raise SystemExit("no municipalities: the country has no outline")
     out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_suffix(out.suffix + ".part")
-    tmp.write_text(
-        '{"type":"Feature","properties":{},"geometry":' + row[0] + "}",
-        encoding="utf-8",
-    )
-    tmp.replace(out)
+    body = ('{"type":"Feature","properties":{},"geometry":' + row[0] + "}").encode("utf-8")
+    # plus a .gz for Caddy's precompressed, 1.4 MB down to about a quarter
+    for path, data in ((out, body), (out.with_name(out.name + ".gz"), gzip.compress(body, 9))):
+        tmp = path.with_name(path.name + ".part")
+        tmp.write_bytes(data)
+        tmp.replace(path)
     return out.stat().st_size
 
 

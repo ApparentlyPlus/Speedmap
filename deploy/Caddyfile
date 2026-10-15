@@ -1,50 +1,56 @@
-# The one process in front of everything: built pages, the API and the tiles.
+# Pages, API and tiles. Pages never cached, hashed assets cached forever, tiles weekly and
+# read by range.
 #
-# Three jobs, three caching stories, hence three rules. Pages change every deploy and are never
-# held. The hashed assets beside them never change and are held forever. The tile archive
-# changes weekly, is tens of MB, and gets read by range request.
-#
-# Replace the site address with the real host. Caddy fetches its own certificate.
+# Behind Cloudflare Tunnel: cloudflared hands requests over plain HTTP on localhost:80 and
+# Cloudflare has the certificate.
 
-speedmap.gr {
+{
+	servers {
+	# everything comes from cloudflared, so take the visitor from CF-Connecting-IP
+	# (Cloudflare overwrites any a visitor sends)
+		trusted_proxies static 127.0.0.1/32 ::1/128
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+http://speedmap.gr {
 	encode zstd gzip
 
-	# The API on the same origin, so there's no CORS to set up and nothing to get wrong about
-	# credentials. The prefix is stripped because the app doesn't know where it's mounted.
+	# same origin, no CORS. Prefix stripped, the app doesn't know where it's mounted
 	handle_path /api/* {
 		reverse_proxy 127.0.0.1:8000 {
-			# a live probe waits on the operator's checker, slow and sometimes silent, and the
-			# app gives up before this does
+		# the API rate limits on this
+			header_up X-Forwarded-For {client_ip}
+		# a live probe waits on the operator's checker, the app gives up first
 			transport http {
 				response_header_timeout 30s
 			}
 		}
 	}
 
-	# One file, read by range request. It's replaced by atomic rename, so a reader gets the old
-	# archive or the new one, never half. A client holding a cached range of the old one would
-	# splice the two together, though, so this is a week and the name carries no hash.
+	# one file read by range, swapped by rename. A week and no hash in the name, a client
+	# holding an old cached range would splice the two
 	handle /tiles/* {
 		header Cache-Control "public, max-age=604800"
 		header Access-Control-Allow-Origin "*"
-		root * /srv/speedmap/tiles
+		# the directory above the archives, handle keeps /tiles
+		root * /srv/speedmap
 		file_server {
 			precompressed
 		}
 	}
 
-	# everything the build hashed into its name: same bytes forever, so held forever
+		# hashed names, held forever
 	handle /assets/* {
 		header Cache-Control "public, max-age=31536000, immutable"
 		root * /srv/speedmap/web
-		# compressed once at build time (web/scripts/compress.mjs)
+		# web/scripts/compress.mjs
 		file_server {
 			precompressed br gzip
 		}
 	}
 
-	# The pages. Every route (/, /en/, /map, /en/map) gets the same document, so arriving
-	# directly on a route or reloading one serves the app, never a 404.
+	# every route gets index.html, so a direct link or reload never 404s
 	handle {
 		header Cache-Control "no-cache"
 		root * /srv/speedmap/web
@@ -53,7 +59,6 @@ speedmap.gr {
 	}
 
 	header {
-		# the pages load nothing from elsewhere: no basemap, fonts or analytics
 		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'"
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
@@ -61,12 +66,31 @@ speedmap.gr {
 	}
 
 	log {
-		output file /var/log/caddy/speedmap.log
-		# the query string holds what people searched for, which is a street they live on
-		format json
+		# two weeks, the privacy page promises it
+		output file /var/log/caddy/speedmap.log {
+			roll_keep_for 336h
+		}
+		# q is dropped (it's a street someone lives on) and the IP loses its last part, enough
+		# to spot a network hammering us but not a house
+		format filter {
+			fields {
+				request>uri query {
+					delete q
+				}
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>headers>X-Forwarded-For delete
+			}
+			wrap json
+		}
 	}
 }
 
-# Rate limiting the two endpoints that call out (POST /api/addresses/*/probe and POST
-# /api/reports) needs caddy-ratelimit, a build-time plugin that doesn't ship with Caddy. Until
-# that build exists only the app refuses, per operator and per address but not per caller.
+# Rate limiting probe and report here needs the caddy-ratelimit plugin. Until then only the
+# app limits them.

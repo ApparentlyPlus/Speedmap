@@ -1,21 +1,16 @@
-/**
- * The network behind the landing page: slowly drifting nodes, linked to near neighbours,
- * drawn faintly in the two colours the speed ramp runs between.
- */
+// drifting nodes behind the landing page, in the two colours at the ends of the speed ramp
 
 import { useEffect, useRef } from "react";
 
 import { ACCENT, FAR } from "../tokens";
 
-/** Enough to read as a network, few enough to count the links by eye. */
 const NODES_PER_MEGAPIXEL = 34;
 const MAX_NODES = 90;
 
-/** Further apart than this, two nodes aren't neighbours. */
+// further apart than this isn't a neighbour
 const REACH = 190;
 const REACH_SQUARED = REACH * REACH;
 
-/** Slow enough that you only notice the motion after watching a while. */
 const DRIFT = 0.045;
 
 type Node = { x: number; y: number; dx: number; dy: number; warm: boolean };
@@ -28,7 +23,7 @@ function seed(width: number, height: number): Node[] {
     y: Math.random() * height,
     dx: (Math.random() - 0.5) * DRIFT,
     dy: (Math.random() - 0.5) * DRIFT,
-    // two thirds warm, so the field is mostly violet with cyan threaded through
+    // 2/3 violet with cyan threaded through
     warm: Math.random() > 0.34,
   }));
 }
@@ -44,11 +39,11 @@ function draw(context: CanvasRenderingContext2D, nodes: Node[], w: number, h: nu
       if (b === undefined) continue;
       const dx = a.x - b.x;
       const dy = a.y - b.y;
-      // most pairs are far apart, rejected on the square before any sqrt
+      // reject on the square before any sqrt
       const squared = dx * dx + dy * dy;
       if (squared > REACH_SQUARED) continue;
       const away = Math.sqrt(squared);
-      // fading with distance makes it read as a mesh, not a web
+      // fading with distance reads as a mesh
       context.globalAlpha = (1 - away / REACH) * 0.16;
       context.strokeStyle = a.warm ? ACCENT : FAR;
       context.beginPath();
@@ -99,7 +94,7 @@ export function Network(): React.ReactElement {
       for (const node of nodes) {
         node.x += node.dx;
         node.y += node.dy;
-        // wrap at the edges: bouncing puts a visible edge on something meant to have none
+        // wrap, bouncing shows an edge
         if (node.x < 0) node.x += width;
         if (node.x > width) node.x -= width;
         if (node.y < 0) node.y += height;
@@ -111,7 +106,6 @@ export function Network(): React.ReactElement {
 
     const wake = (): void => {
       window.cancelAnimationFrame(frame);
-      // nothing animates in a tab nobody's looking at
       if (!still && !document.hidden) frame = window.requestAnimationFrame(step);
     };
 

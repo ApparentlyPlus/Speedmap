@@ -1,14 +1,13 @@
-"""Greek folding: accents, final sigma, and the type words that have to survive."""
-
 from __future__ import annotations
 
-import pytest
+import unicodedata
+
 from hypothesis import given
 from hypothesis import strategies as st
 
 from normalise.text import IDENTITY_WORDS, TYPE_WORDS, fold, split_number, street_key, strip_marks
 
-# Real addresses from the register, kept verbatim as fixtures.
+# verbatim from the register
 REGISTER_SAMPLES = [
     "Α' ΠΑΡΟΔΟΣ ΑΡΙΣΤΕΙΔΗ ΚΟΚΚΙΝΟΥ",
     "Γ' ΠΑΡΟΔΟΣ ΝΙΚΟΛΑΟΥ ΑΝΑΔΟΛΗ",
@@ -22,153 +21,78 @@ REGISTER_SAMPLES = [
 ]
 
 
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
+def test_fold() -> None:
+    for raw, expected in [
         ("Αχαρνών", "ΑΧΑΡΝΩΝ"),
         ("Αγίου Ιωάννου", "ΑΓΙΟΥ ΙΩΑΝΝΟΥ"),
         ("Ελλησπόντου", "ΕΛΛΗΣΠΟΝΤΟΥ"),
         ("ΑΧΑΡΝΩΝ", "ΑΧΑΡΝΩΝ"),
-    ],
-)
-def test_accents_fold_away(raw: str, expected: str) -> None:
-    assert fold(raw) == expected
-
-
-def test_final_sigma_folds_with_medial_sigma() -> None:
-    """Οδός and ΟΔΟΣ are the same word. Upper() handles ς, the accent strip handles ό."""
+    ]:
+        assert fold(raw) == expected
     assert fold("Οδός") == fold("ΟΔΟΣ") == "ΟΔΟΣ"
-
-
-def test_dialytika_and_tonos_both_go() -> None:
     assert fold("Αϊβαλίου") == "ΑΙΒΑΛΙΟΥ"
-
-
-def test_whitespace_is_collapsed() -> None:
     assert fold("  ΑΓΙΟΥ   ΙΩΑΝΝΟΥ \n") == "ΑΓΙΟΥ ΙΩΑΝΝΟΥ"
-
-
-def test_apostrophe_variants_unify() -> None:
-    """The register mixes quote characters, and Α' and Α’ are the same ordinal."""
     assert fold("Α’ ΠΑΡΟΔΟΣ") == fold("Α' ΠΑΡΟΔΟΣ") == "Α' ΠΑΡΟΔΟΣ"
 
 
-# type words.
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
+def test_street_key() -> None:
+    for raw, expected in [
         ("ΟΔΟΣ ΑΧΑΡΝΩΝ", "ΑΧΑΡΝΩΝ"),
         ("ΛΕΩΦΟΡΟΣ ΙΩΑΝΝΗ ΚΑΠΟΔΙΣΤΡΙΟΥ", "ΙΩΑΝΝΗ ΚΑΠΟΔΙΣΤΡΙΟΥ"),
         ("ΛΕΩΦ. ΑΛΕΞΑΝΔΡΑΣ", "ΑΛΕΞΑΝΔΡΑΣ"),
         ("Λεωφόρου Κηφισίας", "ΚΗΦΙΣΙΑΣ"),
-    ],
-)
-def test_type_words_are_dropped(raw: str, expected: str) -> None:
-    assert street_key(raw) == expected
+    ]:
+        assert street_key(raw) == expected
 
-
-@pytest.mark.parametrize(
-    "raw",
-    [
+    # ΠΑΡΟΔΟΣ ends in ΟΔΟΣ
+    for raw in [
         "ΠΑΡΟΔΟΣ ΑΧΑΡΝΩΝ",
         "Α' ΠΑΡΟΔΟΣ ΔΗΜΟΣΘΕΝΟΥΣ",
         "ΠΛΑΤΕΙΑ ΜΑΚΑΡΙΟΥ",
         "ΠΑΡΟΔΟΥ ΑΓΙΟΥ ΔΗΜΗΤΡΙΟΥ",
         "Α' ΑΔΙΕΞΟΔΟΣ ΜΑΡΑΣΛΗ",
         "2Η ΠΑΡΟΔΟΣ ΣΚΡΑ",
-    ],
-)
-def test_identity_words_survive(raw: str) -> None:
-    """ΠΑΡΟΔΟΣ ends in ΟΔΟΣ, so stripping substrings would merge distinct streets."""
-    assert street_key(raw) == fold(raw)
-
-
-def test_parodos_stays_distinct_from_the_street_it_references() -> None:
-    """The failure this rule exists to prevent: two different places, one key."""
+    ]:
+        assert street_key(raw) == fold(raw)
     assert street_key("ΠΑΡΟΔΟΣ ΑΧΑΡΝΩΝ") != street_key("ΟΔΟΣ ΑΧΑΡΝΩΝ")
-
-
-def test_numeric_ordinals_are_kept_too() -> None:
-    """2Η ΠΑΡΟΔΟΣ and 3Η ΠΑΡΟΔΟΣ of one street are two streets."""
     assert street_key("2Η ΠΑΡΟΔΟΣ ΣΚΡΑ") != street_key("3Η ΠΑΡΟΔΟΣ ΣΚΡΑ")
-
-
-def test_ordinal_parodoi_stay_distinct() -> None:
-    """Α' and Γ' ΠΑΡΟΔΟΣ of the same street are different streets."""
     assert street_key("Α' ΠΑΡΟΔΟΣ ΔΗΜΟΣΘΕΝΟΥΣ") != street_key("Γ' ΠΑΡΟΔΟΣ ΔΗΜΟΣΘΕΝΟΥΣ")
-
-
-def test_a_name_of_only_type_words_is_not_emptied() -> None:
-    """An empty key would match every address in the country."""
     assert street_key("ΟΔΟΣ") == "ΟΔΟΣ"
-
-
-def test_the_two_word_lists_never_overlap() -> None:
     assert not (TYPE_WORDS & IDENTITY_WORDS)
 
-
-# properties.
+    for sample in REGISTER_SAMPLES:
+        key = street_key(sample)
+        assert key == street_key(key)
+        assert key.strip() == key
 
 
 @given(st.text())
-def test_fold_is_idempotent(text: str) -> None:
+def test_fold_idempotent(text: str) -> None:
     assert fold(fold(text)) == fold(text)
 
 
 @given(st.text())
-def test_street_key_is_idempotent(text: str) -> None:
+def test_street_key_idempotent(text: str) -> None:
     assert street_key(street_key(text)) == street_key(text)
 
 
 @given(st.text(min_size=1).filter(lambda s: s.strip()))
-def test_folding_never_empties_a_non_blank_name(text: str) -> None:
+def test_street_key_never_empty(text: str) -> None:
     assert street_key(text) != ""
 
 
 @given(st.text())
-def test_fold_leaves_no_combining_marks(text: str) -> None:
-    """Unless the marks are all there is.
-
-    A name made only of combining marks has no accent-free form, and folding it to an empty
-    string would make a key that matches every row.
-    """
-    import unicodedata
-
+def test_fold_marks(text: str) -> None:
+    # a name of only combining marks keeps them, "" would match every row
     if not strip_marks(text).strip():
         return
     assert not any(unicodedata.combining(c) for c in fold(text))
 
 
-@pytest.mark.parametrize("sample", REGISTER_SAMPLES)
-def test_real_register_names_round_trip(sample: str) -> None:
-    key = street_key(sample)
-    assert key == street_key(key)
-    assert key.strip() == key
-
-
-# split_number.
-
-
-def test_a_trailing_house_number_comes_off() -> None:
+def test_split_number() -> None:
     assert split_number("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ 8") == ("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", "8")
-
-
-def test_a_number_with_a_letter_comes_off() -> None:
     assert split_number("ΑΘΗΝΑΣ 12Α") == ("ΑΘΗΝΑΣ", "12Α")
-
-
-def test_a_query_with_no_number_is_left_alone() -> None:
     assert split_number("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ") == ("ΑΛΕΞΑΝΔΡΟΥ ΣΥΜΕΩΝΙΔΗ", None)
-
-
-def test_a_lone_number_is_a_street_name() -> None:
-    """Greece has streets named 8 and 100%. Taking the only token away leaves nothing to
-    search, and an empty key matches every row."""
+    # there are streets called 8
     assert split_number("8") == ("8", None)
-
-
-def test_only_the_last_token_counts() -> None:
-    """25ΗΣ ΜΑΡΤΙΟΥ is a date inside a name, and no house number."""
     assert split_number("25ΗΣ ΜΑΡΤΙΟΥ 52") == ("25ΗΣ ΜΑΡΤΙΟΥ", "52")

@@ -1,4 +1,3 @@
-/** The credits, kept off the map itself. */
 
 import { SOURCES, TOOLS, type Credit } from "../credits";
 import { languageOf, strings, type Language } from "../i18n";

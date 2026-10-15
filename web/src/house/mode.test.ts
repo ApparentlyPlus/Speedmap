@@ -1,4 +1,3 @@
-/** Which picture an offer gets. */
 
 import { describe, expect, it } from "vitest";
 
@@ -7,7 +6,7 @@ import { modeOf } from "./mode";
 
 describe("the picture an offer gets", () => {
   it("draws copper and fiber the same way", () => {
-    // different products, same picture: both arrive along a line in the ground
+    // different products, both come in along a line in the ground
     expect(modeOf("fiber")).toBe("landline");
     expect(modeOf("copper")).toBe("landline");
   });
@@ -24,8 +23,7 @@ describe("the picture an offer gets", () => {
   });
 
   it("falls back to the commonest rather than to nothing", () => {
-    // a family the catalogue adds later should still draw something, not crash the scene or
-    // leave an empty canvas
+    // a family added later still draws something
     expect(modeOf("something new")).toBe("landline");
   });
 });

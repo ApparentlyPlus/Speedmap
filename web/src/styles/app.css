@@ -1,7 +1,7 @@
-/* Near-black ground, matte surfaces, hairlines and type. Nothing glows. */
+/* near black, matte, hairlines */
 
 :root {
-  /* Neutral throughout. A slate-blue grey would read as a colour choice, this reads as absence. */
+  /* neutral greys, a blue-grey would look like a choice */
   --ground: #08080a;
   --raised: #101013;
   --raised-high: #161619;
@@ -14,15 +14,13 @@
   --accent: #fff;
   --accent-far: #e4e4e7;
 
-  /* A rule divides, a line encloses. Same hairline for both: one border weight, used everywhere. */
+  /* one hairline for rules and outlines */
   --rule: rgb(255 255 255 / 7%);
   --rule-lit: rgb(255 255 255 / 14%);
 
-  /* Plain black for depth. Nothing casts a coloured shadow. */
   --lift: 0 10px 30px rgb(0 0 0 / 50%);
   --lift-high: 0 18px 44px rgb(0 0 0 / 60%);
 
-  /* Long enough to read as a filament warming up. */
   --warmup: 1500ms;
 
   --radius: 12px;
@@ -33,10 +31,12 @@
   box-sizing: border-box;
 }
 
-/*
- * One focus style for the whole page, keyboard only. Someone who just clicked a card with the
- * mouse doesn't need telling which card it was.
- */
+/* no tap flash on phones, every control draws its own pressed state */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* keyboard focus only */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -46,7 +46,6 @@
   background: rgb(255 255 255 / 30%);
 }
 
-/* The default thumb is a light grey slab on a near-black page. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -101,7 +100,7 @@ body {
   isolation: isolate;
 }
 
-/* The lamp. */
+/* the network, faint behind an open answer */
 .network {
   position: fixed;
   z-index: -2;
@@ -110,29 +109,11 @@ body {
   height: 100%;
   opacity: 0.34;
   pointer-events: none;
-  /* Dimmed in the middle so no line runs behind the type, and at the edges so the field has
-   * no border of its own. */
+  /* dim in the middle behind the type, and at the edges */
   mask-image: radial-gradient(ellipse 78% 62% at 50% 42%, transparent 8%, #000 62%);
   animation: lights-on calc(var(--warmup) * 1.4) ease-out both;
 }
 
-.lamp {
-  position: fixed;
-  z-index: -1;
-  inset: auto 0 -18% 0;
-  height: 96vh;
-  /* Three ellipses: a broad glow, a hot core, a faint bloom up to the type. One alone either lit
-   * only the floor or washed flat over the text. */
-  background:
-    radial-gradient(ellipse 78% 62% at 50% 100%, rgb(255 255 255 / 13%), transparent 70%),
-    radial-gradient(ellipse 38% 44% at 50% 100%, rgb(255 255 255 / 7%), transparent 66%),
-    radial-gradient(ellipse 62% 100% at 50% 108%, rgb(255 255 255 / 6%), transparent 72%);
-  filter: blur(52px);
-  pointer-events: none;
-  animation: lights-on var(--warmup) cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Rises as it brightens, so the light arrives from somewhere. */
 @keyframes lights-on {
   from {
     opacity: 0;
@@ -145,11 +126,10 @@ body {
   }
 }
 
-/* Optical centre. A block centred at 50% reads low. */
+/* optical centre, 50% reads low */
 .landing-centre {
   position: relative;
   width: min(560px, calc(100% - 48px));
-  /* Both ends carry the offset, or the lift fights the optical centre. */
   animation: rise 900ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
 }
 
@@ -165,7 +145,7 @@ body {
   }
 }
 
-/* The small spaced label that says what something is, standing in for a heading. */
+/* small spaced label standing in for a heading */
 .eyebrow {
   margin: 0 0 18px;
   color: var(--ink-faint);
@@ -206,7 +186,6 @@ body {
   clip-path: inset(50%);
 }
 
-/* The shell is the field, the input inside it is bare. */
 .search-shell {
   display: grid;
   position: relative;
@@ -254,13 +233,12 @@ body {
   color: var(--ink-faint);
 }
 
-/* The browser's clear button is a blue cross in a dark field. Hidden. */
+/* hide the browser's blue clear button */
 .search-field::-webkit-search-cancel-button,
 .search-field::-webkit-search-decoration {
   appearance: none;
 }
 
-/* Focus shows once, as a line. */
 .search-shell:focus-within {
   border-color: rgb(255 255 255 / 62%);
   background: rgb(255 255 255 / 5%);
@@ -279,8 +257,7 @@ body {
   background: var(--raised);
   box-shadow: var(--lift-high);
   list-style: none;
-  /* Height measured by Search.tsx (--room): a phone keyboard takes half the screen, and no
-   * fraction of vh knows that. */
+  /* --room is set by Search.tsx, vh doesn't know about the phone keyboard */
   max-height: min(var(--room, 46dvh), 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -337,7 +314,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* A lit point on the same ramp the background network is drawn in. */
 .suggestion-dot {
   grid-row: 1 / span 2;
   grid-column: 2;
@@ -346,7 +322,7 @@ body {
   border-radius: 50%;
 }
 
-/* A door being made, and the case where that fails. */
+/* making a door, and when that fails */
 .making {
   margin: 18px 0 0;
   color: var(--ink-faint);
@@ -360,7 +336,15 @@ body {
   color: #f87171;
 }
 
-/* Unfiled door, offered but not held yet. */
+/* no JS at all */
+.load-failed {
+  margin: 40vh auto 0;
+  color: var(--ink-dim);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* unfiled door, offered but not held yet */
 .suggestion-ask {
   color: var(--ink-dim);
 }
@@ -381,27 +365,62 @@ body {
   color: var(--accent);
 }
 
-/* The room lights up as you arrive. With reduced motion it's still lit, it just doesn't
- * animate on. */
+/* lights up on arrival, reduced motion just skips the animation */
 @media (prefers-reduced-motion: reduce) {
     * {
        transition-duration: 0ms !important;
        animation-duration: 1ms !important;
        animation-delay: 0ms !important;
-    /* without this a looping animation strobes at 1 ms a lap */
+    /* or a looping animation strobes at 1ms a lap */
     animation-iteration-count: 1 !important;
   }
 }
 
-/*
- * The address and what you can get there. It scrolls, unlike the landing, so the block is
- * placed, not centred. The network drops back further here.
- */
+/* flyover behind the landing, a city at a time */
+.flyover {
+  position: fixed;
+  z-index: -3;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1400ms ease;
+}
+
+.flyover-shown {
+  opacity: 1;
+}
+
+.flyover-dim {
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  background: rgb(8 8 10 / 80%);
+  pointer-events: none;
+}
+
+/* over moving streets: text shadow, brighter map link, solid field */
+.landing-centre .eyebrow,
+.landing-centre .tagline,
+.landing-centre .sub,
+.landing-centre .browse {
+  text-shadow: 0 1px 18px rgb(8 8 10 / 90%);
+}
+
+.landing-centre .browse:not(:hover) {
+  color: var(--ink-dim);
+}
+
+.landing-centre .search-shell {
+  border-color: var(--rule-lit);
+  background: rgb(16 16 19 / 92%);
+  backdrop-filter: blur(14px);
+}
+
+/* address and what you can get there. Scrolls, unlike the landing */
 .landing-open .network {
   opacity: 0.13;
 }
 
-/* The result: the map is the page, everything else floats over it. */
+/* result: the map is the page */
 .landing-open {
   display: block;
   padding: 0;
@@ -414,61 +433,344 @@ body {
   inset: 0;
 }
 
-/*
- * No panel. A box around the answer would make it a thing sitting on a page, and the answer
- * is the page.
- */
-.place {
-  display: grid;
+/* split result: answer on one half, map on the other, joined by a gradient */
+
+.split {
   position: fixed;
-  z-index: 1;
-  inset: 22px auto 22px 22px;
-  grid-template-rows: 232px 1fr;
-  width: min(440px, calc(100% - 44px));
-  border: 1px solid var(--rule);
-  border-radius: 16px;
-  background: rgb(10 10 12 / 84%);
-  backdrop-filter: blur(22px);
+  inset: 0;
   overflow: hidden;
-  animation: rise-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* The drawing goes above the list: it's what the address looks like, the list is what you
- * can buy there. */
-.place-scene {
-  border-bottom: 1px solid var(--rule);
-  overflow: hidden;
+.split-panel {
+  display: grid;
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto 0 0;
+  /* wider than half, the fade lives in the overhang so text reaches the middle */
+  width: 60vw;
+  animation: split-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  /* how much of the map the panel covers, for Anchored (to mid fade) */
+  --covers: 0.84;
+}
+
+/* own layer so the fade doesn't fade the text. Solid for 2/3, then an eased ramp */
+.split-panel-ground {
+  position: absolute;
+  inset: 0;
+  /* smootherstep stops, a hand-placed ramp shows a line at each kink */
+  background: linear-gradient(
+    to right,
+    var(--ground) 0%,
+    var(--ground) 68.0%,
+    rgb(8 8 10 / 99.9%) 69.52%,
+    rgb(8 8 10 / 99.25%) 71.05%,
+    rgb(8 8 10 / 97.67%) 72.57%,
+    rgb(8 8 10 / 94.91%) 74.1%,
+    rgb(8 8 10 / 90.86%) 75.62%,
+    rgb(8 8 10 / 85.53%) 77.14%,
+    rgb(8 8 10 / 79.01%) 78.67%,
+    rgb(8 8 10 / 71.49%) 80.19%,
+    rgb(8 8 10 / 63.21%) 81.71%,
+    rgb(8 8 10 / 54.46%) 83.24%,
+    rgb(8 8 10 / 45.54%) 84.76%,
+    rgb(8 8 10 / 36.79%) 86.29%,
+    rgb(8 8 10 / 28.51%) 87.81%,
+    rgb(8 8 10 / 20.99%) 89.33%,
+    rgb(8 8 10 / 14.47%) 90.86%,
+    rgb(8 8 10 / 9.14%) 92.38%,
+    rgb(8 8 10 / 5.09%) 93.9%,
+    rgb(8 8 10 / 2.33%) 95.43%,
+    rgb(8 8 10 / 0.75%) 96.95%,
+    rgb(8 8 10 / 0.1%) 98.48%,
+    rgb(8 8 10 / 0.0%) 100.0%
+  );
+  pointer-events: none;
+}
+
+/* grain over the fade. Breaks up the banding and the dark seam Chrome's dithering leaves
+ * at the start (components/grain.png, up to 2/255 of white per pixel) */
+.split-panel-ground::after {
+  position: absolute;
+  inset: 0;
+  background-image: url("../components/grain.png");
+  background-size: 64px 64px;
+  content: "";
+  mask-image: linear-gradient(to right, transparent 66%, #000 76%, #000 92%, transparent 100%);
+}
+
+/* text stops before the ground does */
+.split-panel-body {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  flex-direction: column;
+  gap: 0;
+  padding: clamp(24px, 3.4vh, 44px) 0 clamp(48px, 7vh, 80px) clamp(28px, 4vw, 64px);
+  overflow-y: auto;
+  /* keep cards on solid ground, at 1440px they ran 40px into the fade */
+  padding-right: 35%;
+
+  /* the scrollbar was a grey rail down the middle of the screen */
+  scrollbar-width: none;
+}
+
+/* sheet handle, narrow screens only */
+.split-handle {
+  display: none;
+}
+
+.split-back {
+  flex: none;
+  align-self: flex-start;
+  margin-bottom: clamp(6px, 1.2vh, 14px);
+}
+
+/* a street has no house */
+.split-road-head {
+  flex: none;
+  padding-top: clamp(10px, 2vh, 24px);
+}
+
+/* house and address on one row, the house column is square */
+.split-head {
+  --scene: clamp(180px, 25vh, 290px);
+
+  display: grid;
+  flex: none;
+
+  /* sized to the text and centred, most addresses are ~8 characters ("Ερμού 12") */
+  grid-template-columns: var(--scene) minmax(0, max-content);
+  justify-content: center;
+  align-items: center;
+  gap: clamp(14px, 2vw, 32px);
+  min-height: var(--scene);
+}
+
+/* no clipping, the scene has its own margins and room for the aerial */
+.split-scene {
+  width: var(--scene);
+  height: var(--scene);
+}
+
+.split-title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.split-name {
+  margin: 0;
+  /* --fit from the address length, see Split.tsx */
+  font-size: calc(clamp(26px, 2.8vw, 42px) * var(--fit, 1));
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.split-where {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* flex: none or the flex column shrinks a 1px child to nothing */
+.split-rule {
+  flex: none;
+  width: 100%;
+  height: 1px;
+  margin: clamp(18px, 2.4vh, 30px) 0 clamp(16px, 2.2vh, 26px);
+  border: 0;
+  background: var(--rule);
+}
+
+/* the answer, bigger than the list under it */
+/* blocking operator and how old its answer is, a footnote */
+.split-cached {
+  margin: calc(clamp(20px, 2.6vh, 32px) * -0.6) 0 clamp(16px, 2vh, 24px);
+  color: var(--ink-faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.split-verdict {
+  /* same width as the cards, 46ch looked indented */
+  margin: 0 0 clamp(20px, 2.6vh, 32px);
+  color: var(--ink-dim);
+  font-size: clamp(15px, 1.15vw, 18px);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.split-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-empty {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+
+.split-panel-body::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes split-in {
+  from {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+}
+
+/* Narrow screens: no split. Panel on the bottom half, map on top, and the ground reaches
+ * 10dvh further up to fade out over the map. */
+@media (width <= 900px) {
+  .split-panel {
+    inset: auto 0 0 0;
+    width: 100%;
+    height: 50dvh;
+    animation-name: split-up;
+
+    /* the panel plus half of the 10dvh reach */
+    --covers: 1.1;
+  }
+
+  /* in dvh from the top, in shares it stretched with the panel */
+  .split-panel-ground {
+    inset: -10dvh 0 0 0;
+    background: linear-gradient(
+      to bottom,
+      rgb(8 8 10 / 0%) 0,
+      rgb(8 8 10 / 0.33%) 0.71dvh,
+      rgb(8 8 10 / 2.33%) 1.43dvh,
+      rgb(8 8 10 / 6.95%) 2.14dvh,
+      rgb(8 8 10 / 14.47%) 2.86dvh,
+      rgb(8 8 10 / 24.64%) 3.57dvh,
+      rgb(8 8 10 / 36.79%) 4.29dvh,
+      rgb(8 8 10 / 50.00%) 5.00dvh,
+      rgb(8 8 10 / 63.21%) 5.71dvh,
+      rgb(8 8 10 / 75.36%) 6.43dvh,
+      rgb(8 8 10 / 85.53%) 7.14dvh,
+      rgb(8 8 10 / 93.05%) 7.86dvh,
+      rgb(8 8 10 / 97.67%) 8.57dvh,
+      rgb(8 8 10 / 99.67%) 9.29dvh,
+      var(--ground) 10dvh,
+      var(--ground) 100%
+    );
+  }
+
+  .split-panel-ground::after {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 2.4dvh,
+      #000 7.8dvh,
+      transparent 11.4dvh
+    );
+  }
+
+  .split-panel-body {
+    height: 100%;
+    padding: 28px 22px 28px;
+  }
+
+  /* pulled up it covers the map. Follows the finger (--lift from Split), snaps on release */
+  .split-panel {
+    transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .split-panel[data-raised="true"] {
+    height: 100dvh;
+  }
+
+  .split-panel[data-dragging] {
+    height: calc(50dvh + var(--lift, 0px));
+    transition: none;
+  }
+
+  .split-handle {
+    display: flex;
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    left: 50%;
+    align-items: center;
+    justify-content: center;
+    width: 120px;
+    height: 30px;
+    padding: 0;
+    transform: translateX(-50%);
+    border: 0;
+    background: none;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .split-handle svg {
+    width: 22px;
+    height: 9px;
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.45;
+    transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .split-panel[data-raised="true"] .split-handle svg {
+    transform: rotate(180deg);
+  }
+
+  /* would sit on the raised panel */
+  .split:has(.split-panel[data-raised="true"]) .credit {
+    display: none;
+  }
+
+  .split-head {
+    --scene: 112px;
+
+    justify-content: start;
+    min-height: 0;
+  }
+
+  .split-rule {
+    margin: 10px 0 14px;
+  }
+
+  .split-verdict {
+    margin-bottom: 16px;
+    font-size: 15px;
+  }
+}
+
+@keyframes split-up {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-panel {
+    animation: none;
+  }
 }
 
 .house {
   display: block;
   width: 100%;
   height: 100%;
-}
-
-.place-body {
-  padding: 22px 20px 20px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 14%) transparent;
-}
-
-@keyframes rise-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.place-head {
-  margin-bottom: 22px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--rule);
 }
 
 .back {
@@ -488,37 +790,13 @@ body {
   color: var(--accent);
 }
 
-.place-name {
-  margin: 12px 0 4px;
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
-}
-
-.place-where {
-  margin: 0;
-  color: var(--ink-faint);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .empty {
   padding: 30px 0;
   color: var(--ink-faint);
   font-size: 15px;
 }
 
-.group {
-  margin-bottom: 30px;
-}
-
-.group:last-of-type {
-  margin-bottom: 10px;
-}
-
-/* A numbered marker with a rule running out of it, once per group of cards. */
+/* numbered marker and its rule, once per group */
 .group-head {
   display: flex;
   gap: 12px;
@@ -542,7 +820,7 @@ body {
   background: var(--rule);
 }
 
-/* The rest of the group, on request. */
+/* rest of the group, on request */
 .expand {
   display: flex;
   gap: 8px;
@@ -579,6 +857,7 @@ body {
   transform: rotate(180deg);
 }
 
+/* placeholders while the first answer loads (Waiting) */
 .offers {
   display: grid;
   gap: 10px;
@@ -587,7 +866,7 @@ body {
   list-style: none;
 }
 
-/* One offer: seller, speed, price. */
+/* an offer: seller, speed, price */
 .offer {
   border: 1px solid var(--rule);
   border-radius: 12px;
@@ -607,13 +886,12 @@ body {
   background: rgb(255 255 255 / 3.2%);
 }
 
-/* The one drawn beside the list. */
 .offer-chosen {
   border-color: rgb(255 255 255 / 34%);
   background: rgb(255 255 255 / 5.5%);
 }
 
-/* The ranker's first pick. */
+/* the ranker's pick */
 .offer-best {
   border-color: rgb(255 255 255 / 30%);
   background: rgb(255 255 255 / 4.5%);
@@ -639,8 +917,7 @@ body {
   border-bottom: 1px solid var(--rule);
 }
 
-/* One box with every mark centred, so a glyph and a wordmark start at the same place and no
- * logo hangs off the card's left edge. */
+/* every mark centred in one box, glyphs and wordmarks line up */
 .logo {
   flex: none;
   width: 40px;
@@ -682,7 +959,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* The brand, once, in its own colour. Outlined so it states and doesn't shout. */
+/* brand in its own colour, outlined */
 .offer-brand {
   flex: none;
   padding: 4px 10px;
@@ -696,7 +973,6 @@ body {
   text-transform: uppercase;
 }
 
-/* The number people came for, in its own well. */
 .offer-rate {
   display: flex;
   gap: 10px;
@@ -750,6 +1026,31 @@ body {
   border-top: 1px solid var(--rule);
 }
 
+/* operator's site, a quiet row under the card */
+.visit {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 160ms;
+}
+
+.visit:hover,
+.visit:focus-visible {
+  color: var(--ink);
+}
+
+@media (width <= 560px) {
+  .visit {
+    padding-inline: 14px;
+  }
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -800,7 +1101,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* Skeleton of the answer while it loads. */
+/* loading skeleton */
 .ghost {
   border: 1px solid var(--rule);
   background: rgb(255 255 255 / 1.6%);
@@ -837,7 +1138,6 @@ body {
   }
 }
 
-/* Closed by the rule that opens the answer, so the page has two edges. */
 .disclaimer {
   display: flex;
   flex-wrap: wrap;
@@ -856,6 +1156,37 @@ body {
   margin: 0;
 }
 
+.report:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+.report-form {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.report-note {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--rule-lit);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.report-said {
+  margin: 0;
+  color: var(--ink-dim);
+}
+
 .report {
   padding: 0;
   border: 0;
@@ -869,37 +1200,6 @@ body {
 }
 
 @media (width <= 560px) {
-  /*
-   * The card takes the bottom of the screen and the map the top, so the address is a place
-   * before it's a list of prices.
-   */
-  .place {
-    inset: auto 8px 8px 8px;
-    grid-template-rows: 26dvh 1fr;
-    width: auto;
-    height: 76dvh;
-    border-radius: 14px;
-  }
-
-  .place-body {
-    padding: 16px 12px 14px;
-  }
-
-  .place-head {
-    margin-bottom: 16px;
-    padding-bottom: 14px;
-  }
-
-  .place-name {
-    font-size: 20px;
-  }
-
-  /* The map is just the top quarter here, so it's framed closer. */
-  .anchored {
-    inset: 0 0 auto 0;
-    height: 34dvh;
-  }
-
   .offer-head,
   .offer-foot {
     padding-inline: 14px;
@@ -917,14 +1217,19 @@ body {
     font-size: 19px;
   }
 
-  /* On a phone the pill would eat half the plan name's room, and the logo already says it. */
+  /* the logo already says it, and the pill eats the plan name on a phone */
   .offer-brand {
     display: none;
   }
 }
 
-/* The map. Full bleed, with one panel floating on it. */
+/* The map. Search bar plus a button of the same height that grows into the menu. Same
+ * surface, height and white edge so they read as a pair. */
 .atlas {
+  --glass: rgb(16 16 19 / 90%);
+  --in-use: rgb(255 255 255 / 45%);
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+
   display: block;
   position: relative;
   width: 100%;
@@ -937,281 +1242,7 @@ body {
   inset: 0;
 }
 
-.atlas-panel {
-  display: flex;
-  position: absolute;
-  z-index: 1;
-  top: 18px;
-  left: 18px;
-  flex-direction: column;
-  gap: 6px;
-  width: 232px;
-  max-height: calc(100% - 36px);
-  padding: 18px;
-  overflow-y: auto;
-  border: 1px solid var(--rule);
-  border-radius: 14px;
-  background: rgb(10 10 12 / 82%);
-  backdrop-filter: blur(20px);
-}
-
-.atlas-back {
-  color: var(--ink-faint);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-decoration: none;
-  text-transform: uppercase;
-  transition: color var(--settle);
-}
-
-.atlas-back:hover {
-  color: var(--ink);
-}
-
-.atlas-name {
-  margin: 8px 0 14px;
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-/* Same index as the landing search. Two search boxes disagreeing about what exists would
- * look like two products. */
-.atlas-search input {
-  width: 100%;
-  margin: 6px 0 2px;
-  padding: 9px 11px;
-  border: 1px solid var(--rule-lit);
-  border-radius: 9px;
-  background: rgb(255 255 255 / 3%);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12px;
-}
-
-.atlas-search input:focus {
-  border-color: rgb(255 255 255 / 45%);
-  outline: none;
-}
-
-.atlas-search input::placeholder {
-  color: var(--ink-faint);
-}
-
-.atlas-found {
-  display: grid;
-  gap: 1px;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.atlas-hit {
-  display: grid;
-  width: 100%;
-  padding: 7px 9px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-  transition: background var(--settle);
-}
-
-.atlas-hit:hover,
-.atlas-hit:focus-visible {
-  background: rgb(255 255 255 / 6%);
-}
-
-.atlas-hit-name {
-  font-size: 12px;
-}
-
-.atlas-hit-where {
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
-
-/* For screen readers only. */
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.atlas-head {
-  margin: 12px 0 8px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.atlas-operators,
-.atlas-ramp {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.atlas-operator {
-  padding: 5px 9px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: none;
-  color: var(--ink-faint);
-  font: inherit;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition:
-    border-color var(--settle),
-    color var(--settle);
-}
-
-.atlas-operator:hover {
-  border-color: var(--rule-lit);
-  color: var(--ink-dim);
-}
-
-/* The chosen operator wears its own colour, the colour its streets are about to be
- * filtered to. */
-.atlas-operator-on {
-  border-color: color-mix(in srgb, var(--brand, #fff) 60%, transparent);
-  background: color-mix(in srgb, var(--brand, #fff) 12%, transparent);
-  color: var(--ink);
-}
-
-.atlas-ramp {
-  flex-direction: column;
-  gap: 4px;
-}
-
-.atlas-band {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--ink-faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.atlas-swatch {
-  width: 18px;
-  height: 3px;
-  border-radius: 2px;
-}
-
-/* What runs under one street: the cabinets it crosses, no quote for a door. */
-.atlas-picked {
-  position: relative;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--rule);
-}
-
-.atlas-shut {
-  position: absolute;
-  top: 10px;
-  right: 0;
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: var(--ink-faint);
-  font: inherit;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.atlas-shut:hover {
-  color: var(--ink);
-}
-
-.atlas-picked-name {
-  margin: 0;
-  padding-inline-end: 18px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.atlas-picked-where {
-  margin: 2px 0 8px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-}
-
-.atlas-picked-none {
-  margin: 0;
-  color: var(--ink-faint);
-  font-size: 11px;
-}
-
-.atlas-offers {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.atlas-offer {
-  display: grid;
-  grid-template-columns: 6px 1fr auto;
-  gap: 2px 8px;
-  align-items: center;
-  font-size: 11px;
-}
-
-.atlas-offer-dot {
-  grid-row: 1 / span 2;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.atlas-offer-tech {
-  grid-row: 2;
-  grid-column: 2;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-}
-
-.atlas-offer-speed {
-  grid-row: 1 / span 2;
-  grid-column: 3;
-  color: var(--ink-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Which kind of empty this is. */
-.atlas-state {
-  margin: 14px 0 0;
-  min-height: 2.6em;
-  color: var(--ink-faint);
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-.atlas-state-failed {
-  color: #f87171;
-}
-
-/* MapLibre's controls, restyled to match the page. */
+/* MapLibre controls */
 .maplibregl-ctrl-group {
   border: 1px solid var(--rule) !important;
   border-radius: 10px !important;
@@ -1227,43 +1258,551 @@ body {
   filter: invert(1);
 }
 
-@media (width <= 560px) {
-  .atlas-panel {
-    top: 12px;
-    left: 12px;
-    width: calc(100% - 24px);
-    max-height: 46%;
+/* double tap resets the camera, not a page zoom */
+.atlas-tilt {
+  touch-action: manipulation;
+}
+
+/* a little blur, flat surfaces vanish over lit streets */
+.map-search input,
+.map-search-found,
+.map-menu,
+.map-failed {
+  border: 1px solid var(--edge);
+  background: var(--glass);
+  box-shadow: var(--lift-high);
+  backdrop-filter: blur(16px) saturate(1.1);
+}
+
+.map-search {
+  position: absolute;
+  z-index: 15;
+  top: 20px;
+  left: 20px;
+  width: min(340px, calc(100vw - 40px));
+}
+
+.map-search input {
+  width: 100%;
+  height: 46px;
+  padding: 0 16px 0 42px;
+  border-radius: 23px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+
+.map-search input::placeholder {
+  color: var(--ink-faint);
+}
+
+.map-search input:focus {
+  border-color: var(--in-use);
+  outline: none;
+}
+
+.map-search-glyph {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  left: 15px;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+
+.map-search-found {
+  margin: 6px 0 0;
+  padding: 6px;
+  border-radius: 16px;
+  list-style: none;
+}
+
+.map-search-found button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.map-search-found button:hover {
+  background: rgb(255 255 255 / 6%);
+}
+
+.map-search-where {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+/* style failed to load, the map may be blank */
+.map-failed {
+  position: absolute;
+  z-index: 14;
+  top: 76px;
+  left: 20px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  color: #f87171;
+  font-size: 13px;
+}
+
+/* the menu grows out of its button and back (see MapMenu) */
+.map-menu {
+  position: absolute;
+  z-index: 20;
+  top: 20px;
+  right: 20px;
+  overflow: hidden;
+  border-radius: 23px;
+  transition:
+    width 480ms var(--spring),
+    height 480ms var(--spring),
+    border-color 200ms;
+}
+
+/* shuts faster than it opens */
+.map-menu-shutting {
+  transition:
+    width 340ms var(--spring),
+    height 340ms var(--spring),
+    border-color 200ms;
+}
+
+.map-menu:has(.map-knob:hover):not(.map-menu-grown) {
+  border-color: var(--rule-lit);
+}
+
+/* full size from the start, so nothing reflows */
+.map-menu-inner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  max-height: calc(100dvh - 42px);
+  overflow: auto;
+  animation: map-menu-in 240ms ease-out 60ms both;
+  transition: opacity 120ms;
+}
+
+.map-menu-menu {
+  width: 320px;
+}
+
+.map-menu-street {
+  width: 360px;
+}
+
+.map-menu-cell {
+  width: 300px;
+}
+
+.map-menu-shutting .map-menu-inner {
+  opacity: 0;
+}
+
+@keyframes map-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
 }
 
-.atlas-measured {
+.map-menu-title {
+  margin: 0;
+  padding: 0 56px 0 18px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 44px;
+}
+
+/* the button is the surface's corner, no surface of its own */
+.map-knob {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition: transform 220ms cubic-bezier(0.3, 1.5, 0.6, 1), box-shadow 200ms;
+}
+
+.map-knob:active {
+  transform: scale(0.94);
+}
+
+.map-knob-open {
+  box-shadow: inset 0 0 0 1px var(--in-use);
+}
+
+/* a filter is on, shown as a dot since the shut menu hides it */
+.map-knob-filtered::after {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  content: "";
+}
+
+/* three narrowing bars that fold into a cross */
+.map-knob-bar {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+  transition: transform 320ms var(--spring), width 320ms var(--spring), opacity 160ms;
+}
+
+.map-knob-bar:nth-child(2) {
+  width: 11px;
+}
+
+.map-knob-bar:nth-child(3) {
+  width: 6px;
+}
+
+.map-knob-open .map-knob-bar:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.map-knob-open .map-knob-bar:nth-child(2) {
+  opacity: 0;
+}
+
+.map-knob-open .map-knob-bar:nth-child(3) {
+  width: 16px;
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.map-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 18px 18px;
+}
+
+.map-choices-head {
+  margin: 4px 0 -6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.map-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.map-seg-one {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 200ms, color 200ms;
+}
+
+.map-seg-on {
+  background: var(--raised-high);
+  box-shadow: inset 0 0 0 1px var(--rule-lit);
+  color: var(--ink);
+}
+
+.map-ops {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.atlas-measure {
+.map-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--rule-lit);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background 200ms, border-color 200ms, color 200ms;
+}
+
+.map-op:hover {
+  color: var(--ink);
+}
+
+.map-op-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand, var(--ink-faint));
+}
+
+.map-op-any .map-op-dot {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--ink-dim);
+}
+
+/* in the operator's colour, same as its streets */
+.map-op-on {
+  border-color: var(--brand, var(--ink-dim));
+  background: color-mix(in srgb, var(--brand, #fff) 14%, transparent);
+  color: var(--ink);
+}
+
+.map-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-dim);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.map-switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.map-switch-track {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 12%);
+  transition: background 200ms;
+}
+
+.map-switch-track::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  content: "";
+  transition: transform 220ms cubic-bezier(0.3, 1.4, 0.6, 1), background 200ms;
+}
+
+.map-switch input:checked + .map-switch-track {
+  background: var(--ink);
+}
+
+.map-switch input:checked + .map-switch-track::after {
+  background: var(--ground);
+  transform: translateX(12px);
+}
+
+.map-switch input:focus-visible + .map-switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.map-legend .map-choices-head {
+  margin-bottom: 10px;
+}
+
+.map-legend-bar {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.map-legend-bar span,
+.map-legend-marks span {
+  flex: 1;
+}
+
+.map-legend-marks {
+  display: flex;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-legend-none {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.map-legend-none span {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.map-choices-back {
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.map-choices-back:hover {
+  color: var(--ink);
+}
+
+/* a street or square, in the menu's place. Its button shuts it */
+
+.map-card {
+  padding: 11px 18px 16px;
+}
+
+.map-card-name {
+  margin: 0;
+  padding-right: 40px;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.map-card-where {
+  margin: 3px 0 0;
+  padding-right: 40px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.map-card-none {
+  margin: 12px 0 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.map-card-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-card-rows li {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  font-size: 11px;
+  padding: 9px 0;
+  border-top: 1px solid var(--rule);
 }
 
-.atlas-measure-name {
-  color: var(--ink-faint);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.map-card-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
 }
 
-.atlas-measure-speed {
-  font-variant-numeric: tabular-nums;
+.map-card-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: var(--ink-dim);
+  font-size: 12px;
+}
+
+.map-card-rows b {
+  margin-left: 8px;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
-/* Nothing filed here. */
+.map-card-over {
+  color: var(--ink-faint);
+}
+
+.map-card-unfiled {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+@media (width <= 560px) {
+  .map-search {
+    top: 16px;
+    right: 72px;
+    left: 16px;
+    width: auto;
+  }
+
+  .map-failed {
+    top: 70px;
+    left: 16px;
+  }
+
+  .map-menu {
+    top: 16px;
+    right: 16px;
+  }
+
+  .map-menu-menu,
+  .map-menu-street,
+  .map-menu-cell {
+    width: calc(100vw - 32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-menu,
+  .map-menu-inner,
+  .map-knob-bar {
+    transition-duration: 1ms;
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}
+
 .bare {
   display: grid;
   justify-items: start;
@@ -1355,59 +1894,121 @@ body {
   }
 }
 
-/* A street has no house to draw. */
-.place-road {
-  grid-template-rows: 1fr;
+/* street speed, big, above who sells it */
+.road-best {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: clamp(22px, 3vh, 34px) 0 clamp(26px, 3.6vh, 40px);
 }
 
-/* The map panel's compact rows are built for a 210 px column, and this card is twice that. */
-.road-offers {
+.road-best-speed {
+  font-size: clamp(40px, 4.4vw, 56px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.road-best-speed .road-unit {
+  font-size: 15px;
+}
+
+.road-best-said {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+/* one operator per entry, spacing instead of cards. Name and best speed on one line */
+.road-ops {
   display: grid;
-  gap: 1px;
+  gap: 26px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.road-offer {
+.road-op {
   display: grid;
-  grid-template-columns: 7px 1fr auto;
-  gap: 2px 12px;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  column-gap: 14px;
   align-items: center;
-  padding: 11px 2px;
-  border-bottom: 1px solid var(--rule);
-}
-
-.road-offer:last-child {
-  border-bottom: 0;
-}
-
-.road-dot {
-  grid-row: 1 / span 2;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  animation: card-up 400ms cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0ms) both;
 }
 
 .road-name {
-  color: var(--ink);
-  font-size: 14px;
-}
-
-.road-tech {
-  grid-column: 2;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  margin: 0;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .road-speed {
-  grid-row: 1 / span 2;
-  grid-column: 3;
-  color: var(--ink-dim);
-  font-size: 13px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+.road-speed-none {
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.road-unit {
+  margin-left: 4px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.road-more {
+  grid-column: 2 / -1;
+  margin-top: 4px;
+}
+
+.road-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.road-line b {
+  margin-left: 5px;
+  color: var(--ink-dim);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* network owner and wholesale note, quieter */
+.road-infra {
+  margin: 4px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.road-op .visit {
+  display: inline-flex;
+  justify-content: flex-start;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+}
+
+.road-foot {
+  margin-top: 40px;
+  padding-top: 0;
+  border-top: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1420,70 +2021,7 @@ body {
   }
 }
 
-/* Who built the line, under the seller's name. */
-.road-infra,
-.atlas-offer-infra {
-  color: var(--ink-faint);
-}
-
-
-
-/* The per-municipality overlay, a switch and not a choice. */
-.atlas-toggle {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 10px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: color var(--settle);
-}
-
-.atlas-toggle:hover {
-  color: var(--ink-dim);
-}
-
-.atlas-toggle input {
-  appearance: none;
-  width: 13px;
-  height: 13px;
-  margin: 0;
-  border: 1px solid var(--rule-lit);
-  border-radius: 3px;
-  background: transparent;
-  cursor: pointer;
-  transition:
-    border-color var(--settle),
-    background var(--settle);
-}
-
-.atlas-toggle input:checked {
-  border-color: color-mix(in srgb, #fff 55%, transparent);
-  background: color-mix(in srgb, #fff 16%, transparent);
-}
-
-/* The tick is drawn in CSS. One glyph doesn't justify an icon font, and a unicode check
- * renders differently on every platform. */
-.atlas-toggle input:checked::after {
-  content: "";
-  display: block;
-  width: 3px;
-  height: 6px;
-  margin: 1px 0 0 4px;
-  border: solid var(--ink);
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
-.atlas-toggle input:focus-visible {
-  outline: 1px solid var(--rule-lit);
-  outline-offset: 2px;
-}
-
-/* The corner link: easy to ignore, visible enough to satisfy the licences. */
+/* corner credits link, enough for the licences */
 .credit {
   position: fixed;
   z-index: 2;
@@ -1503,6 +2041,95 @@ body {
 .credit:hover {
   color: var(--accent);
   opacity: 1;
+}
+
+/* the panel has the bottom left on an answer */
+.split .credit {
+  right: 14px;
+  left: auto;
+}
+
+@media (width <= 900px) {
+  .split .credit {
+    top: 10px;
+    bottom: auto;
+  }
+}
+
+/* router page, on the credits column */
+.routers-list {
+  display: grid;
+  gap: 44px;
+  margin: 44px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routers-for {
+  margin: 0 0 6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.routers-name {
+  margin: 0;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.routers-why {
+  max-width: 54ch;
+  margin: 8px 0 14px;
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.routers-link {
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-lit);
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--settle);
+}
+
+.routers-link:hover {
+  text-decoration-color: var(--ink);
+}
+
+.routers-check,
+.routers-note {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.routers-check {
+  margin-top: 56px;
+}
+
+.routers-note {
+  margin-top: 8px;
+  color: var(--ink-faint);
+}
+
+/* answer under the router page */
+.landing-answer:not([hidden]) {
+  display: contents;
+}
+
+.split-routers {
+  display: inline-block;
+  margin: calc(clamp(20px, 2.6vh, 32px) * -0.6) 0 clamp(16px, 2vh, 24px);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .credits {
@@ -1528,6 +2155,11 @@ body {
   color: var(--ink-dim);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.credits-mail {
+  color: var(--ink);
+  text-underline-offset: 3px;
 }
 
 .credits-head {

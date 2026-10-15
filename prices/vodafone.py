@@ -1,8 +1,4 @@
-"""Vodafone's fixed catalogue, which they publish whole.
-
-One request returns every residential fixed plan with its price and the qualification code the
-availability check answers in.
-"""
+"""Vodafone's fixed catalogue, one request for every residential plan."""
 
 from __future__ import annotations
 
@@ -23,8 +19,7 @@ CATALOGUE = (
     "&subcategory.productOffering.productSpecification.name=Fixed"
 )
 
-# Their qualification codes in our vocabulary. The availability check answers in the same
-# codes, which is how a plan gets matched to a line.
+# same codes the availability check answers in
 TECHNOLOGY = {
     "ADSL": ("ADSL", "copper", 24),
     "VDSL_50": ("VDSL", "copper", 50),
@@ -37,15 +32,14 @@ TECHNOLOGY = {
     "FWA 5G": ("FWA_5G", "wireless", None),
 }
 
-# the home router comes with the offer and is a real cost
 HARDWARE = {"FWA_4G": "5g_router", "FWA_5G": "5g_router"}
 
-# their plan pages state an activation fee the catalogue payload leaves out
+# from the plan pages, the payload leaves it out
 ACTIVATION = {"fiber": Decimal(6), "copper": Decimal(6), "wireless": Decimal(40)}
 
 
 class CatalogueError(RuntimeError):
-    """The catalogue couldn't be read."""
+    pass
 
 
 def euros(value: object) -> Decimal | None:
@@ -68,42 +62,39 @@ def identifier(offering: dict[str, Any], kind: str) -> str | None:
 
 
 def priced(offering: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
-    """The sale price, and the list price it's marked down from."""
+    """(sale, list) price."""
     found: dict[str, Decimal] = {}
     entries = offering.get("productOfferingPrice")
     for entry in entries if isinstance(entries, list) else []:
         if not isinstance(entry, dict):
             continue
-        amount = entry.get("price")
-        amount = amount if isinstance(amount, dict) else {}
-        tax = amount.get("taxIncludedAmount")
+        price = entry.get("price")
+        price = price if isinstance(price, dict) else {}
+        tax = price.get("taxIncludedAmount")
         tax = tax if isinstance(tax, dict) else {}
-        value = euros(tax.get("value"))
-        if value is not None:
-            found[str(entry.get("name"))] = value
+        v = euros(tax.get("value"))
+        if v is not None:
+            found[str(entry.get("name"))] = v
     return found.get("salePrice"), found.get("initialPrice")
 
 
 def read(payload: dict[str, Any]) -> list[Tariff]:
-    """Every fixed plan they publish, in our vocabulary.
-
-    A plan with an unknown code is skipped. Filed under a guess, it would show against a line
-    it may not run on.
-    """
     tariffs: list[Tariff] = []
-    subcategories = payload.get("subCategory")
-    for subcategory in subcategories if isinstance(subcategories, list) else []:
-        if not isinstance(subcategory, dict):
+    subs = payload.get("subCategory")
+    for sub in subs if isinstance(subs, list) else []:
+        if not isinstance(sub, dict):
             continue
-        offerings = subcategory.get("productOffering")
+        offerings = sub.get("productOffering")
         for offering in offerings if isinstance(offerings, list) else []:
             if not isinstance(offering, dict):
                 continue
+            # unknown codes are skipped, a guess could match the wrong line
             code = identifier(offering, "AvToolCode")
             known = TECHNOLOGY.get(str(code))
             sale, listed = priced(offering)
             if known is None or sale is None:
                 continue
+
             technology, family, mbps = known
             # equal prices mean no discount running
             discount = None if listed is None or listed == sale else sale
@@ -115,16 +106,11 @@ def read(payload: dict[str, Any]) -> list[Tariff]:
                 technology=technology,
                 down_mbps=None if mbps is None else Decimal(mbps),
                 needs_hardware=HARDWARE.get(technology),
-                # The price it reverts to. Both used to be stored as the sale price, losing the
-                # list price and treating a discount as permanent.
-                monthly_eur=listed if discount is not None and listed is not None else sale,
+                monthly_eur=listed if discount is not None and listed is not None else sale,  # what it reverts to
                 setup_eur=ACTIVATION.get(family),
-                # the router is included at no charge
-                hardware_eur=Decimal(0),
+                hardware_eur=Decimal(0),  # router included
                 promo_monthly_eur=discount,
-                # The feed never says how long a discount lasts. Unknown stays None, so the blend
-                # charges the list price for the whole window: a floor on the saving, with no
-                # months of discount invented.
+                # promo_months unknown, so the blend charges list price throughout
             ))
     return tariffs
 
@@ -141,7 +127,7 @@ def fetch(user_agent: str = settings.user_agent) -> list[Tariff]:
         "sec-fetch-site": "same-origin",
     }) as client:
         client.get(ONBOARDING, headers={"Accept": "text/html"})
-        response = client.post(f"/api/proxy-request{CATALOGUE}", json={
+        r = client.post(f"/api/proxy-request{CATALOGUE}", json={
             "method": "GET",
             "headers": {
                 "Accept": "application/json",
@@ -152,9 +138,10 @@ def fetch(user_agent: str = settings.user_agent) -> list[Tariff]:
             "isServerToken": True,
             "requestId": "speedmap-catalogue",
         })
-    if response.status_code != httpx.codes.OK:
-        raise CatalogueError(f"catalogue returned {response.status_code}")
-    body = response.json()
+
+    if r.status_code != httpx.codes.OK:
+        raise CatalogueError(f"catalogue returned {r.status_code}")
+    body = r.json()
     payload = body.get("response") if isinstance(body, dict) else None
     if not isinstance(payload, dict):
         raise CatalogueError("catalogue returned no offerings")

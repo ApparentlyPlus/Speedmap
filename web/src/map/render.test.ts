@@ -1,14 +1,11 @@
-/**
- * The map rendered in a real browser. The validator can say a style is well formed, but not
- * that the map draws.
- */
+// The map rendered in a real browser. The validator says the style is well formed, not that it draws.
 
 import { chromium, type Browser, type Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const WHERE = "http://127.0.0.1:5173";
 
-/** Thessaloniki, close enough that the streets are the point. */
+// Thessaloniki, close enough for streets
 const CITY = "#13/40.635/22.945";
 
 const SETTLE = 9000;
@@ -30,7 +27,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   const faults: string[] = [];
 
   beforeAll(async () => {
-    // software GL: test machines have no GPU, and we're checking geometry, not pixels
+    // software GL, no GPU on test machines and we check geometry not pixels
     browser = await chromium.launch({
       args: ["--use-gl=swiftshader", "--enable-unsafe-swiftshader"],
     });
@@ -48,7 +45,6 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("finishes loading", async () => {
-    // false here is what every one of those bugs looked like
     expect(await page.evaluate(() => window.atlas?.loaded() ?? false)).toBe(true);
   });
 
@@ -65,8 +61,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("draws the basemap under them", async () => {
-    // Roads and water come from a range-read archive. Unwired, the coverage floats on a black
-    // rectangle, as it once did.
+    // range-read archive, unwired the coverage floated on black
     const drawn = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["road", "water"] }).length,
     );
@@ -74,8 +69,7 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("draws buildings where there are buildings", async () => {
-    // footprints start at zoom 14, so go and look, then put the camera back: the tests share
-    // a page and the next one counts what's in view
+    // footprints start at z14, then put the camera back since the tests share a page
     await page.evaluate(() => window.atlas.jumpTo({ center: [22.9444, 40.6401], zoom: 16.5 }));
     await page.waitForTimeout(6000);
     const drawn = await page.evaluate(
@@ -86,12 +80,18 @@ describe.skipIf(!running)("the map in a browser", () => {
     expect(drawn).toBeGreaterThan(0);
   }, 40_000);
 
+  // the operators are in the menu, shut until its button is pressed
+  const openMenu = async (): Promise<void> => {
+    const options = page.getByRole("button", { name: "Επιλογές χάρτη" });
+    if ((await options.count()) > 0) await options.click();
+  };
+
   it("shows fewer streets for one operator than for anyone", async () => {
     const anyone = await page.evaluate(
       () => window.atlas.queryRenderedFeatures({ layers: ["streets"] }).length,
     );
-    // the button shows the brand, not the register code (it said OTE while the data said
-    // Telekom, until that was fixed)
+    // the brand, it said OTE for a while
+    await openMenu();
     await page.getByRole("button", { name: "ΔΕΗ Fiber", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(
@@ -102,8 +102,8 @@ describe.skipIf(!running)("the map in a browser", () => {
   });
 
   it("keeps an operator that files no speeds at all", async () => {
-    // Inalan reaches 112,739 addresses and files a speed for none of them, so a filter
-    // testing for a number would hide them all
+    // Inalan reaches 112,739 addresses with no speed filed for any
+    await openMenu();
     await page.getByRole("button", { name: "Inalan", exact: true }).click();
     await page.waitForTimeout(2000);
     const theirs = await page.evaluate(

@@ -1,4 +1,4 @@
-# Nothing derived, downloaded, or secret belongs in git.
+# nothing derived, downloaded or secret
 
 # Python
 __pycache__/
@@ -29,7 +29,7 @@ node_modules/
 /data/
 /tiles/
 
-# Also globbed by extension: a multi-GB object in history needs a rewrite to remove
+# by extension too, a multi GB object in history needs a rewrite
 *.pmtiles
 *.pmtiles.tmp
 *.parquet
@@ -37,7 +37,7 @@ node_modules/
 *.geojsonl
 *.mbtiles
 
-# Postgres dumps. Backups go off-device, never into the tree.
+# Postgres dumps, backups go off device
 *.dump
 *.sql.gz
 

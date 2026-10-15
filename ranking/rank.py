@@ -1,7 +1,4 @@
-"""Order what someone can buy at an address.
-
-Speed stops mattering once there's enough of it.
-"""
+"""Order what someone can buy at an address. Past ENOUGH_MBPS speed stops mattering."""
 
 from __future__ import annotations
 
@@ -10,15 +7,12 @@ from decimal import Decimal
 
 from ranking.cost import MonthlyCost
 
-# What an ordinary household uses. A judgement about when the next rung stops being worth
-# paying for, with no technical limit behind it.
+# a judgement call, not a technical limit
 ENOUGH_MBPS = Decimal(100)
 
-# a month of household streaming, in GB
-HOUSEHOLD_GB = 200
+HOUSEHOLD_GB = 200  # a month of household streaming, in GB
 
-# Tie-break between otherwise equal offers. A line in the ground doesn't share capacity with
-# the neighbourhood at seven in the evening. A cell does.
+# tie-break: a cell shares capacity with the whole street at 7pm, a line doesn't
 STEADINESS = {"fiber": 0, "coax": 1, "copper": 2, "wireless": 3, "satellite": 4}
 UNSTEADY = len(STEADINESS)
 
@@ -31,22 +25,16 @@ FROM = "the setup fee is not published, so this is what it costs or more"
 
 @dataclass(frozen=True)
 class Option:
-    """One thing that could be bought here."""
-
     provider: str
-    # The brand a customer recognises. The code is the join key, and the two aren't always
-    # the same word.
-    provider_name: str
+    provider_name: str  # the brand, not always the same word as the code
     plan: str
     technology: str
     family: str
     expected_mbps: Decimal | None
     cost: MonthlyCost
     data_cap_gb: int | None = None
-    # where the speed came from, so a card can explain itself
-    basis: str = "advertised"
-    # evidence from speed tests only
-    confidence: float = 0.0
+    basis: str = "advertised"  # where expected_mbps came from
+    confidence: float = 0.0  # evidence from speed tests only
     tests: int = 0
 
 
@@ -62,21 +50,14 @@ def steadiness(family: str) -> int:
 
 
 def enough_for(option: Option, need: Decimal) -> bool:
-    """Whether this clears the bar on speed and on data allowance.
-
-    An unknown speed never clears it. Not knowing how fast a wireless link is here is no evidence
-    that it's fast enough.
-    """
+    # unknown speed never clears the bar
     if option.data_cap_gb is not None and option.data_cap_gb < HOUSEHOLD_GB:
         return False
     return option.expected_mbps is not None and option.expected_mbps >= need
 
 
 def order(option: Option, need: Decimal) -> tuple[int, Decimal, Decimal, Decimal]:
-    """Sort key in two groups, so nothing fast enough sits below something that isn't.
-
-    A third group below both used to hold offers with no cost at all.
-    """
+    # two groups, so nothing fast enough sits below something that isn't
     speed = option.expected_mbps if option.expected_mbps is not None else Decimal(0)
     if enough_for(option, need):
         # all fast enough, so the question is what it runs on, then the price
@@ -86,17 +67,14 @@ def order(option: Option, need: Decimal) -> tuple[int, Decimal, Decimal, Decimal
 
 
 def rank(options: list[Option], need: Decimal = ENOUGH_MBPS) -> list[Ranked]:
-    """Best first. Everything gets placed, since everything now has a price."""
-    ordered = sorted(options, key=lambda o: order(o, need))
-
     out: list[Ranked] = []
-    for index, option in enumerate(ordered):
-        clears = enough_for(option, need)
-        if not option.cost.complete:
+    for i, o in enumerate(sorted(options, key=lambda o: order(o, need))):
+        ok = enough_for(o, need)
+        if not o.cost.complete:
             why = FROM
-        elif clears:
-            why = BEST if index == 0 else ENOUGH
+        elif ok:
+            why = BEST if i == 0 else ENOUGH
         else:
-            why = FASTEST if index == 0 else SHORT
-        out.append(Ranked(option=option, enough=clears, why=why))
+            why = FASTEST if i == 0 else SHORT
+        out.append(Ranked(option=o, enough=ok, why=why))
     return out

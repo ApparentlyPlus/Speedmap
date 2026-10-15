@@ -1,10 +1,11 @@
-/** One plan you can buy here, in three bands: seller, speed, price. */
+// a plan you can buy here: seller, speed, price
 
 import type { Buyable } from "../api/client";
 import { strings, type Language } from "../i18n";
 import { brandOf } from "../brands";
 import { colourFor, mbps } from "../tokens";
 import { Logo } from "./Logo";
+import { Visit } from "./Visit";
 
 export function Offer({
   option,
@@ -26,12 +27,11 @@ export function Offer({
 
   return (
     <li
-      // picking one redraws the house: colour from the speed, signal path from the family
+      // picking one redraws the house
       className={`offer${best ? " offer-best" : ""}${chosen ? " offer-chosen" : ""}`}
       aria-current={chosen}
       onClick={onChoose}
-      // Staggered so the list builds up. Capped at eight, because nobody asked to wait on a
-      // long list animating in.
+      // staggered so the list builds up, capped at eight
       style={
         {
           "--brand": brandOf(option.provider).colour,
@@ -45,7 +45,7 @@ export function Offer({
           <h3 className="offer-plan">{shorten(option.plan, option.provider_name)}</h3>
           <p className="offer-sub">{text.family[option.family] ?? option.family}</p>
         </div>
-        <span className="offer-brand">{option.provider_name}</span>
+        <span className="offer-brand">{brandOf(option.provider).name}</span>
       </header>
 
       <div className="offer-rate">
@@ -67,20 +67,19 @@ export function Offer({
           </li>
           {best && <li className="tag tag-best">{text.bestHere}</li>}
         </ul>
-        {/* "From" when a setup fee was never published. The monthly rate is known and is
-            the bigger number, so the offer still gets priced and ranked. Calling the whole
-            price unknown over a missing fee told the reader less than the rate alone. */}
+        {/* "From" when the setup fee is unpublished, the monthly is known and bigger anyway */}
         <span className="offer-cost">
           {!option.cost.complete && <span className="offer-from">{text.priceFrom}</span>}
           <span className="offer-price">{option.cost.total}€</span>
           <span className="offer-per">{text.perMonth}</span>
         </span>
       </footer>
+      <Visit provider={option.provider} language={language} />
     </li>
   );
 }
 
-/** Plan name minus the brand, which the logo and pill already show. */
+// plan name minus the brand, the logo already shows it
 function shorten(plan: string, brand: string): string {
   const rest = plan.slice(brand.length).trim();
   return plan.toUpperCase().startsWith(brand.toUpperCase()) && rest !== "" ? rest : plan;

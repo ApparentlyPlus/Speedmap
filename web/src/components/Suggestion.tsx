@@ -1,7 +1,5 @@
-/**
- * One autocomplete row. The dot on the right uses the speed ramp, so it's familiar by the
- * time anyone reaches the map.
- */
+// One autocomplete row. The dot uses the speed ramp, so it's familiar by the time anyone
+// reaches the map.
 
 import type { Result } from "../api/client";
 import { strings, type Language } from "../i18n";
@@ -17,8 +15,7 @@ export function Suggestion({
   readonly onPick: (result: Result) => void;
 }): React.ReactElement {
   const text = strings(language);
-  // A string on the wire: the server sends a decimal and JSON has none. Null means not
-  // filed, and it stays null all the way to the colour.
+  // a string on the wire (JSON has no decimal), null means not filed
   const best = result.best_mbps === null ? null : mbps(Number(result.best_mbps));
   const band = bandFor(best);
 
@@ -31,7 +28,7 @@ export function Suggestion({
         <span className="suggestion-name">
           {name}
           {result.kind === "street" && <span className="suggestion-kind">{text.street}</span>}
-          {/* an unfiled door, offered now and only made once picked */}
+          {/* unfiled door, only made once picked */}
           {result.kind === "proposed" && (
             <span className="suggestion-kind suggestion-ask">{text.askThem}</span>
           )}
