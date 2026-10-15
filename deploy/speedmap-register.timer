@@ -2,8 +2,7 @@
 Description=speedmap.gr quarterly register refresh
 
 [Timer]
-# The register is filed quarterly. Mid-month after each quarter is late enough for operators
-# to have filed and early enough to matter.
+# quarterly filings, mid month after each quarter
 OnCalendar=*-01,04,07,10-15 03:00:00
 Persistent=true
 RandomizedDelaySec=2h

@@ -1,11 +1,5 @@
-/**
- * The answer screens' frame: the map across the whole screen, and the findings on a panel over
- * one side of it. Down the left on wide screens, across the bottom half on narrow ones, where
- * the map keeps the top half. The panel used to be a card floating on the map.
- *
- * One surface. The panel's background is solid under the text and thins out at its open edge,
- * so the map emerges from it. A border along the join would split them into two things.
- */
+// The answer screens: map behind, findings on a panel down the left (wide) or bottom half
+// (narrow). The panel thins out at its open edge instead of a border.
 
 import { useRef, useState } from "react";
 import type { Geometry } from "geojson";
@@ -14,10 +8,10 @@ import { strings, type Language } from "../i18n";
 import { Anchored } from "./Anchored";
 import { Credit } from "./Credit";
 
-/** A drag shorter than this is a tap, and a tap toggles. */
+// shorter than this is a tap
 const SWIPE_PX = 12;
 
-/** How far a drag has to go to carry the panel the rest of the way. */
+// past this a drag carries the panel the rest of the way
 const SNAP_PX = 56;
 
 export function Split({
@@ -29,18 +23,17 @@ export function Split({
 }: {
   readonly where: { lon: number; lat: number } | null;
   readonly shape: Geometry | null;
-  /** Stays lit while the rest of the map goes quiet. */
   readonly streetId: number | null;
   readonly language: Language;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const text = strings(language);
   const panel = useRef<HTMLElement>(null);
-  // on a phone, the panel pulled up over the whole screen
+  // on a phone, pulled up over the whole screen
   const [raised, setRaised] = useState(false);
   const drag = useRef<{ y: number; from: number; moved: number } | null>(null);
 
-  /** How far above its resting half the panel's top is, while a finger holds it. */
+  // how far above its resting half, while held
   const lift = (px: number | null): void => {
     const box = panel.current;
     if (box === null) return;
@@ -90,10 +83,10 @@ export function Split({
       />
       <Credit language={language} />
 
-      {/* Anchored frames the street in what this leaves of the map */}
+      {/* Anchored frames the street in what this leaves */}
       <section className="split-panel" data-covers-map data-raised={raised} ref={panel}>
         <div className="split-panel-ground" aria-hidden="true" />
-        {/* Phones only. Swipe or tap it to take the whole screen for the results, and back. */}
+        {/* phones only, swipe or tap to take the whole screen and back */}
         <button
           type="button"
           className="split-handle"
@@ -103,7 +96,7 @@ export function Split({
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
-          // a key press arrives as a click with no pointer behind it
+          // a key press arrives as a click with no pointer
           onClick={(event) => {
             if (event.detail === 0) setRaised(!raised);
           }}

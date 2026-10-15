@@ -1,15 +1,11 @@
-/**
- * The map's search bar. The same index as the landing page, since two search boxes disagreeing
- * about which streets exist would be a bug report waiting to happen. Streets only: a typed
- * number picks its street, as a map has nowhere to put a door.
- */
+// The map's search bar, same index as the landing page. Streets only, a typed number picks
+// its street since the map has nowhere to put a door.
 
 import { useEffect, useState } from "react";
 
 import { search, type Result } from "../api/client";
 import { strings, type Language } from "../i18n";
 
-/** Long enough that a typist doesn't fire a request per letter. */
 const SETTLE_MS = 250;
 
 const ROWS = 6;
@@ -69,8 +65,7 @@ export function MapSearch({
                 }}
               >
                 <span>{hit.street_no === null ? hit.name : `${hit.name} ${hit.street_no}`}</span>
-                {/* 7,320 names cover two or more roads in one municipality, and the locality
-                    their doors agree on is what tells them apart */}
+                {/* 7,320 names cover several roads in one municipality, the locality tells them apart */}
                 <span className="map-search-where">
                   {[hit.locality, hit.municipality].filter(Boolean).join(", ")}
                 </span>

@@ -1,14 +1,4 @@
-"""Telling a block from an answer.
-
-Telekom and Vodafone sit behind Imperva, Nova behind Cloudflare. When either decides we're a
-bot it doesn't fail the request, it answers with its own page instead, often with a 200. Read
-as an answer, that was a parse error, counted against one address, and the next address asked
-the same operator straight away: the way a short block becomes a long one.
-
-Both vendors also put their scripts into ordinary pages. Telekom's eligibility page carries
-_Incapsula_Resource and Nova's carries challenge-platform, so neither marker alone means a
-block. Only the block pages' own furniture counts.
-"""
+"""Spot a bot wall's page, often sent with a 200. Imperva for Telekom and Vodafone, Cloudflare for Nova."""
 
 from __future__ import annotations
 
@@ -16,27 +6,23 @@ import httpx
 
 from probe.adapter import ProbeError
 
-# Imperva's block page names its incident, and frames its resource in a page of nothing else.
+# their scripts sit in normal pages too, so only block page markers count
 IMPERVA = ("Incapsula incident ID", "Request unsuccessful. Incapsula")
-IMPERVA_FRAME = ('id="main-iframe"', "_Incapsula_Resource")
+IMPERVA_FRAME = ('id="main-iframe"', "_Incapsula_Resource")  # both, or it's a normal page
 
-# Cloudflare's interstitials, which come with a 403 or a 503
+# with a 403 or 503
 CLOUDFLARE = ("Just a moment...", "Attention Required! | Cloudflare", 'id="cf-error-details"')
 
-# A block page is a few kilobytes. Reading further into a real page proves nothing.
-SNIFF = 8000
+SNIFF = 8000  # block pages are a few KB
 
 
 class BlockedError(ProbeError):
-    """The operator's bot protection answered instead of the operator."""
-
     def __init__(self, wall: str) -> None:
         super().__init__(f"blocked by {wall}")
         self.wall = wall
 
 
 def wall(response: httpx.Response) -> str | None:
-    """Whose block this response is, or None when it's the operator talking."""
     if response.status_code == httpx.codes.TOO_MANY_REQUESTS:
         return "a rate limit"
     headers = response.headers
@@ -46,17 +32,17 @@ def wall(response: httpx.Response) -> str | None:
         return None
 
     page = response.text[:SNIFF]
-    if any(mark in page for mark in IMPERVA) or all(mark in page for mark in IMPERVA_FRAME):
+    if any(m in page for m in IMPERVA) or all(m in page for m in IMPERVA_FRAME):
         return "Imperva"
-    cloudflare = "cloudflare" in headers.get("server", "").lower()
-    if cloudflare and response.status_code in (403, 503) and any(mark in page for mark in CLOUDFLARE):
+    cf = "cloudflare" in headers.get("server", "").lower()
+    if cf and response.status_code in (403, 503) and any(m in page for m in CLOUDFLARE):
         return "Cloudflare"
     return None
 
 
 def refuse(response: httpx.Response) -> None:
-    """An httpx response hook: raise on a block, before anything tries to parse it."""
+    # httpx response hook, runs before anything parses the body
     response.read()
-    found = wall(response)
-    if found is not None:
-        raise BlockedError(found)
+    w = wall(response)
+    if w is not None:
+        raise BlockedError(w)

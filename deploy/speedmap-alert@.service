@@ -1,12 +1,11 @@
 [Unit]
 Description=speedmap.gr tell the owner %i failed
-# Started by OnFailure= in every other speedmap unit. It pushes the unit's name and the end of
-# its log to the ntfy topic in .env, so a failure at 03:00 on a Pi nobody watches gets seen.
+# OnFailure= of every other unit, pushes the unit and its last log lines to ntfy
 
 [Service]
 Type=oneshot
 User=speedmap
-# reading another unit's log needs the journal group
+# to read another unit's log
 SupplementaryGroups=systemd-journal
 WorkingDirectory=/opt/speedmap
 EnvironmentFile=/opt/speedmap/.env

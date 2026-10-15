@@ -1,4 +1,3 @@
-/** The corner link to the credits. */
 
 import { strings, type Language } from "../i18n";
 

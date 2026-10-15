@@ -1,2 +1,2 @@
--- concurrently, so a rebuild never blanks the view while the probes read it
+-- concurrently so the probes never see it empty
 refresh materialized view concurrently wholesale;

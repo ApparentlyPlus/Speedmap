@@ -12,7 +12,7 @@
                 "type": "null"
               }
             ],
-            "description": "null when not filed, not false",
+            "description": "null when not filed",
             "title": "Connected"
           },
           "id": {
@@ -91,7 +91,7 @@
                 "type": "null"
               }
             ],
-            "description": "the street this door is on, when it is one we hold",
+            "description": "the street this door is on, if we have it",
             "title": "Street Id"
           },
           "street_no": {
@@ -158,13 +158,12 @@
             "type": "string"
           },
           "confidence": {
-            "description": "evidence from tests alone, so a quote has none",
+            "description": "from speed tests only, a quote has none",
             "title": "Confidence",
             "type": "number"
           },
           "cost": {
-            "$ref": "#/components/schemas/Cost",
-            "description": "always a figure. Cost.complete says whether it is exact"
+            "$ref": "#/components/schemas/Cost"
           },
           "data_cap_gb": {
             "anyOf": [
@@ -175,11 +174,11 @@
                 "type": "null"
               }
             ],
-            "description": "null is unlimited, not unknown",
+            "description": "null is unlimited",
             "title": "Data Cap Gb"
           },
           "enough": {
-            "description": "covers an ordinary household, on speed and allowance",
+            "description": "covers an ordinary household, speed and allowance",
             "title": "Enough",
             "type": "boolean"
           },
@@ -193,7 +192,6 @@
                 "type": "null"
               }
             ],
-            "description": "null when nothing here can say",
             "title": "Expected Mbps"
           },
           "family": {
@@ -219,7 +217,6 @@
             "type": "string"
           },
           "tests": {
-            "description": "measurements behind it, zero when it rests on none",
             "title": "Tests",
             "type": "integer"
           },
@@ -247,11 +244,10 @@
         "type": "object"
       },
       "Cost": {
-        "description": "A monthly cost in its parts, so a card can say why a cheap headline is not cheap.",
         "properties": {
           "complete": {
             "default": true,
-            "description": "false when a one-off was never published, which makes total a floor: the offer costs this or more. The monthly rate is always known",
+            "description": "false if a one-off is unpublished, so total is a floor",
             "title": "Complete",
             "type": "boolean"
           },
@@ -349,7 +345,7 @@
             "title": "Infra Provider"
           },
           "matched_by": {
-            "description": "point for a filing here, area for a cabinet, built for fiber in the ground that the register never gave an address",
+            "description": "point (filed here), area (cabinet) or built (unaddressed fiber)",
             "title": "Matched By",
             "type": "string"
           },
@@ -371,7 +367,7 @@
                 "type": "null"
               }
             ],
-            "description": "what this kind of line is retailed at, which is what the map is painted by. `speed` is the register's own band and is not what anything is drawn from",
+            "description": "retail speed of the line, what the map paints",
             "title": "Sold Mbps"
           },
           "speed": {
@@ -415,11 +411,11 @@
                 "type": "null"
               }
             ],
-            "description": "when it last gave this address a real answer, for saying how old a cached one is",
+            "description": "last real answer for this address",
             "title": "Answered On"
           },
           "known": {
-            "description": "how this operator's answer was arrived at",
+            "description": "a decide verdict",
             "title": "Known",
             "type": "string"
           },
@@ -432,12 +428,12 @@
             "type": "string"
           },
           "says": {
-            "description": "what to tell the reader when it is not answering",
+            "description": "for the reader, when it isn't answering",
             "title": "Says",
             "type": "string"
           },
           "state": {
-            "description": "healthy, degraded, broken, untried, or blocked by its bot protection",
+            "description": "healthy, degraded, broken, untried or blocked",
             "title": "State",
             "type": "string"
           }
@@ -462,18 +458,17 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "per operator: how the answer was arrived at",
+            "description": "verdict per operator",
             "title": "Known",
             "type": "object"
           },
           "need_mbps": {
-            "description": "the bar used, which the caller may move",
+            "description": "the bar used",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Need Mbps",
             "type": "string"
           },
           "operators": {
-            "description": "an operator missing from a comparison is a worse lie than a visible gap",
             "items": {
               "$ref": "#/components/schemas/Operator"
             },
@@ -501,7 +496,7 @@
       "Probed": {
         "properties": {
           "asked": {
-            "description": "false when the operator was inside its backoff",
+            "description": "false inside its backoff",
             "title": "Asked",
             "type": "boolean"
           },
@@ -521,7 +516,6 @@
             "type": "string"
           },
           "reached": {
-            "description": "false when the checker could not be reached at all",
             "title": "Reached",
             "type": "boolean"
           },
@@ -534,7 +528,7 @@
                 "type": "null"
               }
             ],
-            "description": "null when nothing conclusive came back",
+            "description": "null if inconclusive",
             "title": "Serviceable"
           }
         },
@@ -653,7 +647,7 @@
                 "type": "null"
               }
             ],
-            "description": "the fastest known to reach here. Null is not filed, not zero",
+            "description": "null if nothing's filed",
             "title": "Best Mbps"
           },
           "id": {
@@ -674,7 +668,7 @@
                 "type": "null"
               }
             ],
-            "description": "for a door, as the register filed it. For a street, where most of its doors say they are, the one thing separating two runs of a name in one municipality. Null when it has no filed doors to ask",
+            "description": "as filed for a door, the doors' majority for a street",
             "title": "Locality"
           },
           "match": {
@@ -717,7 +711,7 @@
                 "type": "null"
               }
             ],
-            "description": "dwellings passed, null when not filed",
+            "description": "dwellings passed",
             "title": "Premises"
           },
           "street_id": {
@@ -729,7 +723,7 @@
                 "type": "null"
               }
             ],
-            "description": "for a proposed address, the street to ask for it on",
+            "description": "for a proposed address",
             "title": "Street Id"
           },
           "street_no": {
@@ -806,7 +800,7 @@
       "StreetDetail": {
         "properties": {
           "bbox": {
-            "description": "west, south, east, north. A street has no point, only an extent",
+            "description": "west, south, east, north",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
@@ -858,7 +852,7 @@
           },
           "shape": {
             "additionalProperties": true,
-            "description": "the street as GeoJSON, for drawing along rather than pointing at",
+            "description": "GeoJSON line",
             "title": "Shape",
             "type": "object"
           },
@@ -932,7 +926,7 @@
   "paths": {
     "/addresses/{address_id}": {
       "get": {
-        "description": "Everything filed at one address, with each offer's evidence and freshness.",
+        "description": "Everything filed at one address.",
         "operationId": "address_addresses__address_id__get",
         "parameters": [
           {
@@ -975,7 +969,7 @@
     },
     "/addresses/{address_id}/options": {
       "get": {
-        "description": "What can be bought here, best first, from what is already known.\n\nNothing is asked of an operator on this path.",
+        "description": "What can be bought here, best first. Asks no operator.",
         "operationId": "address_options_addresses__address_id__options_get",
         "parameters": [
           {
@@ -1038,7 +1032,7 @@
     },
     "/addresses/{address_id}/probe": {
       "post": {
-        "description": "Ask the operators that are due, and keep what they say.\n\nOne operator at a time is the caller's choice, and the reason it exists: a checker takes\nbetween two and eight seconds.",
+        "description": "Ask the operators that are due, 2 to 8 seconds each.",
         "operationId": "address_probe_addresses__address_id__probe_post",
         "parameters": [
           {
@@ -1051,7 +1045,7 @@
             }
           },
           {
-            "description": "ask only these, or omit to ask every operator that is due",
+            "description": "omit for every operator that's due",
             "in": "query",
             "name": "provider",
             "required": false,
@@ -1067,7 +1061,7 @@
                   "type": "null"
                 }
               ],
-              "description": "ask only these, or omit to ask every operator that is due",
+              "description": "omit for every operator that's due",
               "title": "Provider"
             }
           }
@@ -1106,7 +1100,6 @@
     },
     "/health": {
       "get": {
-        "description": "Whether the database answers, and whether it has been built.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -1128,7 +1121,7 @@
     },
     "/health/adapters": {
       "get": {
-        "description": "How each operator's checker is faring, derived from what happened when it was asked.\n\nNot stored anywhere: a status field is one more thing that can be stale while the thing\nit describes has moved on.",
+        "description": "How each operator's checker is doing, worked out from recent attempts.",
         "operationId": "adapter_health_health_adapters_get",
         "responses": {
           "200": {
@@ -1154,7 +1147,7 @@
     },
     "/reports": {
       "post": {
-        "description": "Record that something here looks wrong.\n\nRate limiting belongs at the reverse proxy rather than in process, where it would be per\nworker and reset on deploy.",
+        "description": "Record that something here looks wrong.",
         "operationId": "report_reports_post",
         "requestBody": {
           "content": {
@@ -1196,7 +1189,7 @@
     },
     "/search": {
       "get": {
-        "description": "Addresses and streets, in Greek or Greeklish, folded the way the index was built.",
+        "description": "Addresses and streets, in Greek or Greeklish.",
         "operationId": "search_search_get",
         "parameters": [
           {
@@ -1224,13 +1217,13 @@
             }
           },
           {
-            "description": "street: streets only, for a map that has no doors on it",
+            "description": "street: streets only, for the map",
             "in": "query",
             "name": "kind",
             "required": false,
             "schema": {
               "default": "any",
-              "description": "street: streets only, for a map that has no doors on it",
+              "description": "street: streets only, for the map",
               "enum": [
                 "any",
                 "street"
@@ -1274,7 +1267,7 @@
     },
     "/streets/{street_id}": {
       "get": {
-        "description": "A street where no address is filed: coverage comes from the cabinets it crosses.",
+        "description": "A street and what reaches it.",
         "operationId": "street_streets__street_id__get",
         "parameters": [
           {
@@ -1317,7 +1310,7 @@
     },
     "/streets/{street_id}/addresses": {
       "post": {
-        "description": "Make the address at this number, so it can be probed and kept like any other.\n\nThe register knows the street and not the number.",
+        "description": "Make the address at this number on a street the register has without it.",
         "operationId": "ask_for_streets__street_id__addresses_post",
         "parameters": [
           {

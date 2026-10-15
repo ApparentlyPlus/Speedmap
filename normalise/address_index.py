@@ -1,4 +1,4 @@
-"""Build the searchable address index from the register's infrastructure points."""
+"""The searchable address index, built from the register's points."""
 
 from __future__ import annotations
 
@@ -10,8 +10,7 @@ from psycopg.rows import TupleRow
 
 from normalise.address import parse
 
-# A point can carry several addresses and several points can share one, so rows are staged
-# and deduplicated in SQL instead of Python memory.
+# many to many with points, so dedupe in SQL
 STAGE = """
 create temp table stage_raw (
     coverid text,
@@ -30,8 +29,7 @@ create temp table stage_raw (
 ) on commit drop
 """
 
-# Resolve the municipality once, into staging, for both the merge and the link. A select
-# instead of an update: one pass, no dead tuples.
+# a select into a new table, one pass and no dead tuples
 RESOLVE = """
 create temp table stage_address on commit drop as
 select s.*, m.id as municipality_id
@@ -41,8 +39,7 @@ left join municipality m on st_contains(m.geom_2d, st_setsrid(st_point(s.lon, s.
 
 INDEX = "create index on stage_address (postcode, street_fold, street_no, municipality_id)"
 
-# Keyset chunks, no server-side cursor: a COPY and a FETCH can't interleave on one
-# connection, and the second blocks forever.
+# keyset chunks, a server side cursor's FETCH would block forever behind the COPY
 SOURCE = """
 select coverid, address, prempass, connstat, vhcn, st_x(point), st_y(point)
 from raw_coverpoint
@@ -53,8 +50,7 @@ limit %s
 
 CHUNK = 50_000
 
-# distinct on, since on conflict can't touch one row twice in a statement. Highest premises
-# wins, as the best-attested version of a repeated address.
+# on conflict can't touch a row twice, so distinct on, most premises wins
 MERGE = """
 insert into address (
     postcode, street, street_fold, street_no, locality, search_key, latin_key,
@@ -66,8 +62,7 @@ select distinct on (s.postcode, s.street_fold, s.street_no, s.municipality_id)
     st_point(s.lon, s.lat)::geography, s.municipality_id
 from stage_address s
 order by s.postcode, s.street_fold, s.street_no, s.municipality_id, s.premises desc nulls last, s.street,
-         -- coverid last, so the same register always builds the same index
-         s.coverid
+         s.coverid  -- deterministic
 on conflict (postcode, street_fold, street_no, municipality_id) do update set
     street = excluded.street,
     locality = excluded.locality,
@@ -77,8 +72,7 @@ on conflict (postcode, street_fold, street_no, municipality_id) do update set
     connected = excluded.connected,
     vhcn = excluded.vhcn,
     geom = excluded.geom
--- Only rows that changed. Rewriting all 1.47M addresses touched every index, two trigram
--- ones included, and was most of the build's slowest step.
+-- only changed rows, rewriting all 1.47M touches both trigram indexes
 where (address.street, address.locality, address.search_key, address.latin_key,
        address.premises, address.connected, address.vhcn, address.geom)
       is distinct from
@@ -86,7 +80,6 @@ where (address.street, address.locality, address.search_key, address.latin_key,
        excluded.premises, excluded.connected, excluded.vhcn, excluded.geom)
 """
 
-# psycopg returns untyped tuples, so the row shapes are declared here
 SourceRow = tuple[str, str, int | None, int | None, int | None, float, float]
 
 StageRow = tuple[
@@ -96,16 +89,10 @@ StageRow = tuple[
 
 
 def flag(value: int | None) -> bool | None:
-    """0/1 from the register. Missing stays None, never False."""
     return None if value is None else bool(value)
 
 
-# is not distinct from, since postcode, street_no and municipality_id can be null and the
-# address key treats nulls as equal.
-#
-# Filings with an empty field (`,,`, mostly postcode only) are skipped. 025 places them by
-# position and deletes any link made here, so linking them wrote 1.9M rows a build just to
-# be deleted again. Same pattern as 025, character for character.
+# nulls count as equal. Filings with an empty field go to 025, same regex
 LINK = """
 insert into address_point (address_id, coverid)
 select distinct a.id, s.coverid
@@ -120,7 +107,6 @@ where c.address !~ ',[[:space:]]*,'
 on conflict do nothing
 """
 
-# the distinct spellings, rebuilt with the index they project
 REFRESH_KEYS = "refresh materialized view concurrently address_spelling"
 
 COPY_INTO = (
@@ -130,18 +116,17 @@ COPY_INTO = (
 
 
 def staged(chunk: list[SourceRow]) -> Iterator[StageRow]:
-    """Every address on every point in the chunk. A point can carry several."""
     for coverid, raw, premises, connstat, vhcn, lon, lat in chunk:
-        for address in parse(raw):
+        for a in parse(raw):
             yield (
                 coverid,
-                address.postcode,
-                address.street,
-                address.street_fold,
-                address.street_no,
-                address.locality,
-                address.search_key,
-                address.latin_key,
+                a.postcode,
+                a.street,
+                a.street_fold,
+                a.street_no,
+                a.locality,
+                a.search_key,
+                a.latin_key,
                 premises,
                 flag(connstat),
                 flag(vhcn),
@@ -152,19 +137,19 @@ def staged(chunk: list[SourceRow]) -> Iterator[StageRow]:
 
 def build_address_index(conn: psycopg.Connection[TupleRow]) -> int:
     conn.execute(STAGE)
-    cursor = ""
+    last = ""
     while True:
-        chunk = cast(list[SourceRow], conn.execute(SOURCE, (cursor, CHUNK)).fetchall())
+        chunk = cast(list[SourceRow], conn.execute(SOURCE, (last, CHUNK)).fetchall())
         if not chunk:
             break
         with conn.cursor().copy(COPY_INTO) as copy:
             for row in staged(chunk):
                 copy.write_row(row)
-        cursor = chunk[-1][0]
+        last = chunk[-1][0]
 
     conn.execute(RESOLVE)
     conn.execute(INDEX)
-    written = conn.execute(MERGE).rowcount
+    n = conn.execute(MERGE).rowcount
     conn.execute(LINK)
     conn.execute(REFRESH_KEYS)
-    return written
+    return n

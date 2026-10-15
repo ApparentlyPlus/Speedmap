@@ -1,7 +1,5 @@
-/**
- * The map style, in TypeScript instead of JSON. MapLibre drops a whole style over one bad
- * expression and only says so through an event, so a unit test is the cheap place to catch it.
- */
+// The map style in TS rather than JSON. MapLibre drops the whole style over one bad
+// expression and only says so in an event, so style.test.ts catches it here.
 
 import type {
   DataDrivenPropertyValueSpecification,
@@ -24,73 +22,53 @@ import {
 
 export const SOURCE = "speedmap";
 
-/**
- * Measured squares get their own archive. At country zooms they were half of every tile, and
- * the coverage map never draws them. MapLibre won't fetch a source until a visible layer
- * reads it, so they stay unloaded until someone picks Measured.
- */
+// own archive, so the coverage map never fetches the squares
 export const MEASURED = "measured";
 
-/** Basemap from OpenStreetMap via planetiler, footprints from Overture. */
+// OSM via planetiler, footprints from Overture
 export const BASE = "base";
 export const BUILDINGS = "buildings";
-/** Greece as one polygon, under everything. */
 export const EDGE = "edge";
 
-/**
- * Footprint layers and the paint property holding each one's opacity. Building tiles are the
- * most expensive thing this map decodes, so both get held back and raised together.
- */
+// footprint layers and their opacity property, held back together (most expensive tiles to decode)
 export const BUILDING_LAYERS: Readonly<Record<string, string>> = {
   building: "fill-extrusion-opacity",
   "building-shadow": "fill-opacity",
 };
 
-/** Footprints start here, so below it there's nothing to wait for. */
 export const BUILDINGS_FROM = 14;
 
-/** Crete and the north in one view. */
+// Crete and the north in one view
 export const HOME = { centre: [24.0, 38.4] as [number, number], zoom: 6.2 };
 
-/** Gavdos to the Evros, Corfu to Kastellorizo, plus half a degree of sea. */
+// Gavdos to Evros, Corfu to Kastellorizo, plus half a degree of sea
 export const LIMITS: [[number, number], [number, number]] = [[18.6, 34.2], [30.4, 42.3]];
 
-/** Far enough out to hold the country, no further. */
 export const FLOOR_ZOOM = 5.6;
 
-/**
- * Ground colours. They're relative to each other: water lighter than land inverts the coast,
- * occlusion lighter than building makes the shadow glow.
- */
+// relative to each other: lighter water inverts the coast, lighter occlusion makes the shadow glow
 const C = {
-  // land, which everything below is tuned against
   ground: "#141a22",
-  // a shade up and faintly cool, so a hillside reads as rising ground
+  // a shade up and cool, so hills read as rising
   landuse: "#1a2028",
-  // Parks, grey almost. Green on a map about cables spends colour on the wrong subject and
-  // fights the cool end of the ramp.
+  // near grey, green would fight the cool end of the ramp
   park: "#22272c",
-  // blue-ish so the coast reads by hue, dark because the ramp owns the bright blues
+  // coast by hue, dark because the ramp has the bright blues
   water: "#0d1117",
   building: "#1e2530",
   occlusion: "#0d121a",
-  // roads give the city its shape where coverage is a hairline, always under the ramp
+  // city shape where coverage is a hairline, always under the ramp
   road: "#303945",
   roadMinor: "#1f252e",
   roadMajor: "#414d5b",
-  // near white with a wide dark halo, readable on land, sea and a lit street
+  // wide dark halo, readable on land, sea and a lit street
   label: "#d8dce3",
-  // a step down from towns, to tell the two apart
   labelQuiet: "#9fa7b4",
   labelHalo: "#05070a",
 } as const;
 
-/**
- * The speed ramp. A missing field means nothing reaches the street, drawn UNSERVED outside
- * the ramp (inside it, absence interpolates to near black and looks like a slow street).
- * A negative value is the tile's "reaches, no speed filed" (SERVED_UNFILED in
- * publish/features.py) and gets UNFILED. The ramp used to clamp it to the slowest copper red.
- */
+// missing = nobody reaches it (UNSERVED), negative = reaches, no speed filed (UNFILED).
+// Both kept off the ramp, which would interpolate them to near black
 function ramp(field: keyof Street | keyof Cell): ExpressionSpecification {
   const rising = [...RAMP].reverse();
   const anchors = rising.flatMap((band) => [band.floor as number, band.colour]);
@@ -102,10 +80,8 @@ function ramp(field: keyof Street | keyof Cell): ExpressionSpecification {
   ] as ExpressionSpecification;
 }
 
-/**
- * Greek OSM rarely has heights, and one constant turns a city into a slab. Derived from the
- * feature id instead: about right for a polykatoikia, and stable across zooms.
- */
+// Greek OSM rarely has heights, so derive one from the feature id: roughly a polykatoikia,
+// and stable across zooms
 const HEIGHT: DataDrivenPropertyValueSpecification<number> = [
   "case",
   ["has", "height"], ["max", 3, ["get", "height"]],
@@ -118,26 +94,23 @@ const ROAD_KINDS: ExpressionSpecification = [
   ["in", ["get", "class"], ["literal", ["ferry", "rail", "path"]]],
 ];
 
-/** Filter to one operator. The tile omits the key where they don't reach. */
+// the tile omits the key where an operator doesn't reach
 export function only(provider: string | null): ExpressionSpecification | null {
   if (provider === null) return null;
   const field = STREETS_BY_PROVIDER[provider];
-  // an operator without a field reaches nothing, not everything
   if (field === undefined) return ["boolean", false] as ExpressionSpecification;
   return ["has", field] as ExpressionSpecification;
 }
 
-/** The selection fades up after the camera arrives. */
 const LIGHT_MS = 800;
 const LIGHT_WAIT = 500;
 
-/** Target opacity per selection layer. */
 export const LIT: Record<string, DataDrivenPropertyValueSpecification<number>> = {
   "streets-picked-halo": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 0.4, 17, 0.25],
   "streets-picked": 0.9,
 };
 
-/** Matches nothing. The selection layer's filter until something is picked. */
+// matches nothing, until something is picked
 const NOTHING: FilterSpecification = ["==", ["get", "id"], -1];
 
 export function onlyStreet(id: number | null): FilterSpecification {
@@ -152,8 +125,7 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
 
   return [
     {
-      // A wide, blurred, dim copy under the line. Cheaper than a real glow, and it's most of
-      // why coverage looks like light lying on the street.
+      // wide blurred copy under the line, a cheap glow
       id: "streets-halo",
       type: "line",
       source: SOURCE,
@@ -191,15 +163,13 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
       },
     },
     {
-      // Glow under the picked street, so a long street fitted far out stays visible. No
-      // operator filter: it was picked directly and shouldn't vanish under one.
+      // glow under the picked street. No operator filter, it was picked directly
       id: "streets-picked-halo",
       type: "line",
       source: SOURCE,
       "source-layer": STREETS_LAYER,
       filter: NOTHING,
-      // hidden as well as filtered: a hidden layer is skipped at tile build, and a filtered one
-      // still runs its filter on every street in the tile
+      // hidden, not just filtered: hidden layers are skipped at tile build
       layout: { "line-cap": "round", "line-join": "round", visibility: "none" },
       paint: {
         "line-color": ACCENT,
@@ -229,15 +199,10 @@ export function streetLayers(provider: string | null): LayerSpecification[] {
   ];
 }
 
-/**
- * Click padding per zoom. There used to be an invisible 20 px line under every street for
- * thumbs to hit, a second copy of 80,000 streets tessellated and uploaded per tile to draw
- * nothing. Padding the query does the same job. Half the old width minus the street's own
- * half-width, since a query already counts a line as wide as it's drawn.
- */
+// Click padding per zoom, instead of an invisible 20px hit line under all 80,000 streets.
+// Half the old width minus the street's own half width.
 export const TOUCH: readonly (readonly [number, number])[] = [[11, 4.5], [16, 7.5], [20, 9]];
 
-/** Padding in px at a zoom, interpolated between stops and flat outside them. */
 export function touchPad(zoom: number): number {
   const first = TOUCH[0] as readonly [number, number];
   const last = TOUCH[TOUCH.length - 1] as readonly [number, number];
@@ -251,10 +216,7 @@ export function touchPad(zoom: number): number {
   return last[1];
 }
 
-/**
- * The other streets behind a result: grey and quiet. Forty thousand lit roads around the
- * answer bury it.
- */
+// the other streets behind a result, grey so they don't bury it
 export const ASIDE = "#2b3037";
 export const ASIDE_OPACITY: DataDrivenPropertyValueSpecification<number> = [
   "interpolate", ["linear"], ["zoom"], 10, 0.24, 14, 0.3, 17, 0.34,
@@ -267,29 +229,20 @@ export function ramps(provider: string | null): Record<string, ExpressionSpecifi
   return { "streets-halo": paint, streets: paint };
 }
 
-/**
- * Coverage: what the line on a street retails at. Measured: what people actually got.
- * Different claims, so they're never drawn together.
- */
+// coverage = what the line retails at, measured = what people got. Never drawn together
 export const VIEWS = ["coverage", "measured", "mobile"] as const;
 export type View = (typeof VIEWS)[number];
 
-/** Confidence as opacity. Dropping thin cells leaves holes that look broken. */
+// opacity for confidence, dropping thin cells looks broken
 const CONFIDENCE: ExpressionSpecification = [
   "interpolate", ["linear"], ["coalesce", ["get", "tests"], 1],
   1, 0.4, 5, 0.66, 25, 1,
 ];
 
-/**
- * Below zoom ten a street is a fraction of a pixel and the map was an empty coastline. The
- * choropleth fills that and hands over as the streets come in.
- */
+// below z10 streets are subpixel, the choropleth fills in and hands over
 const FADES_AT = 11;
 
-/**
- * One paint per view, so a filed claim never sits under a measured map. Coverage is a share
- * on SHARE. The other two are speeds on the same RAMP the streets use.
- */
+// one paint per view. Coverage is a share on SHARE, the other two speeds on RAMP
 export function regionPaint(view: View): ExpressionSpecification {
   if (view === "coverage") {
     return [
@@ -303,14 +256,14 @@ export function regionPaint(view: View): ExpressionSpecification {
   const rising = [...RAMP].reverse();
   return [
     "case",
-    // untested is most of the country, and it isn't the same as slow
+    // untested isn't slow
     ["!", ["has", field]], UNSERVED,
     ["interpolate", ["linear"], ["to-number", ["get", field], 0],
       ...rising.flatMap((band) => [band.floor as number, band.colour])],
   ] as ExpressionSpecification;
 }
 
-/** Confidence as opacity, like the cells. Coverage has no test count and draws full. */
+// coverage has no test count, full opacity
 function regionConfidence(view: View): ExpressionSpecification | number {
   if (view === "coverage") return 1;
   const field: keyof Region = view === "mobile" ? "mobile_tests" : "measured_tests";
@@ -320,14 +273,11 @@ function regionConfidence(view: View): ExpressionSpecification | number {
   ] as ExpressionSpecification;
 }
 
-/**
- * Choropleth opacity for a view. Exported because it changes with the view. Only the colour
- * used to switch, so a two-test municipality under Measured looked as sure as a two-thousand one.
- */
+// Opacity changes with the view too, or a two-test municipality looks as sure as a
+// two-thousand-test one
 export function regionOpacity(view: View): ExpressionSpecification {
   const confidence = regionConfidence(view);
-  // Never fully opaque, or 333 polygons turn into the coastline. ["zoom"] has to feed a
-  // top-level interpolate or the style is invalid.
+  // never fully opaque or 333 polygons hide the coastline. zoom has to feed a top level interpolate
   return [
     "interpolate", ["linear"], ["zoom"],
     5, ["*", 0.62, confidence],
@@ -347,7 +297,7 @@ export function regionLayers(view: View = "coverage"): LayerSpecification[] {
       source: SOURCE,
       "source-layer": REGIONS_LAYER,
       maxzoom: FADES_AT,
-      // off unless asked for: it summarises places, and this map is about lines
+      // off unless asked for, this map is about lines
       layout: { visibility: "none" },
       paint: {
         "fill-color": paint,
@@ -355,8 +305,7 @@ export function regionLayers(view: View = "coverage"): LayerSpecification[] {
       },
     },
     {
-      // A hairline between municipalities. Without it, neighbours with similar figures
-      // merge into one blob.
+      // or neighbours with similar figures merge into one blob
       id: "regions-edge",
       type: "line",
       source: SOURCE,
@@ -372,7 +321,6 @@ export function regionLayers(view: View = "coverage"): LayerSpecification[] {
   ];
 }
 
-/** Both choropleth layers, toggled together. */
 export const REGION_LAYERS = ["regions", "regions-edge"] as const;
 
 export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
@@ -384,11 +332,11 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
       source: MEASURED,
       "source-layer": CELLS_LAYER,
       filter: ["==", ["get", "family"], family],
-      // off until Measured is picked: everything else here wants streets
+      // off until Measured is picked
       layout: { visibility: "none" },
       paint: {
         "fill-color": ramp(field),
-        // zoom outermost, or the whole style is rejected
+        // zoom outermost or the style is rejected
         "fill-opacity": [
           "interpolate", ["linear"], ["zoom"],
           5, ["*", 0.6, CONFIDENCE],
@@ -400,11 +348,8 @@ export function cellLayers(family: "fixed" | "mobile"): LayerSpecification[] {
   ];
 }
 
-/**
- * Coverage colours turned down before the first frame. On the result map the rest of the city
- * is context. Anchored used to quiet the colours once the style loaded, one frame late: the
- * country flashed in full colour, then dropped to grey, and the descent started on that flinch.
- */
+// Muted before the first frame. Doing it on load was a frame late and the country flashed
+// full colour first.
 export function hushed(spec: StyleSpecification): StyleSpecification {
   for (const layer of spec.layers) {
     if (layer.id === "streets-halo") {
@@ -418,10 +363,7 @@ export function hushed(spec: StyleSpecification): StyleSpecification {
 }
 
 
-/**
- * MapLibre fetches glyphs from a worker, where a bare path has nothing to resolve against.
- * Made absolute in the browser, left alone without a window (tests).
- */
+// glyphs are fetched from a worker, so make the path absolute (no window in tests)
 function glyphBase(base: string): string {
   if (typeof window === "undefined" || /^[a-z]+:/i.test(base)) return base;
   return new URL(base, window.location.origin).href.replace(/\/$/, "");
@@ -431,26 +373,22 @@ export function style(base = "/tiles"): StyleSpecification {
   return {
     version: 8,
     name: "speedmap",
-    // Self-hosted beside the archives (tools/fonts.py). The site's own CSP blocked
-    // fonts.openmaptiles.org, and that host now serves HTML for glyph URLs anyway.
+    // self hosted (tools/fonts.py), CSP blocks fonts.openmaptiles.org anyway
     glyphs: `${glyphBase(base)}/fonts/{fontstack}/{range}.pbf`,
     sources: {
       [BASE]: { type: "vector", url: `pmtiles://${base}/greece.pmtiles` },
-      // Overture merges OSM with imagery-derived footprints, the only way to get buildings
-      // outside Athens and Thessaloniki
+      // Overture has buildings outside Athens and Thessaloniki, OSM mostly doesn't
       [BUILDINGS]: { type: "vector", url: `pmtiles://${base}/buildings.pmtiles` },
       [SOURCE]: { type: "vector", url: `pmtiles://${base}/speedmap.pmtiles` },
       [MEASURED]: { type: "vector", url: `pmtiles://${base}/cells.pmtiles` },
-      // A single shape we want before any tile lands. A zoom 4 vector tile of a coastline
-      // has already thrown most of it away.
+      // wanted before any tile, a z4 coastline tile has thrown most of it away
       [EDGE]: { type: "geojson", data: `${base}/greece.json` },
     },
-    // One light from the side and above gives extrusions a lit face and a dark one. Without
-    // it the city looks like a printed plan.
+    // side light for a lit face and a dark one on extrusions
     light: { anchor: "viewport", color: "#ffffff", intensity: 0.35, position: [1.2, 210, 30] },
     layers: [
-      // Sea as background, land on top. The reverse needs a world ring with Greece cut out,
-      // which clips into slabs of land across the Aegean.
+      // sea as background with land on top. The reverse needs a world ring with Greece cut out,
+      // which tears into slabs across the Aegean
       { id: "ground", type: "background", paint: { "background-color": C.water } },
       {
         id: "land",
@@ -481,7 +419,7 @@ export function style(base = "/tiles"): StyleSpecification {
         paint: { "fill-color": C.water },
       },
 
-      // dim wide casing under a brighter core, so a road reads as a lit ribbon
+      // dim casing under a bright core
       {
         id: "road-casing",
         type: "line",
@@ -516,13 +454,12 @@ export function style(base = "/tiles"): StyleSpecification {
         },
       },
 
-      // Under the streets and gone before they're legible, so it reads as one map changing
-      // scale and not two maps swapping.
+      // gone before the streets are legible, so it's one map changing scale
       ...regionLayers(),
       ...streetLayers(null),
       ...cellLayers("fixed"),
 
-      // dark offset copy under the extrusions, one fill layer for most of the depth
+      // dark offset copy under the extrusions
       {
         id: "building-shadow",
         type: "fill",
@@ -582,8 +519,7 @@ export function style(base = "/tiles"): StyleSpecification {
           "symbol-placement": "line",
         },
         paint: {
-          // Street names sit on lit lines, so they need more contrast than a town label on
-          // open ground.
+          // more contrast than town labels, they sit on lit lines
           "text-color": C.labelQuiet,
           "text-halo-color": C.labelHalo,
           "text-halo-width": 1.8,

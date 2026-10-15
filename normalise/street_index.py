@@ -1,4 +1,4 @@
-"""Group OSM ways into streets: one row per connected run of a named road in a municipality."""
+"""OSM ways grouped into streets, one per connected run of a name in a municipality."""
 
 from __future__ import annotations
 
@@ -22,16 +22,10 @@ create temp table stage_street (
 
 SOURCE = "select osm_id, name from raw_osm_street"
 
-# How far apart two pieces of road can be and still be one street, in degrees: about 55 m
-# here. Enough to step over a square, a roundabout or a dual carriageway's central strip.
-# Two roads a block apart stay two roads. It's transitive, which is what makes long roads
-# work: each way only has to reach the next.
+# ~55 m here, steps over a square or a central reservation but not a block
 NEAR_DEGREES = 0.0005
 
-# One row per connected run, keyed so a rebuild lands on the same rows. ST_ClusterDBSCAN's
-# cluster numbers depend on the order it reads ways, which isn't promised, so they're
-# replaced by a rank over each run's westernmost point. Same extract, same component
-# numbers, same street ids.
+# dbscan numbers by read order, rank by westernmost point instead for stable ids
 GROUPED = """
 create temp table stage_group on commit drop as
 with placed as (
@@ -47,7 +41,7 @@ clustered as (
              over (partition by sort_key, municipality_id) as run
     from placed
 ),
--- each run's start, computed here because a window function can't sit in another's order by
+-- can't nest a window in another's order by
 anchored as (
     select clustered.*,
            min(st_xmin(geom)) over w as run_x,
@@ -74,8 +68,6 @@ from ordered
 group by sort_key, municipality_id, component
 """
 
-# Every column's array_agg uses the same order, so the name, its fold and its latin form all
-# come from one way.
 MERGE = """
 insert into street (
     name, name_fold, latin_key, sort_key, municipality_id, component, highway, ways, geom
@@ -91,8 +83,7 @@ on conflict (sort_key, municipality_id, component) do update set
     geom = excluded.geom
 """
 
-# Drop roads gone from the extract, and runs that have since merged into a neighbour: a
-# component number no longer produced is no longer a street.
+# gone from the extract, or merged into a neighbour
 PRUNE = """
 delete from street st
 where not exists (
@@ -108,21 +99,18 @@ StageRow = tuple[int, str, str, str]
 
 def keyed(rows: list[tuple[int, str]]) -> Iterator[StageRow]:
     for osm_id, name in rows:
-        fold = street_key(name)
-        yield osm_id, fold, from_greek(fold), " ".join(sorted(fold.split()))
+        k = street_key(name)
+        yield osm_id, k, from_greek(k), " ".join(sorted(k.split()))
 
 
 def build_street_index(conn: psycopg.Connection[TupleRow]) -> int:
     conn.execute(STAGE)
-    # Read before opening the copy. A select and a copy can't share a connection, and the copy
-    # would wait forever for rows the select can't deliver.
-    source = cast(list[tuple[int, str]], conn.execute(SOURCE).fetchall())
-    with conn.cursor().copy(
-        "copy stage_street (osm_id, name_fold, latin_key, sort_key) from stdin"
-    ) as copy:
-        for row in keyed(source):
+    # fetch everything before the copy starts, they can't share the connection
+    rows = cast(list[tuple[int, str]], conn.execute(SOURCE).fetchall())
+    with conn.cursor().copy("copy stage_street (osm_id, name_fold, latin_key, sort_key) from stdin") as copy:
+        for row in keyed(rows):
             copy.write_row(row)
     conn.execute(GROUPED, {"near": NEAR_DEGREES})
-    written = conn.execute(MERGE).rowcount
+    n = conn.execute(MERGE).rowcount
     conn.execute(PRUNE)
-    return written
+    return n

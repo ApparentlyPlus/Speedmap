@@ -1,8 +1,4 @@
-"""Fold the Telekom availability scrape into the address index and the answer cache.
-
-The scrape walked house numbers up from the start of each street and stopped after five
-numbers in a row with no service.
-"""
+"""Fold the Telekom scrape into the address index and the answer cache."""
 
 from __future__ import annotations
 
@@ -23,13 +19,11 @@ from probe.ttl import (
 
 CHUNK = 50_000
 
-# Which of two filings of one address to keep. Most rows were geocoded by interpolating
-# along the street. A rooftop is a real building, so it wins.
+# which duplicate to keep, rooftop beats interpolated
 PRECISION = {"rooftop": 0, "interpolated": 1, "street": 2, "locality": 3}
 UNRANKED = len(PRECISION)
 
-# Their dimoi aren't Καλλικράτης ones and the names don't resolve. Street names repeat
-# nationwide, so voting on names maps almost nothing. We place each area by its points.
+# their dimoi aren't Καλλικράτης ones, so place each area by where its points fall
 AREA = """
 create temp table cosmote_area on commit drop as
 select distinct on (c.dimos, coalesce(c.area, ''))
@@ -41,8 +35,7 @@ group by c.dimos, coalesce(c.area, ''), m.id
 order by c.dimos, coalesce(c.area, ''), count(*) desc, m.id
 """
 
-# Only the rungs the scrape's codes name. Unlimited airtime quotes no speed, so it can't say
-# what a scraped code was worth.
+# unlimited airtime has no speed, skip it
 CATALOGUE = """
 select pl.external_key, pl.down_mbps, pl.technology
 from plan pl join provider pr on pr.id = pl.provider_id
@@ -81,7 +74,6 @@ create temp table stage_cosmote_address (
 ) on commit drop
 """
 
-# the scrape has no postcodes
 ADD_ADDRESS = """
 insert into address (
     postcode, street, street_fold, street_no, locality, municipality_id,
@@ -115,7 +107,7 @@ create temp table stage_cosmote_resolved (
 ) on commit drop
 """
 
-# kept so a probe can use the operator's own spelling of the street
+# so a probe can use the operator's spelling
 RESOLVE = """
 update raw_cosmote c
 set municipality_id = r.municipality_id, street_fold = r.street_fold
@@ -125,8 +117,7 @@ where r.id = c.id
     or c.street_fold is distinct from r.street_fold)
 """
 
-# The ceiling is the last number the scrape recorded, up to five short of the last it
-# asked: the ones in between were refused and never written down.
+# the scrape gave up after five misses in a row and only wrote down hits
 MARK_SCANNED = """
 update address a set checked_to = s.scanned_to
 from (
@@ -134,12 +125,10 @@ from (
     from stage_cosmote_scan group by municipality_id, street_fold
 ) s
 where a.municipality_id = s.municipality_id and a.street_fold = s.street_fold
-  -- only where it moved, or every build rewrites a million addresses with what they hold
   and a.checked_to is distinct from s.scanned_to
 """
 
-# The scrape only recorded serviceable answers, so serviceable is always true. How long each
-# is trusted depends on the speed, using the probe loop's rule.
+# the scrape only kept yeses. TTL by speed, same rule as the probes
 CACHE = """
 insert into availability (
     address_id, provider_id, technology, max_down_mbps, serviceable,
@@ -167,10 +156,8 @@ on conflict (address_id, provider_id, technology) do update set
     observed_at = excluded.observed_at,
     expires_at = excluded.expires_at,
     raw = excluded.raw
--- The scrape is one day's snapshot. A live answer since then is newer, and every rebuild
--- used to overwrite it with the scrape.
+-- a live answer newer than the scrape wins, and skip unchanged rows
 where availability.observed_at <= excluded.observed_at
-  -- skip unchanged rows too, or a build rewrites a million answers with themselves
   and (availability.technology, availability.max_down_mbps, availability.serviceable,
        availability.source, availability.assertion, availability.observed_at,
        availability.expires_at, availability.raw)
@@ -182,45 +169,37 @@ where availability.observed_at <= excluded.observed_at
 
 
 def keys(street: str, locality: str | None) -> tuple[str, str, str]:
-    """street_fold, search_key and latin_key, built the same way as the register path."""
-    folded = street_key(street)
-    search = f"{folded} {fold(locality)}" if locality else folded
-    return folded, search, from_greek(search)
+    # same as the register path
+    k = street_key(street)
+    search = f"{k} {fold(locality)}" if locality else k
+    return k, search, from_greek(search)
 
 
 def best_plan(plans: str, catalogue: dict[str, tuple[float, str]]) -> tuple[float, str] | None:
-    """The fastest plan offered here, which names the technology.
-
-    Vectored copper stops short of 200 Mbps, so the top rung says what's in the ground. An
-    unknown code is skipped: a new one means the catalogue changed.
-    """
+    # the top rung says what's in the ground, vectoring stops short of 200
     known = [catalogue[code] for code in plans.split(",") if code in catalogue]
     return max(known) if known else None
 
 
 def add_addresses(conn: psycopg.Connection[TupleRow]) -> int:
-    """Addresses the operator serves that the register never filed."""
     held = {(m, f, n) for m, f, n in conn.execute(HELD)}
     best: dict[tuple[int, str, str], tuple[int, tuple[object, ...]]] = {}
 
     after = 0
     while True:
-        read = conn.execute(PLACES, (after, CHUNK)).fetchall()
-        if not read:
+        rows = conn.execute(PLACES, (after, CHUNK)).fetchall()
+        if not rows:
             break
-        for _, municipality_id, street, street_no, area, precision, kaek, lon, lat in read:
+        for _, mid, street, no, area, precision, kaek, lon, lat in rows:
             folded, search, latin = keys(street, area)
-            key = (municipality_id, folded, str(street_no))
-            if key in held:
+            k = (mid, folded, str(no))
+            if k in held:
                 continue
             rank = PRECISION.get(precision, UNRANKED)
-            if key in best and best[key][0] <= rank:
+            if k in best and best[k][0] <= rank:
                 continue
-            best[key] = (rank, (
-                municipality_id, street, folded, str(street_no), area,
-                search, latin, kaek, lon, lat,
-            ))
-        after = int(read[-1][0])
+            best[k] = (rank, (mid, street, folded, str(no), area, search, latin, kaek, lon, lat))
+        after = int(rows[-1][0])
 
     conn.execute(STAGE_ADDRESS)
     if best:
@@ -234,14 +213,10 @@ def add_addresses(conn: psycopg.Connection[TupleRow]) -> int:
 
 
 def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
-    """The answers, plus how far up each street the asking reached."""
-    catalogue = {
-        code: (float(mbps), technology)
-        for code, mbps, technology in conn.execute(CATALOGUE).fetchall()
-    }
+    catalogue = {code: (float(mbps), tech) for code, mbps, tech in conn.execute(CATALOGUE).fetchall()}
     index = {
-        (municipality_id, street_fold, street_no): address_id
-        for municipality_id, street_fold, street_no, address_id in conn.execute(
+        (mid, f, no): aid
+        for mid, f, no, aid in conn.execute(
             "select municipality_id, street_fold, street_no, id from address "
             "where municipality_id is not null and street_no is not null"
         )
@@ -254,27 +229,25 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
     written = 0
     after = 0
     while True:
-        read = conn.execute(ANSWERS, (after, CHUNK)).fetchall()
-        if not read:
+        rows = conn.execute(ANSWERS, (after, CHUNK)).fetchall()
+        if not rows:
             break
         staged: list[tuple[object, ...]] = []
         resolved: list[tuple[object, ...]] = []
-        for row_id, municipality_id, street, street_no, plans, observed_at in read:
+        for rid, mid, street, no, plans, observed_at in rows:
             folded = street_key(street)
-            # every row raises the ceiling, matched or not, since the scan got that far
-            reached = ceiling.get((municipality_id, folded), street_no)
-            ceiling[(municipality_id, folded)] = max(reached, street_no)
-            resolved.append((row_id, municipality_id, folded))
-            address_id = index.get((municipality_id, folded, str(street_no)))
-            if address_id is None:
+            # matched or not, the scan got this far
+            ceiling[(mid, folded)] = max(ceiling.get((mid, folded), no), no)
+            resolved.append((rid, mid, folded))
+            aid = index.get((mid, folded, str(no)))
+            if aid is None:
                 continue
             best = best_plan(plans, catalogue)
             if best is None:
                 continue
-            mbps, technology = best
-            staged.append((address_id, technology, mbps, observed_at, plans))
-        # Read the whole chunk before opening the copy. A select and a copy can't share one
-        # connection, and interleaving them deadlocks on ClientRead.
+            mbps, tech = best
+            staged.append((aid, tech, mbps, observed_at, plans))
+        # whole chunk read before the copy, interleaving deadlocks on ClientRead
         if resolved:
             with conn.cursor().copy(
                 "copy stage_cosmote_resolved (id, municipality_id, street_fold) from stdin"
@@ -289,19 +262,17 @@ def cache_answers(conn: psycopg.Connection[TupleRow]) -> int:
                 for row in staged:
                     copy.write_row(row)
             written += len(staged)
-        after = int(read[-1][0])
+        after = int(rows[-1][0])
 
     if ceiling:
         with conn.cursor().copy(
             "copy stage_cosmote_scan (municipality_id, street_fold, scanned_to) from stdin"
         ) as copy:
-            for (municipality_id, folded), scanned_to in ceiling.items():
-                copy.write_row((municipality_id, folded, scanned_to))
+            for (mid, folded), top in ceiling.items():
+                copy.write_row((mid, folded, top))
         conn.execute(MARK_SCANNED)
 
     conn.execute(RESOLVE)
-    # Thresholds come from the probe loop so a scraped gigabit and a probed one are both
-    # trusted for two years.
     conn.execute(CACHE, {
         "gigabit": GIGABIT, "fast": FAST, "usable": USABLE,
         "settled": SETTLED, "likely": LIKELY, "changing": CHANGING, "volatile": VOLATILE,

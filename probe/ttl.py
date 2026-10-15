@@ -1,8 +1,4 @@
-"""How long an answer stays trusted, which depends on the answer.
-
-A gigabit address is settled. A slow one is where someone's about to dig. A failure isn't an
-answer, and is retried within hours.
-"""
+"""How long an answer is trusted. A gigabit is settled, a slow line is where someone's about to dig."""
 
 from __future__ import annotations
 
@@ -16,13 +12,11 @@ USABLE = Decimal(100)
 SETTLED = timedelta(days=730)
 LIKELY = timedelta(days=183)
 CHANGING = timedelta(days=91)
-# absence is the least stable answer there is: one trench overturns it
-VOLATILE = timedelta(days=30)
+VOLATILE = timedelta(days=30)  # one trench overturns a no
 FAILED = timedelta(hours=6)
 
 
 def ttl(best_mbps: Decimal | None, *, serviceable: bool = True) -> timedelta:
-    """How long to trust this answer before asking again."""
     if not serviceable or best_mbps is None:
         return VOLATILE
     if best_mbps >= GIGABIT:

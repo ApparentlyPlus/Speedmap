@@ -1,4 +1,3 @@
-/** The style, validated the way MapLibre validates it. */
 
 import {
   featureFilter,
@@ -36,7 +35,7 @@ describe("the style MapLibre is given", () => {
 
 describe("no reachable zoom is empty", () => {
   it("has a basemap under the coverage", () => {
-    // without it the opening view is a black rectangle and a panel saying zoom in somewhere
+    // or the opening view is a black rectangle
     const sources = Object.keys(style().sources);
     expect(sources).toContain(BASE);
     expect(sources).toContain(BUILDINGS);
@@ -54,16 +53,14 @@ describe("no reachable zoom is empty", () => {
   });
 
   it("lights the buildings from somewhere", () => {
-    // no light, and every extrusion is one flat tone
     expect(style().light).toBeDefined();
   });
 });
 
-/** Every field a value reads with get or has, at any depth. */
+// every field read with get or has, at any depth
 function reads(value: unknown, into: Set<string> = new Set()): Set<string> {
   if (Array.isArray(value)) {
     const [op, field] = value as unknown[];
-    // a third argument means another object's field, not the feature's
     if ((op === "get" || op === "has") && typeof field === "string" && value.length === 2) {
       into.add(field);
     }
@@ -74,7 +71,6 @@ function reads(value: unknown, into: Set<string> = new Set()): Set<string> {
   return into;
 }
 
-/** Each layer reading a layer or field of an archive built elsewhere that slimming drops. */
 function unkept(spec: StyleSpecification): string[] {
   const wrong: string[] = [];
   for (const layer of spec.layers) {
@@ -97,8 +93,7 @@ function unkept(spec: StyleSpecification): string[] {
 }
 
 describe("the archives built elsewhere, slimmed", () => {
-  // tools/slim_basemap.py drops what schema/tiles.yaml doesn't list. A style reading a
-  // dropped field gets nothing and draws its fallback without a word.
+  // slim_basemap.py drops what tiles.yaml doesn't list
   it("keep every layer and field the style reads", () => {
     expect(unkept(style())).toEqual([]);
   });
@@ -120,7 +115,6 @@ describe("the archives built elsewhere, slimmed", () => {
 
 describe("the validator itself", () => {
   it("rejects a style that is wrong", () => {
-    // a validator that only ever sees valid styles can't be told apart from a broken one
     const broken = {
       ...style(),
       layers: [
@@ -132,7 +126,7 @@ describe("the validator itself", () => {
         },
       ],
     };
-    // cast, since TypeScript already rejects this, which is half the guarantee
+    // cast, TS already rejects it
     expect(validateStyleMin(broken as unknown as StyleSpecification).length).toBeGreaterThan(0);
   });
 
@@ -147,7 +141,7 @@ describe("the validator itself", () => {
 
 describe("what the layers say", () => {
   it("names the layer inside the archive it draws", () => {
-    // A layer must name its source-layer. Without it, it matches and paints nothing, silently.
+    // without source-layer it paints nothing, silently
     for (const layer of streetLayers(null)) {
       expect(layer).toHaveProperty("source-layer");
     }
@@ -160,14 +154,14 @@ describe("what the layers say", () => {
   });
 
   it("filters on whether the operator is there at all", () => {
-    // tippecanoe writes no attribute for null, so a missing key means "doesn't reach"
+    // tippecanoe writes no attribute for null
     const field = String(STREETS_BY_PROVIDER.TELEKOM);
     const run = featureFilter(only("TELEKOM") as never);
     const asked = (properties: Record<string, number>): boolean =>
       run.filter({ zoom: 13 } as never, { type: 2, properties } as never, undefined as never);
 
     expect(asked({ [field]: 300 })).toBe(true);
-    // reaches the street, no speed filed: the register's most common answer
+    // reaches, no speed filed: the most common answer
     expect(asked({ [field]: -1 })).toBe(true);
     expect(asked({ best_mbps: 300 })).toBe(false);
   });
@@ -183,15 +177,13 @@ describe("what the layers say", () => {
 
 describe("the ramp", () => {
   const paint = (): unknown[] => {
-    // by id: the layer list once gained an invisible click layer and a positional read
-    // silently tested that instead
+    // by id, a positional read once tested an invisible click layer by mistake
     const streets = streetLayers(null).find((layer) => layer.id === "streets");
     return (streets as { paint: { "line-color": unknown[] } }).paint["line-color"];
   };
 
   it("rises in ascending order", () => {
-    // the ramp is written fastest first and interpolate wants ascending stops, an easy place
-    // to get the order wrong
+    // written fastest first, interpolate wants ascending
     const [, , , anchors] = paint() as unknown[];
     const stops = (anchors as unknown[]).slice(3).filter((_, index) => index % 2 === 0) as number[];
     expect(stops).toEqual([...stops].sort((a, b) => a - b));
@@ -205,7 +197,6 @@ describe("the ramp", () => {
   });
 
   it("keeps the three fast bands apart by more than a shade", () => {
-    // the fast end is spaced for contrast, since those are the bands people choose between
     const fast = RAMP.filter((band) => band.floor >= 300).map((band) => band.colour);
     expect(new Set(fast).size).toBe(fast.length);
     for (const colour of fast) {
@@ -217,7 +208,7 @@ describe("the ramp", () => {
   });
 
   it("paints a street nothing reaches as absence, not as the slowest speed", () => {
-    // 5,403 streets have no line at all, which isn't the same as a bad line
+    // 5,403 streets have no line at all
     const written = JSON.stringify(paint());
     expect(written).toContain(UNSERVED);
     expect(UNSERVED).not.toEqual(RAMP[RAMP.length - 1]?.colour);
@@ -230,7 +221,6 @@ function channels(hex: string): [number, number, number] {
 
 describe("what a fresh style draws", () => {
   it("leaves the measured squares off until something asks for them", () => {
-    // the map page turns them on with the view switch
     const cells = style().layers.find((layer) => layer.id === "cells");
     expect(cells?.layout?.visibility).toBe("none");
   });
@@ -239,9 +229,7 @@ describe("what a fresh style draws", () => {
 
 describe("the result map's style", () => {
   it("is already quiet when it is handed over", () => {
-    // Colours used to be turned down after the style loaded, so the result map showed one
-    // frame of full colour over the whole country and then dropped it. That flinch read
-    // as jagged before the camera had moved.
+    // muted from the first frame, or the country flashes full colour first
     const quiet = hushed(style());
     const halo = quiet.layers.find((layer) => layer.id === "streets-halo");
     const streets = quiet.layers.find((layer) => layer.id === "streets");
@@ -253,7 +241,7 @@ describe("the result map's style", () => {
   });
 
   it("leaves the map page's own style painted", () => {
-    // only the result map hushes. the atlas is the coverage, and hushed it'd be all grey
+    // only the result map is muted
     const streets = style().layers.find((layer) => layer.id === "streets");
     expect(
       (streets as { paint?: Record<string, unknown> }).paint?.["line-color"],

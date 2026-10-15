@@ -1,12 +1,4 @@
-"""Generate the site's text from web/src/strings.toml.
-
-The TOML is the one place the wording lives, so it can be edited without touching code. This
-turns it into typed TypeScript, which means a key the code asks for and the file doesn't have
-fails the typecheck instead of showing a blank.
-
-It also refuses a file the two languages disagree on: a key in one and not the other, or a
-sentence that dropped a {placeholder} in translation and would print the brace.
-"""
+"""Generate typed web/src/strings.ts from strings.toml, refusing it if el and en disagree."""
 
 from __future__ import annotations
 
@@ -34,7 +26,7 @@ def load() -> dict[str, Any]:
 
 
 def disagreements(el: dict[str, Any], en: dict[str, Any], at: str = "") -> list[str]:
-    """Every way the two languages differ in shape, as a line each."""
+    # a missing key, or a {placeholder} lost in translation
     found = []
     for key in sorted(set(el) | set(en)):
         where = f"{at}{key}"
@@ -57,8 +49,7 @@ def key(name: str) -> str:
 
 
 def typed(table: dict[str, Any]) -> list[str]:
-    """The Strings type. A group is an open record, since the code looks some of them up by a
-    value that comes from the data (a technology code, a family)."""
+    # groups are open records, some are looked up by a code from the data
     lines = ["export type Strings = {"]
     for name, value in table.items():
         kind = "Readonly<Record<string, string>>" if isinstance(value, dict) else "string"
@@ -92,18 +83,18 @@ def main() -> int:
 
     try:
         strings = load()
-    except tomllib.TOMLDecodeError as error:
-        print(f"{SOURCE.relative_to(ROOT)}: {error}", file=sys.stderr)
+    except tomllib.TOMLDecodeError as e:
+        print(f"{SOURCE.relative_to(ROOT)}: {e}", file=sys.stderr)
         return 1
-    missing = [table for table in (*LANGUAGES, "operators") if table not in strings]
+    missing = [t for t in (*LANGUAGES, "operators") if t not in strings]
     if missing:
         print(f"{SOURCE.relative_to(ROOT)}: no [{'], ['.join(missing)}] table", file=sys.stderr)
         return 1
     problems = disagreements(strings["el"], strings["en"])
     if problems:
         print(f"{SOURCE.relative_to(ROOT)}: Greek and English disagree:", file=sys.stderr)
-        for problem in problems:
-            print(f"  {problem}", file=sys.stderr)
+        for p in problems:
+            print(f"  {p}", file=sys.stderr)
         return 1
 
     body = source(strings)

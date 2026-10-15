@@ -1,8 +1,5 @@
-/**
- * The way from an operator's card to the operator. A link of its own, in a new tab, and never
- * the card: the plan card is already the thing you tap to see a plan on the house, and a card
- * that sometimes leaves the site is one nobody trusts. Wholesalers have no shop, so no link.
- */
+// Link from an operator's card to the operator, in a new tab and never the card itself (tapping
+// the card picks the plan). Wholesalers have no shop.
 
 import { brandOf, hostOf } from "../brands";
 import { fill, strings, type Language } from "../i18n";
@@ -16,7 +13,7 @@ export function Visit({ provider, language }: { readonly provider: string; reado
       href={site}
       target="_blank"
       rel="noopener noreferrer"
-      // inside a card that picks a plan when tapped, following the link mustn't also pick it
+      // or the card picks the plan too
       onClick={(event) => event.stopPropagation()}
     >
       {fill(strings(language).visitSite, { site: hostOf(site) })}

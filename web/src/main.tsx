@@ -5,24 +5,12 @@ import "@fontsource-variable/dm-sans";
 
 import { languageOf, strings } from "./i18n";
 import { Landing } from "./routes/index";
-// MapLibre's stylesheet first, ours after. app.css overrides some of its rules at equal
-// specificity, so order decides. Loaded with the lazy map chunk it came last, and its
-// `.maplibregl-map { position: relative }` collapsed the map to zero height. 10 kB of CSS
-// up front is cheap next to the megabyte of script that still waits for the map.
+// MapLibre's CSS before ours, same specificity so order decides. Loaded with the lazy chunk
+// it came last and collapsed the map to zero height
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles/app.css";
 
-/*
- * Four pages, one path each, no router. A router earns its keep once routes nest. Every page
- * is a full load, so the page is known before anything renders.
- *
- * One chunk per page. The landing page is a search field and used to ship MapLibre and
- * three.js with it: 1.95 MB of script (535 kB gzipped) before you could type.
- *
- * The chunk is fetched before the first render, not under Suspense. React 19 holds a suspended
- * boundary back until 300 ms after its fallback appeared, and the map waited 290 ms of that
- * with its script already loaded.
- */
+// four pages, a path each, a chunk each. Fetched before render, Suspense held the map back 300ms
 async function page(): Promise<React.ReactElement> {
   const path = window.location.pathname.replace(/\/+$/, "");
   const language = languageOf(path);
@@ -35,6 +23,11 @@ async function page(): Promise<React.ReactElement> {
     const { Routers } = await import("./routes/routers");
     return <Routers />;
   }
+  // dev only, so a build has no chunk for it
+  if (import.meta.env.DEV && at("lab")) {
+    const { Privacy } = await import("./routes/privacy");
+    return <Privacy />;
+  }
   if (at("attribution")) {
     const { Credits } = await import("./routes/credits");
     return <Credits />;
@@ -42,13 +35,8 @@ async function page(): Promise<React.ReactElement> {
   return <Landing />;
 }
 
-/*
- * Chunk names carry a hash and change every deploy. A tab left open across one asked for chunks
- * the server no longer had, and the page went blank: typing on the landing page fetches the
- * answer screens' chunk, so it was the reader who had been there longest who got nothing. One
- * reload picks up the current index.html. At most one a minute, so a chunk that's really broken
- * says so instead of reloading forever.
- */
+// chunk hashes change every deploy, so a tab left open across one goes blank. Reload once
+// for the new index.html, at most once a minute
 const RELOADED = "speedmap:reloaded";
 const RELOAD_GAP_MS = 60_000;
 
@@ -71,7 +59,6 @@ page()
     createRoot(root).render(<StrictMode>{element}</StrictMode>);
   })
   .catch(() => {
-    // the reload above didn't help either
     const text = strings(languageOf(window.location.pathname));
     createRoot(root).render(<p className="load-failed">{text.loadFailed}</p>);
   });

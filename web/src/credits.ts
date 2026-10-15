@@ -1,4 +1,4 @@
-/** Who made the data under the map. */
+// who made the data under the map
 
 export type Credit = {
   readonly id: string;
@@ -50,7 +50,7 @@ export const SOURCES: readonly Credit[] = [
   },
 ];
 
-/** The things the map is drawn with, as opposed to the things it draws. */
+// what the map is drawn with, not what it draws
 export const TOOLS: readonly Credit[] = [
   {
     id: "maplibre",

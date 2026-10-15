@@ -15,7 +15,7 @@ RETRYABLE = frozenset({429, 500, 502, 503, 504})
 
 
 class RegisterSchemaError(RuntimeError):
-    """A dataset came back with columns we don't know."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -28,140 +28,40 @@ class Dataset:
 
 
 DATASETS: tuple[Dataset, ...] = (
-    Dataset(
-        "provider",
-        "provider",
-        "id",
-        frozenset({"id", "name", "short_name"}),
-    ),
-    Dataset(
-        "wireless_cell",
-        "wireless1000",
-        "uniqueid",
-        frozenset({"uniqueid", "servprov_ids", "maxdown_ids", "dimos_id", "geom"}),
-    ),
-    Dataset(
-        "wireless",
-        "a4b_wirelessservicegrid",
-        "id",
-        frozenset(
-            {
-                "servprov", "infrprov", "gridid", "tech3g", "tech4gm", "tech5gm",
-                "tech4gf", "tech5gf", "techoth", "foretech", "maxdown", "maxup",
-                "vhcn", "id",
-            }
-        ),
-        # No server-side filter: tech4gf and tech5gf aren't indexed upstream, so filtering costs
-        # 6.2 s a page against 0.46 s, and is slower overall despite fetching a quarter as much.
-    ),
-    Dataset(
-        "dimos",
-        "dimos",
-        "gid",
-        frozenset({"gid", "kalcode4", "d1", "shape_area", "shape_len", "geom", "geom4326"}),
-    ),
-    Dataset(
-        "coverpoint",
-        "a3b_coverpointftthcoax",
-        "coverid",
-        frozenset(
-            {
-                "infrprov",
-                "coverid",
-                "method",
-                "infrstar",
-                "prempass",
-                "connstat",
-                "intcabl",
-                "vhcn",
-                "address",
-                "point",
-                "waitpoin",
-                "bngid",
-            }
-        ),
-    ),
-    Dataset(
-        "wiredservice",
-        "a4a_wiredservice",
-        "id",
-        frozenset(
-            {
-                "servprov",
-                "infrprov",
-                "coverid",
-                "technolo",
-                "ownrship",
-                "maxdown",
-                "nordown",
-                "maxup",
-                "norup",
-                "servstar",
-                "covermod",
-                "id",
-            }
-        ),
-    ),
-    Dataset(
-        "coverage_ftth",
-        "coverage_ftth",
-        "id",
-        frozenset(
-            {
-                "id",
-                "coverid",
-                "servprov_ids",
-                "technolo_ids",
-                "maxdown_ids",
-                "ownrship_ids",
-                "servstar_years",
-                "servstar_quarters",
-                "dimos_id",
-                "geom",
-            }
-        ),
-    ),
-    Dataset(
-        "coverage_copper",
-        "coverage_copper",
-        "id",
-        frozenset(
-            {
-                "id",
-                "coverid",
-                "servprov_ids",
-                "technolo_ids",
-                "maxdown_ids",
-                "ownrship_ids",
-                "servstar_years",
-                "servstar_quarters",
-                "dimos_id",
-                "geom",
-            }
-        ),
-    ),
-    Dataset(
-        "geo_coverage_copper",
-        "geo_coverage_copper",
-        "coverid",
-        frozenset(
-            {
-                "coverid",
-                "servprov_ids",
-                "technolo_ids",
-                "maxdown_ids",
-                "ownrship_ids",
-                "dimos_id",
-                "geom",
-            }
-        ),
-    ),
+    Dataset("provider", "provider", "id", frozenset({"id", "name", "short_name"})),
+    Dataset("wireless_cell", "wireless1000", "uniqueid",
+            frozenset({"uniqueid", "servprov_ids", "maxdown_ids", "dimos_id", "geom"})),
+    # no server side filter, tech4gf/tech5gf aren't indexed upstream (6.2s a page vs 0.46s)
+    Dataset("wireless", "a4b_wirelessservicegrid", "id", frozenset({
+        "servprov", "infrprov", "gridid", "tech3g", "tech4gm", "tech5gm", "tech4gf", "tech5gf",
+        "techoth", "foretech", "maxdown", "maxup", "vhcn", "id",
+    })),
+    Dataset("dimos", "dimos", "gid",
+            frozenset({"gid", "kalcode4", "d1", "shape_area", "shape_len", "geom", "geom4326"})),
+    Dataset("coverpoint", "a3b_coverpointftthcoax", "coverid", frozenset({
+        "infrprov", "coverid", "method", "infrstar", "prempass", "connstat", "intcabl", "vhcn",
+        "address", "point", "waitpoin", "bngid",
+    })),
+    Dataset("wiredservice", "a4a_wiredservice", "id", frozenset({
+        "servprov", "infrprov", "coverid", "technolo", "ownrship", "maxdown", "nordown", "maxup",
+        "norup", "servstar", "covermod", "id",
+    })),
+    Dataset("coverage_ftth", "coverage_ftth", "id", frozenset({
+        "id", "coverid", "servprov_ids", "technolo_ids", "maxdown_ids", "ownrship_ids",
+        "servstar_years", "servstar_quarters", "dimos_id", "geom",
+    })),
+    Dataset("coverage_copper", "coverage_copper", "id", frozenset({
+        "id", "coverid", "servprov_ids", "technolo_ids", "maxdown_ids", "ownrship_ids",
+        "servstar_years", "servstar_quarters", "dimos_id", "geom",
+    })),
+    Dataset("geo_coverage_copper", "geo_coverage_copper", "coverid", frozenset({
+        "coverid", "servprov_ids", "technolo_ids", "maxdown_ids", "ownrship_ids", "dimos_id", "geom",
+    })),
 )
 
-BY_NAME = {dataset.name: dataset for dataset in DATASETS}
+BY_NAME = {d.name: d for d in DATASETS}
 
-# The code tables, small enough to take whole. Each is a vocabulary some numeric column
-# indexes into.
+# code tables the numeric columns index into
 LOOKUPS: tuple[str, ...] = (
     "a3b_connstat",
     "a3b_intcabl",
@@ -179,35 +79,24 @@ Row = dict[str, Any]
 
 
 class RegisterClient:
-    def __init__(
-        self,
-        client: httpx.Client,
-        *,
-        base_url: str = BASE_URL,
-        delay_s: float = 0.35,
-        max_tries: int = 4,
-        sleep: Callable[[float], None] = time.sleep,
-    ) -> None:
+    def __init__(self, client: httpx.Client, *, base_url: str = BASE_URL, delay_s: float = 0.35,
+                 max_tries: int = 4, sleep: Callable[[float], None] = time.sleep) -> None:
         self.client = client
         self.base_url = base_url.rstrip("/")
         self.delay_s = delay_s
         self.max_tries = max_tries
         self.sleep = sleep
 
-    def _get(
-        self,
-        path: str,
-        params: Mapping[str, str | int],
-        headers: Mapping[str, str] | None = None,
-    ) -> httpx.Response:
+    def _get(self, path: str, params: Mapping[str, str | int],
+             headers: Mapping[str, str] | None = None) -> httpx.Response:
         url = f"{self.base_url}/{path}"
-        for attempt in range(self.max_tries):
-            response = self.client.get(url, params=dict(params), headers=headers)
-            if response.status_code not in RETRYABLE:
-                response.raise_for_status()
+        for i in range(self.max_tries):
+            r = self.client.get(url, params=dict(params), headers=headers)
+            if r.status_code not in RETRYABLE:
+                r.raise_for_status()
                 self.sleep(self.delay_s)
-                return response
-            self.sleep(retry_delay(response, attempt))
+                return r
+            self.sleep(retry_delay(r, i))
         raise httpx.HTTPError(f"{url}: still failing after {self.max_tries} tries")
 
     def rows(self, path: str, params: Mapping[str, str | int]) -> list[Row]:
@@ -217,16 +106,13 @@ class RegisterClient:
         return list(body)
 
     def count(self, dataset: Dataset) -> int | None:
-        """Exact row count. PostgREST only counts when asked, and some views won't."""
-        response = self._get(
-            dataset.path,
-            {"select": dataset.key, "limit": 1, **dataset.where},
-            headers={"prefer": "count=exact"},
-        )
-        return parse_total(response.headers.get("content-range"))
+        # PostgREST only counts when asked, and some views won't
+        r = self._get(dataset.path, {"select": dataset.key, "limit": 1, **dataset.where},
+                      headers={"prefer": "count=exact"})
+        return parse_total(r.headers.get("content-range"))
 
     def page_cap(self, dataset: Dataset, *, probe: int = 2000) -> int:
-        """Measure the page cap by asking for more than it gives."""
+        # ask for more than it gives
         rows = self.rows(dataset.path, {"select": dataset.key, "limit": probe, **dataset.where})
         if len(rows) == probe:
             return probe
@@ -236,17 +122,11 @@ class RegisterClient:
         return max(len(rows), 1)
 
     def pages(self, dataset: Dataset, *, cap: int, after: str | None = None) -> Iterator[list[Row]]:
-        """Yield pages in key order, resuming after the given key."""
-        cursor = after
+        last = after
         while True:
-            params: dict[str, str | int] = {
-                "select": "*",
-                "order": f"{dataset.key}.asc",
-                "limit": cap,
-                **dataset.where,
-            }
-            if cursor is not None:
-                params[dataset.key] = f"gt.{cursor}"
+            params: dict[str, str | int] = {"select": "*", "order": f"{dataset.key}.asc", "limit": cap, **dataset.where}
+            if last is not None:
+                params[dataset.key] = f"gt.{last}"
 
             rows = self.rows(dataset.path, params)
             if not rows:
@@ -257,23 +137,21 @@ class RegisterClient:
 
             if len(rows) < cap:
                 return
-            cursor = str(rows[-1][dataset.key])
+            last = str(rows[-1][dataset.key])
 
     def lookup(self, table: str) -> list[Row]:
         return self.rows(table, {"select": "*", "limit": 500})
 
 
 def check_columns(dataset: Dataset, row: Row) -> None:
-    """A changed column set means the register was redesigned. One odd row would not."""
     seen = frozenset(row)
     if seen != dataset.columns:
-        added = sorted(seen - dataset.columns)
-        removed = sorted(dataset.columns - seen)
-        raise RegisterSchemaError(f"{dataset.path}: added={added} removed={removed}")
+        raise RegisterSchemaError(
+            f"{dataset.path}: added={sorted(seen - dataset.columns)} removed={sorted(dataset.columns - seen)}")
 
 
 def parse_total(content_range: str | None) -> int | None:
-    """'0-0/2673805' carries the total. '*/*' and a missing header don't."""
+    # '0-0/2673805', or '*/*' with no total
     if content_range is None or "/" not in content_range:
         return None
     total = content_range.rsplit("/", 1)[1].strip()
@@ -281,8 +159,7 @@ def parse_total(content_range: str | None) -> int | None:
 
 
 def retry_delay(response: httpx.Response, attempt: int) -> float:
-    """Honour a numeric Retry-After, otherwise back off exponentially."""
-    header = response.headers.get("retry-after", "")
-    if header.strip().isdigit():
-        return float(header.strip())
+    h = response.headers.get("retry-after", "").strip()
+    if h.isdigit():
+        return float(h)
     return float(2**attempt)

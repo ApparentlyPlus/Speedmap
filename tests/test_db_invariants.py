@@ -1,6 +1,3 @@
-"""Data invariants, each with a control that proves the query actually fires.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -34,14 +31,14 @@ EXPIRED_BEFORE_OBSERVED = (
     "'FTTH', true, 'register', 'declared', now(), now() - interval '1 day')"
 )
 
-# A street whose overall best disagrees with every operator filed on it.
+# best_mbps disagrees with every operator on it
 DISAGREEING_STREET = (
     "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom, "
     "best_mbps) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'TEST', 'ΤΕΣΤ', 'residential', 1, "
     "'SRID=4326;MULTILINESTRING((23.0 40.7, 23.01 40.71))', 999)"
 )
 
-# A street whose only coverage is mobile, and whose figure was taken from it anyway.
+# only mobile reaches it, and best_mbps came from that anyway
 MOBILE_STREET = (
     "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom, "
     "best_mbps) values ('ΚΙΝΗΤΟ', 'ΚΙΝΗΤΟ', 'KINITO', 'ΚΙΝΗΤΟ', 'residential', 1, "
@@ -61,7 +58,7 @@ MOBILE_COVERAGE = (
     "where a.street_fold = 'ΚΙΝΗΤΟ'"
 )
 
-# A builder who has passed a door the register locates, and no coverage anywhere.
+# a builder past a door the register locates, with no coverage anywhere
 UNBUILT_BUILDER = (
     "update provider set builds_own_network = true, register_id = 901 where code = 'TEST'",
     "insert into raw_coverpoint (coverid, infrprov, prempass) values ('c1', 901, 12)",
@@ -71,7 +68,7 @@ UNBUILT_BUILDER = (
     "select id, 'c1' from address where street_fold = 'ΤΕΣΤ'",
 )
 
-# An alias that reached a derived table under its own id instead of the company's.
+# alias id leaking into a derived table
 UNRESOLVED_ALIAS = (
     "insert into provider (code, display_name, kind, credited_to) "
     "values ('TEST_ALIAS', 'Test Alias', 'altnet', "
@@ -81,8 +78,7 @@ UNRESOLVED_ALIAS = (
     "'FTTH', 'fiber', 'declared')",
 )
 
-# 1,001 filings stacked on one address, which is the shape the register's street-less
-# filings collapse into.
+# 1,001 filings on one address, what street-less filings collapse into
 PILED_COVERPOINTS = (
     "update provider set builds_own_network = true, register_id = 902 where code = 'TEST'",
     "insert into address (street, street_fold, geom, search_key, latin_key) "
@@ -109,21 +105,22 @@ CONTROLS: dict[str, tuple[str, ...]] = {
 }
 
 
-def run(conn: psycopg.Connection[TupleRow], name: str) -> list[TupleRow]:
+def _run(conn: psycopg.Connection[TupleRow], name: str) -> list[TupleRow]:
     return conn.execute(INVARIANTS[name].read_text(encoding="utf-8")).fetchall()
 
 
-def test_every_invariant_has_a_control() -> None:
+def test_controls() -> None:
     assert set(CONTROLS) == set(INVARIANTS)
 
 
 @pytest.mark.parametrize("name", sorted(INVARIANTS), ids=str)
-def test_invariant_holds(db: psycopg.Connection[TupleRow], name: str) -> None:
-    assert run(db, name) == []
+def test_holds(db: psycopg.Connection[TupleRow], name: str) -> None:
+    assert _run(db, name) == []
 
 
+# a control proves the query can fire at all
 @pytest.mark.parametrize("name", sorted(CONTROLS), ids=str)
-def test_invariant_detects_its_violation(seeded: psycopg.Connection[TupleRow], name: str) -> None:
+def test_fires(seeded: psycopg.Connection[TupleRow], name: str) -> None:
     for statement in CONTROLS[name]:
         seeded.execute(statement)
-    assert run(seeded, name) != []
+    assert _run(seeded, name) != []

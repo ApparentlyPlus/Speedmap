@@ -1,19 +1,13 @@
-/**
- * The tilt button on a phone. Tilting there was MapLibre's two-finger vertical drag, which gives
- * up when the fingers aren't level or drift apart, so in a hand it nearly never took. MapLibre's
- * compass fixed that with a drag of its own, which was still a drag. Here a tap tilts the map
- * or lays it flat again, a double tap turns it back to north, and dragging does nothing.
- */
+// Tilt button on phones. MapLibre's two finger drag almost never took in a hand, so a tap
+// tilts or flattens, a double tap points north, and dragging does nothing.
 
 import type { IControl, Map as Maplibre } from "maplibre-gl";
 
-/** How far a tap tilts. The same as the result page's camera, so the two look alike. */
+// same as the result page's camera
 const TILT = 58;
 
-/** A second tap inside this is a double tap. */
 const DOUBLE_MS = 250;
 
-/** How long the camera takes to get there. */
 const MOVE_MS = 500;
 
 export class Tilt implements IControl {
@@ -24,7 +18,7 @@ export class Tilt implements IControl {
 
   constructor(private readonly label: string) {}
 
-  /** The needle leans and turns with the camera, as MapLibre's compass does. */
+  // the needle leans and turns with the camera, like MapLibre's compass
   private readonly show = (): void => {
     if (this.map === null || this.icon === null) return;
     const pitch = this.map.getPitch();
@@ -36,8 +30,7 @@ export class Tilt implements IControl {
   private readonly tap = (): void => {
     const map = this.map;
     if (map === null) return;
-    // The tilt waits a moment. Started at once, a double tap would tilt the map as well as
-    // turn it.
+    // waits a moment, or a double tap would tilt as well as turn
     if (this.waiting !== 0) {
       window.clearTimeout(this.waiting);
       this.waiting = 0;
@@ -56,7 +49,7 @@ export class Tilt implements IControl {
     box.className = "maplibregl-ctrl maplibregl-ctrl-group";
     const button = document.createElement("button");
     button.type = "button";
-    // MapLibre's compass class, for its needle and the restyling app.css gives it
+    // MapLibre's compass class, for the needle and app.css's restyling
     button.className = "maplibregl-ctrl-compass atlas-tilt";
     button.title = this.label;
     button.setAttribute("aria-label", this.label);
@@ -66,7 +59,7 @@ export class Tilt implements IControl {
     button.append(icon);
     box.append(button);
     button.addEventListener("click", this.tap);
-    // the second tap is ours, not a zoom for the map or the page
+    // ours, not a zoom for the map or page
     button.addEventListener("dblclick", (event) => {
       event.preventDefault();
       event.stopPropagation();

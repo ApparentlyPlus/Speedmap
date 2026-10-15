@@ -1,28 +1,16 @@
-/**
- * The worker pool and the PMTiles protocol, shared by every map here. MapLibre keeps both on
- * the library, so they're set once. The defaults don't suit a page with four archives.
- */
+// worker pool and PMTiles protocol, set once on the library for every map here
 
 import { addProtocol, setWorkerCount, type Map as Maplibre } from "maplibre-gl";
 import { FetchSource, PMTiles, Protocol, type RangeResponse, type Source } from "pmtiles";
 
-/**
- * MapLibre decodes on one worker unless told otherwise, so a zoom out wanting a dozen tiles
- * got them one by one. Measured over eight moves: 1379 ms at two workers, 1196 at eight, 1253
- * at fifteen. Each worker also keeps its own copy of the style and fonts.
- */
+// one worker by default decodes a dozen tiles one by one. 8 moves measured: 1379ms at 2,
+// 1196 at 8, 1253 at 15. Each worker holds its own copy of the style and fonts
 const WORKERS = 8;
 
-/** One protocol per page, which caches archive headers and directories. */
 const pmtiles = new Protocol();
 
-/**
- * Chrome's HTTP cache lets one request per URL through at a time, and a range is still the
- * same URL. Every tile of an archive waited for the one before it to answer: a pan over Athens
- * took eight round trips for eight basemap tiles, 600 ms on a 60 ms link for 284 kB. Each range
- * gets its own URL here, so they go out together and each can still be cached. The servers
- * ignore the query.
- */
+// Chrome's cache lets one request per URL through at a time, ranges included. A query per
+// range sends them together, the servers ignore it.
 class Ranges implements Source {
   constructor(private readonly url: string) {}
 
@@ -42,12 +30,11 @@ class Ranges implements Source {
   }
 }
 
-/** The archive a pmtiles:// URL reads, for its TileJSON and for each tile. */
 const ARCHIVE = /^pmtiles:\/\/(.+?\.pmtiles)/;
 
 let ready = false;
 
-/** Call before building a map. Repeat calls do nothing. */
+// safe to call twice
 export function engine(): void {
   if (ready) return;
   ready = true;
@@ -61,15 +48,8 @@ export function engine(): void {
   });
 }
 
-/**
- * Runs `then` once the map has had its first load, straight away if it already has. Returns
- * the undo, for an effect's cleanup.
- *
- * Not isStyleLoaded(). That's also false while any tile is in flight, and the event the pages
- * then waited on had already fired: an operator picked mid-pan stayed unpicked until the next
- * zoom, and an answer landing mid-load never got its descent. `_loaded` is MapLibre's own
- * record of the load event, and is in its typings.
- */
+// runs `then` after the first load (now if it's happened), returns the undo. Not
+// isStyleLoaded(), that's false whenever a tile is in flight
 export function whenLoaded(map: Maplibre, then: () => void): () => void {
   if (map._loaded) {
     then();

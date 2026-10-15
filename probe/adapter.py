@@ -1,8 +1,4 @@
-"""What every operator's checker is asked and what it answers.
-
-Adapters identify a place differently (coordinates, or the street in their own spelling), so
-Target carries enough for all of them and each takes what it needs.
-"""
+"""What every operator's checker is asked and what it answers."""
 
 from __future__ import annotations
 
@@ -15,28 +11,23 @@ from psycopg.rows import TupleRow
 
 
 class ProbeError(RuntimeError):
-    """The checker couldn't be asked. That's no answer, and it's never cached."""
+    """The checker couldn't be asked. Never cached."""
 
 
 class NotAskableError(ProbeError):
-    """We hold no spelling for this address, so it can't be put to this operator.
-
-    Our gap, so it's recorded but not counted against the operator's health.
-    """
+    """No spelling of this address for this operator. Our gap, not held against their health."""
 
 
 @dataclass(frozen=True)
 class Target:
-    """One address in every form an operator might want it."""
-
+    # every form any operator might want
     address_id: int
     lat: float
     lon: float
     street: str
     street_no: str
     municipality: str
-    # their spelling is looked up by id and fold: their municipalities are the
-    # pre-Kallikratis ones and mostly don't match ours
+    # for looking up their spelling, their municipalities are pre-Kallikratis
     municipality_id: int = 0
     street_fold: str = ""
     locality: str | None = None
@@ -45,40 +36,23 @@ class Target:
 
 @dataclass(frozen=True)
 class Offer:
-    """One technology an operator sells here.
-
-    Speeds are None when they qualified it without quoting one, which is normal for FWA.
-    """
-
     technology: str
-    max_down_mbps: Decimal | None = None
+    max_down_mbps: Decimal | None = None  # None when qualified without a speed, normal for FWA
     avg_down_mbps: Decimal | None = None
     avg_up_mbps: Decimal | None = None
 
 
 @dataclass(frozen=True)
 class Probed:
-    """What one operator said about one address.
-
-    "Not serviceable" is an answer and gets cached. A failure raises instead, and an
-    inconclusive reply ("needs looking into by hand") is neither yes nor no.
-    """
-
     serviceable: bool
     offers: tuple[Offer, ...] = ()
     raw: dict[str, object] | None = None
-    conclusive: bool = True
-    # the raw response, kept only where it's worth the space: canaries and failures
-    body: str | None = None
+    conclusive: bool = True  # False for "needs looking into by hand"
+    body: str | None = None  # raw response, canaries and failures only
 
 
 class Adapter(Protocol):
-    """An operator's availability checker.
-
-    All take a connection. Two read their spelling of the address with it, and the third
-    ignoring it is simpler than callers knowing which is which.
-    """
-
     code: str
 
+    # conn is for the adapters that look up their own spelling
     def check(self, conn: psycopg.Connection[TupleRow], target: Target) -> Probed: ...

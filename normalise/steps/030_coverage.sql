@@ -1,8 +1,4 @@
--- One filed service per row, for technologies the register places as points. Copper goes to
--- coverage_area in 040. distinct on because (coverid, servprov, technolo) repeats.
---
--- Providers are resolved through credited_to first: the register files the incumbent as four
--- entities, and derived tables hold the one company.
+-- point technologies only, copper is 040. credited_to merges the incumbent's four entities
 delete from coverage where source = 'register';
 
 insert into coverage (
@@ -21,7 +17,7 @@ left join raw_coverpoint p on p.coverid = w.coverid
 where t.family <> 'copper'
 order by w.coverid, coalesce(sp.credited_to, sp.id), t.code,
          w.servstar desc nulls last, w.maxdown desc nulls last,
-         -- the filing's id last, so ties break the same way every build
+         -- id last, for stable ties
          w.id
 on conflict (source, source_ref, provider_id, technology) do update set
     infra_provider_id = excluded.infra_provider_id,

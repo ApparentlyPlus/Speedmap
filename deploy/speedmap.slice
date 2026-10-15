@@ -1,5 +1,4 @@
-# Everything speedmap runs sits in one slice, so it all gets one memory ceiling and one CPU
-# share. On a Pi the API staying up matters more than any job.
+# one memory ceiling and CPU share for all of it, the API staying up matters most
 [Unit]
 Description=speedmap.gr
 

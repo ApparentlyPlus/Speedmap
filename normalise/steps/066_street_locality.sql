@@ -1,6 +1,4 @@
--- Where most of each street's doors say they are, for the search list. It used to be a
--- mode() over every door of every listed street, per keystroke. mode() takes the first of
--- equally common values in its order, so this gives the same answer.
+-- the locality most of a street's doors give, for the search list
 update street s
 set locality = found.locality
 from (

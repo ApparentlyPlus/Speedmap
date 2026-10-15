@@ -1,19 +1,17 @@
-"""Normalise a tariff to what it really costs per month."""
+"""What a tariff really costs per month."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
 
-# One window for everything, so a two-year lock and a rolling monthly can be compared.
-# 24 months is the usual Greek contract.
+# the usual Greek contract, so a 2 year lock compares with a rolling monthly
 WINDOW_MONTHS = 24
 
 
 @dataclass(frozen=True)
 class Price:
-    """A tariff as filed. None means unknown, never zero: a scraper that missed the setup fee
-    hasn't shown there isn't one."""
+    # None is unknown, never zero
 
     monthly_eur: Decimal
     setup_eur: Decimal | None = None
@@ -25,29 +23,21 @@ class Price:
 
 @dataclass(frozen=True)
 class MonthlyCost:
-    """The blend, kept in parts so a card can show why a cheap headline isn't cheap."""
-
     total: Decimal
     recurring: Decimal
     upfront: Decimal
-    # Whether every one-off was published. If not, the total is a floor: the monthly is known
-    # and a one-off isn't, so the real figure is this or more.
-    complete: bool = True
+    complete: bool = True  # False if a one-off is unpublished, so the total is a floor
 
 
 def promo_window(price: Price) -> int:
-    """Promo months inside the window. A promo longer than the window fills it: charging the
-    post-promo rate for negative months would make the offer cheaper."""
+    # a promo longer than the window just fills it
     if price.promo_months is None or price.promo_monthly_eur is None:
         return 0
     return min(max(price.promo_months, 0), WINDOW_MONTHS)
 
 
 def upfront(price: Price) -> tuple[Decimal, bool]:
-    """Setup plus hardware spread over the window, and whether both were published.
-
-    A missing part counts as zero and is flagged, so one unknown fee doesn't hide the whole price.
-    """
+    """Setup plus hardware spread over the window, and whether both were published."""
     known = price.setup_eur is not None and price.hardware_eur is not None
     setup = price.setup_eur if price.setup_eur is not None else Decimal(0)
     hardware = price.hardware_eur if price.hardware_eur is not None else Decimal(0)
@@ -55,12 +45,8 @@ def upfront(price: Price) -> tuple[Decimal, bool]:
 
 
 def blended(price: Price) -> MonthlyCost:
-    """Monthly cost across the window. Always a figure, since plan_price requires the monthly rate."""
     spread, known = upfront(price)
-
-    promo = promo_window(price)
-    remaining = WINDOW_MONTHS - promo
-    promo_rate = price.promo_monthly_eur if price.promo_monthly_eur is not None else Decimal(0)
-
-    recurring = (promo_rate * Decimal(promo) + price.monthly_eur * Decimal(remaining)) / WINDOW_MONTHS
+    n = promo_window(price)
+    rate = price.promo_monthly_eur if price.promo_monthly_eur is not None else Decimal(0)
+    recurring = (rate * Decimal(n) + price.monthly_eur * Decimal(WINDOW_MONTHS - n)) / WINDOW_MONTHS
     return MonthlyCost(total=recurring + spread, recurring=recurring, upfront=spread, complete=known)

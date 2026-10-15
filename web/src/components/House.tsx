@@ -1,7 +1,5 @@
-/**
- * The address, drawn. One canvas and one scene for the component's life: rebuilding on every
- * state change would throw away a WebGL context and an environment map several times a second.
- */
+// The address, drawn. One canvas and scene for the component's life, rebuilding would throw
+// away a WebGL context several times a second.
 
 import { useEffect, useRef } from "react";
 
@@ -16,7 +14,7 @@ export function House({
   readonly mode: Mode;
   readonly colour: string;
   readonly mbps: number;
-  /** False drops the plate, so the house stands on the page. */
+  // false drops the plate
   readonly grounded?: boolean;
 }): React.ReactElement {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -24,8 +22,7 @@ export function House({
 
   useEffect(() => {
     if (canvas.current === null) return;
-    // reduced motion gets the same scene held still, which is why it's composed to work as
-    // a single frame
+    // reduced motion holds the same scene still, so it's composed to work as one frame
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
     const built = house3d(canvas.current, {
       mode, colour, mbps, grounded, still: calm.matches,
@@ -39,7 +36,7 @@ export function House({
       built.stop();
       scene.current = null;
     };
-    // built once, later changes are pushed in below
+    // built once, changes are pushed in below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,7 +1,4 @@
-/**
- * An operator's mark, or their initial if they have none. People scan this page more than
- * read it, and a logo registers before a name.
- */
+// an operator's mark, or their initial
 
 import { brandOf } from "../brands";
 

@@ -1,4 +1,4 @@
--- family is stored on coverage but defined on technology, and the two must agree.
+-- family is defined on technology
 select c.id, c.technology, c.family, t.family as expected
 from coverage c
 join technology t on t.code = c.technology

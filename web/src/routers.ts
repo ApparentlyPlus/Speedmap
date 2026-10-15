@@ -1,14 +1,8 @@
-/**
- * The routers the site suggests where a mobile connection beats the wire. Picked by hand, one
- * per situation, and linked plainly: the site earns nothing from a sale, which keeps it inside
- * the non-commercial terms its data comes under.
- *
- * No prices. Skroutz's change daily and a stale one is worse than none, so the link shows them.
- * Why each one is here, and everything else a reader sees, is in strings.toml.
- */
+// Routers to suggest where mobile beats the wire, one per situation, picked by hand. Plain
+// links, the site earns nothing (non-commercial data terms). No prices, Skroutz's change daily.
 
 export type Router = {
-  /** key into [el.routerWhy] and [el.routerFor] */
+  // key into [el.routerWhy] and [el.routerFor]
   readonly id: string;
   readonly name: string;
   readonly href: string;

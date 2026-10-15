@@ -1,8 +1,4 @@
-"""What a provider sells, and what it charged on the day we looked.
-
-Plans and prices are kept apart because a tariff changes under a plan that doesn't, and last
-month's comparison has to stay answerable.
-"""
+"""Plans and their prices by day. Kept apart so last month's prices stay answerable."""
 
 from __future__ import annotations
 
@@ -54,12 +50,7 @@ on conflict (plan_id, observed_on) do update set
 
 @dataclass(frozen=True)
 class Tariff:
-    """One plan as a provider advertises it today.
-
-    None is never zero here. A catalogue that doesn't mention a setup fee hasn't said there
-    isn't one, and the ranker won't blend a cost it was never told.
-    """
-
+    # None is unknown, never zero
     external_key: str
     name: str
     family: str
@@ -76,43 +67,34 @@ class Tariff:
     promo_monthly_eur: Decimal | None = None
 
 
-def write(
-    conn: psycopg.Connection[TupleRow],
-    provider: str,
-    tariffs: list[Tariff],
-    observed_on: date,
-    source: str = "catalogue",
-) -> int:
-    """Record today's catalogue. Rerunning on the same day corrects it instead of doubling.
-
-    A catalogue price is what the provider's ordering system quotes. A published one is read off
-    a rate card or plan page, and the two can differ threefold.
-    """
-    written = 0
-    for tariff in tariffs:
+def write(conn: psycopg.Connection[TupleRow], provider: str, tariffs: list[Tariff], observed_on: date,
+          source: str = "catalogue") -> int:
+    """A rerun the same day overwrites. source is "catalogue" or "published" (a rate card)."""
+    n = 0
+    for t in tariffs:
         row = conn.execute(PLAN, {
             "provider": provider,
-            "key": tariff.external_key,
-            "name": tariff.name,
-            "family": tariff.family,
-            "technology": tariff.technology,
-            "down": tariff.down_mbps,
-            "up": tariff.up_mbps,
-            "cap": tariff.data_cap_gb,
-            "hardware": tariff.needs_hardware,
+            "key": t.external_key,
+            "name": t.name,
+            "family": t.family,
+            "technology": t.technology,
+            "down": t.down_mbps,
+            "up": t.up_mbps,
+            "cap": t.data_cap_gb,
+            "hardware": t.needs_hardware,
         }).fetchone()
         if row is None:
             continue
         conn.execute(PRICE, {
             "plan": row[0],
             "on": observed_on,
-            "monthly": tariff.monthly_eur,
-            "setup": tariff.setup_eur,
-            "hardware": tariff.hardware_eur,
-            "contract": tariff.contract_months,
-            "promo_months": tariff.promo_months,
-            "promo_monthly": tariff.promo_monthly_eur,
+            "monthly": t.monthly_eur,
+            "setup": t.setup_eur,
+            "hardware": t.hardware_eur,
+            "contract": t.contract_months,
+            "promo_months": t.promo_months,
+            "promo_monthly": t.promo_monthly_eur,
             "source": source,
         })
-        written += 1
-    return written
+        n += 1
+    return n

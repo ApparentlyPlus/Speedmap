@@ -1,7 +1,7 @@
-/* Near-black ground, matte surfaces, hairlines and type. Nothing glows. */
+/* near black, matte, hairlines */
 
 :root {
-  /* Neutral throughout. A slate-blue grey would read as a colour choice, this reads as absence. */
+  /* neutral greys, a blue-grey would look like a choice */
   --ground: #08080a;
   --raised: #101013;
   --raised-high: #161619;
@@ -14,15 +14,13 @@
   --accent: #fff;
   --accent-far: #e4e4e7;
 
-  /* A rule divides, a line encloses. Same hairline for both: one border weight, used everywhere. */
+  /* one hairline for rules and outlines */
   --rule: rgb(255 255 255 / 7%);
   --rule-lit: rgb(255 255 255 / 14%);
 
-  /* Plain black for depth. Nothing casts a coloured shadow. */
   --lift: 0 10px 30px rgb(0 0 0 / 50%);
   --lift-high: 0 18px 44px rgb(0 0 0 / 60%);
 
-  /* Long enough to read as a filament warming up. */
   --warmup: 1500ms;
 
   --radius: 12px;
@@ -33,18 +31,12 @@
   box-sizing: border-box;
 }
 
-/*
- * Phones flash a blue box over anything tapped. Every control here draws its own pressed and
- * open states, so the flash only covers them up. Keyboard focus is separate and keeps its outline.
- */
+/* no tap flash on phones, every control draws its own pressed state */
 html {
   -webkit-tap-highlight-color: transparent;
 }
 
-/*
- * One focus style for the whole page, keyboard only. Someone who just clicked a card with the
- * mouse doesn't need telling which card it was.
- */
+/* keyboard focus only */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -54,7 +46,6 @@ html {
   background: rgb(255 255 255 / 30%);
 }
 
-/* The default thumb is a light grey slab on a near-black page. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -109,7 +100,7 @@ body {
   isolation: isolate;
 }
 
-/* The network, faint behind an open answer. */
+/* the network, faint behind an open answer */
 .network {
   position: fixed;
   z-index: -2;
@@ -118,13 +109,11 @@ body {
   height: 100%;
   opacity: 0.34;
   pointer-events: none;
-  /* Dimmed in the middle so no line runs behind the type, and at the edges so the field has
-   * no border of its own. */
+  /* dim in the middle behind the type, and at the edges */
   mask-image: radial-gradient(ellipse 78% 62% at 50% 42%, transparent 8%, #000 62%);
   animation: lights-on calc(var(--warmup) * 1.4) ease-out both;
 }
 
-/* Rises as it brightens, so it arrives from somewhere. */
 @keyframes lights-on {
   from {
     opacity: 0;
@@ -137,11 +126,10 @@ body {
   }
 }
 
-/* Optical centre. A block centred at 50% reads low. */
+/* optical centre, 50% reads low */
 .landing-centre {
   position: relative;
   width: min(560px, calc(100% - 48px));
-  /* Both ends carry the offset, or the lift fights the optical centre. */
   animation: rise 900ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
 }
 
@@ -157,7 +145,7 @@ body {
   }
 }
 
-/* The small spaced label that says what something is, standing in for a heading. */
+/* small spaced label standing in for a heading */
 .eyebrow {
   margin: 0 0 18px;
   color: var(--ink-faint);
@@ -198,7 +186,6 @@ body {
   clip-path: inset(50%);
 }
 
-/* The shell is the field, the input inside it is bare. */
 .search-shell {
   display: grid;
   position: relative;
@@ -246,13 +233,12 @@ body {
   color: var(--ink-faint);
 }
 
-/* The browser's clear button is a blue cross in a dark field. Hidden. */
+/* hide the browser's blue clear button */
 .search-field::-webkit-search-cancel-button,
 .search-field::-webkit-search-decoration {
   appearance: none;
 }
 
-/* Focus shows once, as a line. */
 .search-shell:focus-within {
   border-color: rgb(255 255 255 / 62%);
   background: rgb(255 255 255 / 5%);
@@ -271,8 +257,7 @@ body {
   background: var(--raised);
   box-shadow: var(--lift-high);
   list-style: none;
-  /* Height measured by Search.tsx (--room): a phone keyboard takes half the screen, and no
-   * fraction of vh knows that. */
+  /* --room is set by Search.tsx, vh doesn't know about the phone keyboard */
   max-height: min(var(--room, 46dvh), 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -329,7 +314,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* A lit point on the same ramp the background network is drawn in. */
 .suggestion-dot {
   grid-row: 1 / span 2;
   grid-column: 2;
@@ -338,7 +322,7 @@ body {
   border-radius: 50%;
 }
 
-/* A door being made, and the case where that fails. */
+/* making a door, and when that fails */
 .making {
   margin: 18px 0 0;
   color: var(--ink-faint);
@@ -352,7 +336,7 @@ body {
   color: #f87171;
 }
 
-/* No script at all: plain text in the middle, since none of the page's own layout loaded. */
+/* no JS at all */
 .load-failed {
   margin: 40vh auto 0;
   color: var(--ink-dim);
@@ -360,7 +344,7 @@ body {
   text-align: center;
 }
 
-/* Unfiled door, offered but not held yet. */
+/* unfiled door, offered but not held yet */
 .suggestion-ask {
   color: var(--ink-dim);
 }
@@ -381,19 +365,18 @@ body {
   color: var(--accent);
 }
 
-/* The room lights up as you arrive. With reduced motion it's still lit, it just doesn't
- * animate on. */
+/* lights up on arrival, reduced motion just skips the animation */
 @media (prefers-reduced-motion: reduce) {
     * {
        transition-duration: 0ms !important;
        animation-duration: 1ms !important;
        animation-delay: 0ms !important;
-    /* without this a looping animation strobes at 1 ms a lap */
+    /* or a looping animation strobes at 1ms a lap */
     animation-iteration-count: 1 !important;
   }
 }
 
-/* The flyover behind the landing. Each city fades in once it's drawn and out before the next. */
+/* flyover behind the landing, a city at a time */
 .flyover {
   position: fixed;
   z-index: -3;
@@ -414,8 +397,7 @@ body {
   pointer-events: none;
 }
 
-/* Over moving streets the type gets a shadow, the map link one step up from the faintest grey,
-   and the field a solid surface. */
+/* over moving streets: text shadow, brighter map link, solid field */
 .landing-centre .eyebrow,
 .landing-centre .tagline,
 .landing-centre .sub,
@@ -433,15 +415,12 @@ body {
   backdrop-filter: blur(14px);
 }
 
-/*
- * The address and what you can get there. It scrolls, unlike the landing, so the block is
- * placed, not centred. The network drops back further here.
- */
+/* address and what you can get there. Scrolls, unlike the landing */
 .landing-open .network {
   opacity: 0.13;
 }
 
-/* The result: the map is the page, everything else floats over it. */
+/* result: the map is the page */
 .landing-open {
   display: block;
   padding: 0;
@@ -454,10 +433,7 @@ body {
   inset: 0;
 }
 
-/*
- * The split result screen: what was found on one half, where it is on the other, joined by a
- * gradient instead of an edge.
- */
+/* split result: answer on one half, map on the other, joined by a gradient */
 
 .split {
   position: fixed;
@@ -465,44 +441,24 @@ body {
   overflow: hidden;
 }
 
-/*
- * A column, no card: no border, radius or shadow. Those said it floats above the map, and now
- * it's the other half of the screen.
- */
 .split-panel {
   display: grid;
   position: absolute;
   z-index: 1;
   inset: 0 auto 0 0;
-  /*
-   * Wider than half. Held to 50vw, the text stopped well short of the middle to leave room for
-   * the fade. The fade lives in the overhang instead, so content runs to the midpoint and the
-   * thinning happens past it.
-   */
+  /* wider than half, the fade lives in the overhang so text reaches the middle */
   width: 60vw;
   animation: split-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
 
-  /*
-   * How much of the panel hides the map, for Anchored to frame the street in the rest: up to
-   * the middle of the fade, which runs over the last 32% of it.
-   */
+  /* how much of the map the panel covers, for Anchored (to mid fade) */
   --covers: 0.84;
 }
 
-/*
- * The ground gets its own layer, so the fade belongs to it and not to the text on top.
- * A gradient on .split-panel would fade the type too. Solid for two thirds, then the last third
- * thins out on an eased curve: a linear ramp reads as a band, and the eye finds where it starts.
- */
+/* own layer so the fade doesn't fade the text. Solid for 2/3, then an eased ramp */
 .split-panel-ground {
   position: absolute;
   inset: 0;
-  /*
-   * The stops follow a smootherstep. Six stops placed by eye are six changes of slope, and each
-   * one reads as a line, usually the first where solid ground gives way. This curve leaves and
-   * arrives at zero slope. The ground is still solid for the first 68%, so the plans end 26 px
-   * before it starts to go.
-   */
+  /* smootherstep stops, a hand-placed ramp shows a line at each kink */
   background: linear-gradient(
     to right,
     var(--ground) 0%,
@@ -532,14 +488,8 @@ body {
   pointer-events: none;
 }
 
-/*
- * Grain over the fade, faint enough not to see. The ground thins from #08080a to a dark map, a
- * dozen or so shades, so each shade is a flat stripe many pixels wide and the eye reads its edges
- * as lines. Chrome dithers the gradient, but its first dithered columns sit a shade below the
- * solid ground, so the fade opened with a dark seam that showed exactly where it started. Up to
- * two 255ths of white per pixel (components/grain.png, two random bits summed per pixel) breaks the
- * stripes up. It covers the fade only, so the solid ground keeps its exact colour.
- */
+/* grain over the fade. Breaks up the banding and the dark seam Chrome's dithering leaves
+ * at the start (components/grain.png, up to 2/255 of white per pixel) */
 .split-panel-ground::after {
   position: absolute;
   inset: 0;
@@ -549,7 +499,7 @@ body {
   mask-image: linear-gradient(to right, transparent 66%, #000 76%, #000 92%, transparent 100%);
 }
 
-/* Text stops well before the ground does, or a line's last word would sit on the map. */
+/* text stops before the ground does */
 .split-panel-body {
   display: flex;
   position: relative;
@@ -558,55 +508,38 @@ body {
   gap: 0;
   padding: clamp(24px, 3.4vh, 44px) 0 clamp(48px, 7vh, 80px) clamp(28px, 4vw, 64px);
   overflow-y: auto;
-  /*
-   * Everything stays on solid ground and the fade is left empty. On a 1440 px window the plans
-   * ran to 639 while the ground stopped being solid at 588, so the last 40 px of every card
-   * sat on half-map. A card has corners: it rests on something or it doesn't, and one
-   * straddling the fade looks torn.
-   */
+  /* keep cards on solid ground, at 1440px they ran 40px into the fade */
   padding-right: 35%;
 
-  /*
-   * No scrollbar. The panel ends in a fade halfway across the window, and the scrollbar drew
-   * a grey rail down the middle of the screen with map on both sides.
-   */
+  /* the scrollbar was a grey rail down the middle of the screen */
   scrollbar-width: none;
 }
 
-/* The sheet's handle exists on narrow screens only (see the media query below). */
+/* sheet handle, narrow screens only */
 .split-handle {
   display: none;
 }
 
-/* Above the house, out of the way of the pair below it. */
 .split-back {
   flex: none;
   align-self: flex-start;
   margin-bottom: clamp(6px, 1.2vh, 14px);
 }
 
-/* A street has no house, so its name stands alone under the back link. */
+/* a street has no house */
 .split-road-head {
   flex: none;
   padding-top: clamp(10px, 2vh, 24px);
 }
 
-/*
- * House and address on one row. The house gets a square, the address the rest. Sized in
- * fractions, the canvas came out 513 by 232: a square scene in a letterbox, framed on its height
- * and floating in spare width, well left of its address. Now the column is the square.
- */
+/* house and address on one row, the house column is square */
 .split-head {
   --scene: clamp(180px, 25vh, 290px);
 
   display: grid;
   flex: none;
 
-  /*
-   * The pair is centred. A 1fr column gave the address all the remaining width, and an address
-   * is far more often 8 characters than 40: "Ερμού 12" sat against the house with 600 px of
-   * nothing after it. Sized to the text and centred, the pair holds the middle at any length.
-   */
+  /* sized to the text and centred, most addresses are ~8 characters ("Ερμού 12") */
   grid-template-columns: var(--scene) minmax(0, max-content);
   justify-content: center;
   align-items: center;
@@ -614,15 +547,8 @@ body {
   min-height: var(--scene);
 }
 
-/*
- * Nothing clips it. The scene draws its own margins and the canvas is square, so the roof and
- * aerial have room above the house.
- */
+/* no clipping, the scene has its own margins and room for the aerial */
 .split-scene {
-  /*
-   * Square and flush with the column. Hanging it out to the left put the drawing on one margin
-   * and everything under it on another.
-   */
   width: var(--scene);
   height: var(--scene);
 }
@@ -636,7 +562,7 @@ body {
 
 .split-name {
   margin: 0;
-  /* --fit comes from the address length, see Split.tsx */
+  /* --fit from the address length, see Split.tsx */
   font-size: calc(clamp(26px, 2.8vw, 42px) * var(--fit, 1));
   font-weight: 500;
   line-height: 1.05;
@@ -652,10 +578,7 @@ body {
   text-transform: uppercase;
 }
 
-/*
- * Faint, and short of the fade so it doesn't point at the join. flex: none because the panel
- * is a flex column and flex shrinks a 1 px child first: it measured zero high and drew nothing.
- */
+/* flex: none or the flex column shrinks a 1px child to nothing */
 .split-rule {
   flex: none;
   width: 100%;
@@ -665,9 +588,8 @@ body {
   background: var(--rule);
 }
 
-/* The page's one paragraph, set larger than the list under it: this is the answer, the list
- * is the evidence. */
-/* An operator that's blocking us, and how old its answer here is. Quiet: it's a footnote. */
+/* the answer, bigger than the list under it */
+/* blocking operator and how old its answer is, a footnote */
 .split-cached {
   margin: calc(clamp(20px, 2.6vh, 32px) * -0.6) 0 clamp(16px, 2vh, 24px);
   color: var(--ink-faint);
@@ -676,10 +598,7 @@ body {
 }
 
 .split-verdict {
-  /*
-   * Same width as the plans. 46ch is a comfortable measure, but 76 px narrower than the cards
-   * it looked indented from the right for no visible reason.
-   */
+  /* same width as the cards, 46ch looked indented */
   margin: 0 0 clamp(20px, 2.6vh, 32px);
   color: var(--ink-dim);
   font-size: clamp(15px, 1.15vw, 18px);
@@ -687,7 +606,6 @@ body {
   text-wrap: pretty;
 }
 
-/* No rule above these, they continue the sentence. */
 .split-offers {
   display: flex;
   flex-direction: column;
@@ -714,12 +632,8 @@ body {
   }
 }
 
-/*
- * Narrow screens: no split. The panel takes the bottom half and the map the top, where the
- * street turns. Everything in the panel stays on solid ground, and the ground reaches a tenth of
- * the screen further up to thin out over the map, as the wide layout does past its text. The
- * panel itself ends at the half, since that's what Anchored frames the street above.
- */
+/* Narrow screens: no split. Panel on the bottom half, map on top, and the ground reaches
+ * 10dvh further up to fade out over the map. */
 @media (width <= 900px) {
   .split-panel {
     inset: auto 0 0 0;
@@ -727,15 +641,11 @@ body {
     height: 50dvh;
     animation-name: split-up;
 
-    /* the panel, and half the ground's 10dvh reach above it, which is a fifth of its height */
+    /* the panel plus half of the 10dvh reach */
     --covers: 1.1;
   }
 
-  /*
-   * Measured from the top in dvh rather than in shares of the ground, so the thinning is always
-   * the 10dvh above the panel. In shares it stretched with the panel, and pulled up over the
-   * screen the top twelfth of it still showed the map.
-   */
+  /* in dvh from the top, in shares it stretched with the panel */
   .split-panel-ground {
     inset: -10dvh 0 0 0;
     background: linear-gradient(
@@ -774,10 +684,7 @@ body {
     padding: 28px 22px 28px;
   }
 
-  /*
-   * Pulled up, the panel takes the screen and the map goes under it. It follows the finger
-   * while held (--lift, from Split) and settles on one of the two when let go.
-   */
+  /* pulled up it covers the map. Follows the finger (--lift from Split), snaps on release */
   .split-panel {
     transition: height 340ms cubic-bezier(0.22, 1, 0.36, 1);
   }
@@ -809,7 +716,6 @@ body {
     touch-action: none;
   }
 
-  /* The panel's own quiet ink, barely there: a hint, not a control asking to be pressed. */
   .split-handle svg {
     width: 22px;
     height: 9px;
@@ -826,7 +732,7 @@ body {
     transform: rotate(180deg);
   }
 
-  /* the corner link would sit on the raised panel */
+  /* would sit on the raised panel */
   .split:has(.split-panel[data-raised="true"]) .credit {
     display: none;
   }
@@ -861,7 +767,6 @@ body {
   }
 }
 
-/* The house's canvas fills whatever box it's given. */
 .house {
   display: block;
   width: 100%;
@@ -891,7 +796,7 @@ body {
   font-size: 15px;
 }
 
-/* A numbered marker with a rule running out of it, once per group of cards. */
+/* numbered marker and its rule, once per group */
 .group-head {
   display: flex;
   gap: 12px;
@@ -915,7 +820,7 @@ body {
   background: var(--rule);
 }
 
-/* The rest of the group, on request. */
+/* rest of the group, on request */
 .expand {
   display: flex;
   gap: 8px;
@@ -952,7 +857,7 @@ body {
   transform: rotate(180deg);
 }
 
-/* The placeholders while the first answer is on its way (Waiting). */
+/* placeholders while the first answer loads (Waiting) */
 .offers {
   display: grid;
   gap: 10px;
@@ -961,7 +866,7 @@ body {
   list-style: none;
 }
 
-/* One offer: seller, speed, price. */
+/* an offer: seller, speed, price */
 .offer {
   border: 1px solid var(--rule);
   border-radius: 12px;
@@ -981,13 +886,12 @@ body {
   background: rgb(255 255 255 / 3.2%);
 }
 
-/* The one drawn beside the list. */
 .offer-chosen {
   border-color: rgb(255 255 255 / 34%);
   background: rgb(255 255 255 / 5.5%);
 }
 
-/* The ranker's first pick. */
+/* the ranker's pick */
 .offer-best {
   border-color: rgb(255 255 255 / 30%);
   background: rgb(255 255 255 / 4.5%);
@@ -1013,8 +917,7 @@ body {
   border-bottom: 1px solid var(--rule);
 }
 
-/* One box with every mark centred, so a glyph and a wordmark start at the same place and no
- * logo hangs off the card's left edge. */
+/* every mark centred in one box, glyphs and wordmarks line up */
 .logo {
   flex: none;
   width: 40px;
@@ -1056,7 +959,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* The brand, once, in its own colour. Outlined so it states and doesn't shout. */
+/* brand in its own colour, outlined */
 .offer-brand {
   flex: none;
   padding: 4px 10px;
@@ -1070,7 +973,6 @@ body {
   text-transform: uppercase;
 }
 
-/* The number people came for, in its own well. */
 .offer-rate {
   display: flex;
   gap: 10px;
@@ -1124,7 +1026,7 @@ body {
   border-top: 1px solid var(--rule);
 }
 
-/* An operator's own site, under its card: a quiet row, since the card is the answer. */
+/* operator's site, a quiet row under the card */
 .visit {
   display: flex;
   align-items: center;
@@ -1199,7 +1101,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* Skeleton of the answer while it loads. */
+/* loading skeleton */
 .ghost {
   border: 1px solid var(--rule);
   background: rgb(255 255 255 / 1.6%);
@@ -1236,7 +1138,6 @@ body {
   }
 }
 
-/* Closed by the rule that opens the answer, so the page has two edges. */
 .disclaimer {
   display: flex;
   flex-wrap: wrap;
@@ -1316,17 +1217,14 @@ body {
     font-size: 19px;
   }
 
-  /* On a phone the pill would eat half the plan name's room, and the logo already says it. */
+  /* the logo already says it, and the pill eats the plan name on a phone */
   .offer-brand {
     display: none;
   }
 }
 
-/*
- * The map. Full bleed, with two things on it: the search bar, and beside it a button the bar's
- * height that grows into the menu or into whatever was pressed. They share a surface, a height
- * and a white edge when in use, so they read as a pair.
- */
+/* The map. Search bar plus a button of the same height that grows into the menu. Same
+ * surface, height and white edge so they read as a pair. */
 .atlas {
   --glass: rgb(16 16 19 / 90%);
   --in-use: rgb(255 255 255 / 45%);
@@ -1344,7 +1242,7 @@ body {
   inset: 0;
 }
 
-/* MapLibre's controls, restyled to match the page. */
+/* MapLibre controls */
 .maplibregl-ctrl-group {
   border: 1px solid var(--rule) !important;
   border-radius: 10px !important;
@@ -1360,12 +1258,12 @@ body {
   filter: invert(1);
 }
 
-/* Its double tap resets the camera, which the browser would otherwise take as a page zoom. */
+/* double tap resets the camera, not a page zoom */
 .atlas-tilt {
   touch-action: manipulation;
 }
 
-/* Over a city of lit streets a flat surface loses its edge, so these carry a little blur. */
+/* a little blur, flat surfaces vanish over lit streets */
 .map-search input,
 .map-search-found,
 .map-menu,
@@ -1447,7 +1345,7 @@ body {
   font-size: 12px;
 }
 
-/* The style failed to load: said under the bar, since the map behind it may be blank. */
+/* style failed to load, the map may be blank */
 .map-failed {
   position: absolute;
   z-index: 14;
@@ -1460,7 +1358,7 @@ body {
   font-size: 13px;
 }
 
-/* The menu: one surface that grows out of its button and back into it (see MapMenu). */
+/* the menu grows out of its button and back (see MapMenu) */
 .map-menu {
   position: absolute;
   z-index: 20;
@@ -1474,7 +1372,7 @@ body {
     border-color 200ms;
 }
 
-/* shutting is quicker than opening: the reader has already decided */
+/* shuts faster than it opens */
 .map-menu-shutting {
   transition:
     width 340ms var(--spring),
@@ -1486,7 +1384,7 @@ body {
   border-color: var(--rule-lit);
 }
 
-/* laid out at full size from the start, so nothing reflows while the surface uncovers it */
+/* full size from the start, so nothing reflows */
 .map-menu-inner {
   position: absolute;
   top: 0;
@@ -1529,7 +1427,7 @@ body {
   line-height: 44px;
 }
 
-/* The button is the surface's top-right corner, so it carries no surface of its own. */
+/* the button is the surface's corner, no surface of its own */
 .map-knob {
   position: absolute;
   top: 0;
@@ -1554,12 +1452,11 @@ body {
   transform: scale(0.94);
 }
 
-/* the search bar's white edge while it's in use */
 .map-knob-open {
   box-shadow: inset 0 0 0 1px var(--in-use);
 }
 
-/* some filter is on: a white dot, since a shut menu otherwise hides it */
+/* a filter is on, shown as a dot since the shut menu hides it */
 .map-knob-filtered::after {
   position: absolute;
   top: 9px;
@@ -1571,7 +1468,7 @@ body {
   content: "";
 }
 
-/* three bars narrowing like a funnel, which fold into a cross */
+/* three narrowing bars that fold into a cross */
 .map-knob-bar {
   width: 16px;
   height: 2px;
@@ -1685,7 +1582,7 @@ body {
   box-shadow: inset 0 0 0 1.5px var(--ink-dim);
 }
 
-/* the chosen operator wears its own colour, the colour its streets are about to be drawn in */
+/* in the operator's colour, same as its streets */
 .map-op-on {
   border-color: var(--brand, var(--ink-dim));
   background: color-mix(in srgb, var(--brand, #fff) 14%, transparent);
@@ -1792,7 +1689,7 @@ body {
   color: var(--ink);
 }
 
-/* a street or a square, shown where the menu was. The button beside its name shuts it */
+/* a street or square, in the menu's place. Its button shuts it */
 
 .map-card {
   padding: 11px 18px 16px;
@@ -1906,7 +1803,6 @@ body {
   }
 }
 
-/* Nothing filed here. */
 .bare {
   display: grid;
   justify-items: start;
@@ -1998,7 +1894,7 @@ body {
   }
 }
 
-/* The street's answer: how fast it goes, large, before the list of who sells it. */
+/* street speed, big, above who sells it */
 .road-best {
   display: flex;
   flex-direction: column;
@@ -2023,10 +1919,7 @@ body {
   font-size: 13px;
 }
 
-/*
- * One operator per entry, no card and no rule between them: the logo column and the space do
- * the separating. Name and best speed on one line, everything else under the name.
- */
+/* one operator per entry, spacing instead of cards. Name and best speed on one line */
 .road-ops {
   display: grid;
   gap: 26px;
@@ -2097,14 +1990,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Whose network, and a wholesaler's note: under the lines, quieter still. */
+/* network owner and wholesale note, quieter */
 .road-infra {
   margin: 4px 0 0;
   color: var(--ink-faint);
   font-size: 12px;
 }
 
-/* the operator's site, as a plain line under the rest, not a card's footer */
 .road-op .visit {
   display: inline-flex;
   justify-content: flex-start;
@@ -2113,7 +2005,6 @@ body {
   border: 0;
 }
 
-/* the street's footnote sits on space, like the list above it */
 .road-foot {
   margin-top: 40px;
   padding-top: 0;
@@ -2130,7 +2021,7 @@ body {
   }
 }
 
-/* The corner link: easy to ignore, visible enough to satisfy the licences. */
+/* corner credits link, enough for the licences */
 .credit {
   position: fixed;
   z-index: 2;
@@ -2152,7 +2043,7 @@ body {
   opacity: 1;
 }
 
-/* On an answer the panel has the bottom left, so the link goes over the map instead. */
+/* the panel has the bottom left on an answer */
 .split .credit {
   right: 14px;
   left: auto;
@@ -2165,7 +2056,7 @@ body {
   }
 }
 
-/* The router page, on the credits page's column. No cards and no rules: space separates them. */
+/* router page, on the credits column */
 .routers-list {
   display: grid;
   gap: 44px;
@@ -2227,12 +2118,11 @@ body {
   color: var(--ink-faint);
 }
 
-/* The answer under the router page: no box of its own while shown, none at all while hidden. */
+/* answer under the router page */
 .landing-answer:not([hidden]) {
   display: contents;
 }
 
-/* under the answer, the way to the router page */
 .split-routers {
   display: inline-block;
   margin: calc(clamp(20px, 2.6vh, 32px) * -0.6) 0 clamp(16px, 2vh, 24px);
@@ -2265,6 +2155,11 @@ body {
   color: var(--ink-dim);
   font-size: 14px;
   line-height: 1.6;
+}
+
+.credits-mail {
+  color: var(--ink);
+  text-underline-offset: 3px;
 }
 
 .credits-head {

@@ -5,19 +5,14 @@ import type { Mbps } from "../tokens";
 export const VERSION = 1 as const;
 
 /**
- * One feature per street, carrying the best each operator reaches on it. Painted by
- * best_mbps and filtered by the per-operator fields, which is why both exist: a filter over
- * a single best paints a street in one operator's colour while claiming another's.
+ * One feature per street. Painted by best_mbps, filtered by the per-operator fields.
  */
 export type Street = {
-  /**
-   * the street row this was built from. Absent below zoom 10, where streets are under a
-   * pixel wide and features with identical fields are merged into one
-   */
+  /** street row id, absent below zoom 10 where identical streets get merged */
   readonly id: number | null;
-  /** the fastest anyone reaches here. Null is not filed, never zero */
+  /** fastest anyone reaches here, null if nothing's filed */
   readonly best_mbps: Mbps | null;
-  /** how many operators reach this street at all, filed speed or not. Absent below zoom 10 */
+  /** operators reaching it at all, absent below zoom 10 */
   readonly nprov: number | null;
   readonly p_telekom: Mbps | null;
   readonly p_vodafone: Mbps | null;
@@ -50,7 +45,7 @@ export const STREETS_FIELDS = [
   "p_netfiber",
 ] as const;
 
-/** The field each operator's speed is written under, for the filter. */
+/** operator code -> field, for the filter */
 export const STREETS_BY_PROVIDER: Readonly<
   Record<string, keyof Street>
 > = {
@@ -67,11 +62,7 @@ export const STREETS_BY_PROVIDER: Readonly<
   NETFIBER: "p_netfiber",
 };
 
-/**
- * The operators here who retail nothing to a household: wholesale builders,
- * and anyone who files services and publishes no tariff. Drawn like the rest
- * and listed apart, because they are not a supplier anyone can choose.
- */
+// drawn but listed apart, nobody can buy from them directly
 export const STREETS_INFRASTRUCTURE: readonly string[] = [
   "METADOSIS",
   "FIBERGRID",
@@ -81,29 +72,26 @@ export const STREETS_INFRASTRUCTURE: readonly string[] = [
 ];
 
 /**
- * One feature per municipality, for the zooms where a street is a fraction of a pixel. A
- * map with no basemap and nothing drawn at low zoom is a black rectangle telling the reader
- * to zoom in, somewhere, with no clue where. The country has to have a shape before it has
- * streets. Fiber rather than the fastest anything: the fastest anything is 5G, which
- * reaches nearly every address, and a map of it is one colour.
+ * One feature per municipality, for the low zooms. Painted by fiber share, since 5G reaches
+ * nearly everywhere and would make it one colour.
  */
 export type Region = {
-  /** the municipality row this was built from */
+  /** municipality row id */
   readonly id: number;
   readonly name: string;
-  /** filed addresses in it, which is the denominator of the share */
+  /** filed addresses, the share's denominator */
   readonly addresses: number;
-  /** how many of them fiber reaches */
+  /** addresses fiber reaches */
   readonly fiber: number;
-  /** nought to one, and what the Filed view is painted by */
+  /** 0 to 1, paints the Filed view */
   readonly fiber_share: number;
-  /** the band's assured speed, held to what the technology can carry */
+  /** assured speed of the band, capped at what the technology carries */
   readonly best_mbps: Mbps | null;
-  /** fixed-line speed tests here. Null is untested, which is most of Greece */
+  /** fixed line speed tests, null if untested (most of Greece) */
   readonly measured_mbps: Mbps | null;
-  /** how many tests that rests on, drawn as opacity rather than as deletion */
+  /** tests behind it, drawn as opacity */
   readonly measured_tests: number | null;
-  /** the same for mobile, kept apart because the two measure different things */
+  /** same for mobile */
   readonly mobile_mbps: Mbps | null;
   readonly mobile_tests: number | null;
 };
@@ -123,19 +111,17 @@ export const REGIONS_FIELDS = [
 ] as const;
 
 /**
- * One feature per Ookla tile that has ever been tested, drawn as the square that was
- * measured rather than the centroid they publish. About 600 m across, and only a few per
- * cent of the country has any at all, so an empty view is the normal case and must never be
- * rendered as a failure.
+ * One square per tested Ookla tile, ~600 m across. Most of the country has none, so an
+ * empty view is normal.
  */
 export type Cell = {
-  /** the zoom 16 tile key, which is also its identity upstream */
+  /** zoom 16 tile key */
   readonly quadkey: string;
-  /** fixed or mobile. The two measure differently and never mix */
+  /** fixed or mobile, never mixed */
   readonly family: string;
   readonly down_mbps: Mbps;
   readonly up_mbps: Mbps;
-  /** measurements behind the figure, drawn as opacity and never as deletion */
+  /** tests behind the figure, drawn as opacity */
   readonly tests: number;
 };
 
@@ -148,10 +134,7 @@ export const CELLS_FIELDS = [
   "tests",
 ] as const;
 
-/**
- * What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then
- * layer, then the fields of it the style reads.
- */
+// archive -> layer -> fields the style reads, for tools/slim_basemap.py
 export const BASEMAP: Readonly<
   Record<string, Readonly<Record<string, readonly string[]>>>
 > = {

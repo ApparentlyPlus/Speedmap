@@ -2,8 +2,7 @@
 Description=speedmap.gr quarterly measurement refresh
 
 [Timer]
-# Weekly, though the load does nothing until a new quarter appears. Looking often is cheaper
-# than guessing their release date, and a late quarter still gets picked up.
+# weekly, cheaper than guessing their release date
 OnCalendar=Sun *-*-* 05:00:00
 Persistent=true
 RandomizedDelaySec=1h

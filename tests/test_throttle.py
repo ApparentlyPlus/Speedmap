@@ -1,8 +1,8 @@
-"""How often one caller may ask."""
-
 from __future__ import annotations
 
 from api.throttle import PROBE, READ, REPORT, SEARCH, Throttle, limit_for
+
+IP = "203.0.113.7"
 
 
 class Clock:
@@ -13,36 +13,28 @@ class Clock:
         return self.now
 
 
-def test_each_request_is_held_to_its_own_limit() -> None:
+def test_limit_for() -> None:
     assert limit_for("POST", "/addresses/7/probe") is PROBE
     assert limit_for("POST", "/reports") is REPORT
     assert limit_for("GET", "/search") is SEARCH
     assert limit_for("GET", "/addresses/7/options") is READ
 
 
-def test_a_caller_past_the_limit_waits_and_then_may_ask_again() -> None:
+def test_throttle() -> None:
     clock = Clock()
-    throttle = Throttle(clock)
+    t = Throttle(clock)
     for _ in range(PROBE.times):
-        assert throttle.wait("203.0.113.7", PROBE) == 0
-    held = throttle.wait("203.0.113.7", PROBE)
+        assert t.wait(IP, PROBE) == 0
+    held = t.wait(IP, PROBE)
     assert 0 < held <= PROBE.per_s + 1
     clock.now += PROBE.per_s + 1
-    assert throttle.wait("203.0.113.7", PROBE) == 0
+    assert t.wait(IP, PROBE) == 0
 
-
-def test_one_caller_never_spends_anothers_limit() -> None:
-    throttle = Throttle(Clock())
     for _ in range(REPORT.times):
-        throttle.wait("203.0.113.7", REPORT)
-    assert throttle.wait("203.0.113.7", REPORT) > 0
-    assert throttle.wait("198.51.100.2", REPORT) == 0
+        t.wait(IP, REPORT)
+    assert t.wait(IP, REPORT) > 0
+    assert t.wait("198.51.100.2", REPORT) == 0
 
-
-def test_callers_long_gone_are_forgotten() -> None:
-    clock = Clock()
-    throttle = Throttle(clock)
-    throttle.wait("203.0.113.7", READ)
     clock.now += 4000
-    throttle.sweep(clock.now)
-    assert throttle.seen == {}
+    t.sweep(clock.now)
+    assert t.seen == {}

@@ -1,9 +1,5 @@
-/**
- * The landing page's background: a slow drift over one Greek city after another, at street
- * level, with every street lit in the colour of the best line that reaches it. Each city fades
- * in once its tiles are drawn, drifts a while and fades out to the next, so nobody watches a
- * map load. With reduced motion it shows one city and holds.
- */
+// Behind the landing page: a slow drift over one city after another, every street lit. Each
+// city fades in once its tiles are drawn. Reduced motion shows one city and holds.
 
 import { useEffect, useRef, useState } from "react";
 import { Map as Maplibre } from "maplibre-gl";
@@ -11,7 +7,6 @@ import { Map as Maplibre } from "maplibre-gl";
 import { engine } from "../map/engine";
 import { style } from "../map/style";
 
-/** Athens, Thessaloniki, Patras, Heraklion, Larissa, Volos, Ioannina, Chania, Kavala, Rhodes. */
 const CITIES: readonly (readonly [number, number])[] = [
   [23.7275, 37.9838],
   [22.9444, 40.6401],
@@ -25,14 +20,13 @@ const CITIES: readonly (readonly [number, number])[] = [
   [28.2225, 36.4349],
 ];
 
-/** Long enough to take a city in, short enough not to bore. */
 const DRIFT_MS = 13000;
 const FADE_MS = 1400;
 
-/** How far the camera drifts over a visit, in degrees: a few hundred metres. */
+// degrees, a few hundred metres
 const TRAVEL = 0.006;
 
-/** Longest a city may take to draw before it's shown anyway. */
+// shown anyway after this
 const WAIT_MS = 4000;
 
 const ZOOM = 14.6;
@@ -106,7 +100,7 @@ export function Flyover(): React.ReactElement {
   return (
     <>
       <div className={`flyover${shown ? " flyover-shown" : ""}`} ref={box} aria-hidden="true" />
-      {/* an even dim, no vignette, so the type reads wherever the streets run */}
+      {/* even dim, no vignette, so the type reads anywhere */}
       <div className="flyover-dim" aria-hidden="true" />
     </>
   );

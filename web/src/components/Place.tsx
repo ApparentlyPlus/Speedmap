@@ -1,8 +1,5 @@
-/**
- * One address. Renders from cache straight away, then fills in as the operators answer in
- * parallel. No narration of the machinery: "asking" or "no reply" isn't something a reader
- * can act on.
- */
+// One address. Cache first, then each operator fills in as it answers. No "asking..."
+// narration, a reader can't act on it.
 
 import { useEffect, useState } from "react";
 
@@ -13,7 +10,7 @@ import type { Language } from "../i18n";
 import { Answer } from "./Answer";
 import { Split } from "./Split";
 
-/** Verdicts where asking again would teach us nothing. A refusal holds until it expires. */
+// asking again would teach us nothing, a refusal holds until it expires
 const SETTLED = new Set(["fresh", "inferred", "refused"]);
 
 export function Place({
@@ -29,7 +26,6 @@ export function Place({
 }): React.ReactElement {
   const [known, setKnown] = useState<Options | null>(null);
   const [where, setWhere] = useState<{ lon: number; lat: number } | null>(null);
-  /** The door's street, for the light along it. */
   const [shape, setShape] = useState<Geometry | null>(null);
   const [road, setRoad] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
@@ -50,8 +46,7 @@ export function Place({
       const due = first.operators.filter((o) => !SETTLED.has(o.known));
       if (due.length === 0) return;
 
-      // Each operator lands when it lands and refreshes the list. The most recently requested
-      // list is the freshest, so an older one that happens to arrive late gets dropped.
+      // each operator refreshes the list as it lands, a late older reply is dropped
       let asked = 0;
       let shown = 0;
       await Promise.all(
@@ -70,12 +65,8 @@ export function Place({
     return () => stop.abort();
   }, [result.id]);
 
-  // Where to fly the map, on its own request. Options wait on the slowest operator and the
-  // map shouldn't.
-  //
-  // The door and its street go to the map together. Handed the door first, the map set off
-  // toward it at street zoom, and the street arriving a moment later started the descent from
-  // wherever that had got to: the fall from the whole country was lost to a race.
+  // The map gets its own request, options wait on the slowest operator. Door and street go
+  // together, or the map heads for the door first and the descent is lost to the race.
   useEffect(() => {
     const stop = new AbortController();
     setShape(null);

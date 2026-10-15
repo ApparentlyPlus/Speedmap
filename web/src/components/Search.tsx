@@ -1,7 +1,5 @@
-/**
- * The landing page's one field and its suggestions. Opens on the second keystroke, since a
- * single letter matches a third of the country.
- */
+// The landing page's field and suggestions. Opens on the second letter, one letter matches a
+// third of the country.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -9,13 +7,11 @@ import { search, type Result } from "../api/client";
 import { strings, type Language } from "../i18n";
 import { Suggestion } from "./Suggestion";
 
-/** Two letters is the first query worth asking. */
 const MIN_QUERY = 2;
 
-/** Long enough to skip a request per letter, short enough to feel like it keeps up. */
 const SETTLE_MS = 120;
 
-/** Space below the list, so the last row never touches the screen edge. */
+// so the last row doesn't touch the screen edge
 const MARGIN = 20;
 
 type State =
@@ -31,7 +27,7 @@ export function Search({
 }: {
   readonly language: Language;
   readonly onPick: (result: Result) => void;
-  /** Called on the first keystroke so whatever a pick needs can start loading. */
+  // called on the first keystroke so what a pick needs can start loading
   readonly onType?: () => void;
 }): React.ReactElement {
   const text = strings(language);
@@ -41,7 +37,6 @@ export function Search({
   const shell = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLUListElement>(null);
 
-  /** Room left under the field, measured. */
   const measure = useCallback((): void => {
     const below = shell.current?.getBoundingClientRect().bottom;
     if (below === undefined || panel.current === null) return;
@@ -73,7 +68,7 @@ export function Search({
       search(asked, stop.signal)
         .then((results) => setState({ kind: "answered", results }))
         .catch((error: unknown) => {
-          // an abort is this effect being replaced, nothing to report
+          // aborted by the next run of this effect
           if (error instanceof DOMException && error.name === "AbortError") return;
           setState({ kind: "failed" });
         });

@@ -1,9 +1,9 @@
-/** The routers worth buying where a mobile connection beats the wire. */
+// routers worth buying where mobile beats the wire
 
 import { languageOf, strings, type Language } from "../i18n";
 import { ROUTERS } from "../routers";
 
-/** The page on its own, reached by its address: the way back is home. */
+// reached by its own address, back goes home
 export function Routers(): React.ReactElement {
   const language = languageOf(window.location.pathname);
   const text = strings(language);
@@ -18,7 +18,6 @@ export function Routers(): React.ReactElement {
   );
 }
 
-/** What the page says, wherever it's opened from. */
 export function RouterList({ language }: { readonly language: Language }): React.ReactElement {
   const text = strings(language);
 

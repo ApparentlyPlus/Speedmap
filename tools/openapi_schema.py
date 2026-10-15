@@ -1,7 +1,4 @@
-"""Write the OpenAPI document the frontend types are generated from.
-
-schema/openapi.json is the contract between the API and the renderer.
-"""
+"""Write schema/openapi.json, which the frontend types are generated from."""
 
 from __future__ import annotations
 
@@ -16,8 +13,7 @@ OUT = ROOT / "schema" / "openapi.json"
 
 
 def document() -> str:
-    # imported here: the module opens a connection pool, and printing the schema shouldn't
-    # need a running database
+    # late, api.main opens a pool
     from api.main import app
 
     schema: dict[str, Any] = app.openapi()

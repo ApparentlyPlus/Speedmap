@@ -1,15 +1,12 @@
-/**
- * "Something look wrong?" under an answer. It was a link that went nowhere while the API had
- * been taking reports all along. A note is enough: the address rides along, and the kind is
- * left as other because a reader can't be asked to know which of our tables is wrong.
- */
+// "Something look wrong?" under an answer. The address rides along and kind stays "other",
+// a reader can't know which of our tables is wrong.
 
 import { useState } from "react";
 
 import { report } from "../api/client";
 import { strings, type Language } from "../i18n";
 
-/** The API refuses shorter, and "wrong" alone tells us nothing to check. */
+// the API refuses shorter
 const SHORTEST = 10;
 
 type Stage = "shut" | "writing" | "sending" | "sent" | "failed";

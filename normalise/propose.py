@@ -1,8 +1,4 @@
-"""Make an address the register never filed, because someone asked for it.
-
-The register holds 1.8M addresses and the street layer the streets they're on, and the two
-disagree: a street can be known while most of its numbers aren't.
-"""
+"""Make an address the register never filed, because someone asked for it."""
 
 from __future__ import annotations
 
@@ -14,10 +10,7 @@ from psycopg.rows import TupleRow
 from normalise.greeklish import from_greek
 from normalise.text import fold
 
-# The postcode and locality most of the street's doors share. Skips doors 065 pinned to
-# another road of the same name. Matching by name alone picked up every road of that name
-# in the municipality, and the new door got the postcode and position of one across town.
-# Unpinned doors of the name still count.
+# skip doors 065 pinned to another road with the same name across town
 SAME_ROAD = """
 a.street_fold = %(fold)s
   and a.municipality_id is not distinct from %(municipality)s
@@ -39,7 +32,6 @@ select s.name, s.name_fold, s.municipality_id,
 from street s where s.id = %s
 """
 
-# the neighbour nearest in numbering, and its point
 NEAREST = f"""
 select a.geom
 from address a
@@ -71,7 +63,6 @@ where street_fold = %(fold)s and street_no = %(number)s
   and postcode is not distinct from %(postcode)s
 """
 
-# the same two lookups every other address gets, for one point
 COVER_AREA = """
 insert into address_coverage (
     address_id, provider_id, technology, infra_provider_id,
@@ -105,7 +96,7 @@ from cell c
 join raw_wireless_grid g on g.gridid = c.gridid
 join provider sp on sp.register_id = g.servprov
 left join provider ip on ip.register_id = g.infrprov
--- one band per cell and it's 5G's, so 4G gets none where both are flagged
+-- the cell's one band is 5G's when both are flagged
 cross join lateral (
     select 'FWA_5G' as technology, nullif(g.maxdown, 0) as band where g.tech5gf = 1
     union all
@@ -116,8 +107,7 @@ order by c.id, coalesce(sp.credited_to, sp.id), gen.technology, g.maxdown desc n
 on conflict (address_id, provider_id, technology) do nothing
 """
 
-
-# where most of the street's doors say they are, as 066 does for every street
+# like 066 for one street
 LOCALITY = """
 update street s
 set locality = (
@@ -130,14 +120,11 @@ where s.id = %s
 
 
 def propose(conn: psycopg.Connection[TupleRow], street_id: int, street_no: str) -> int | None:
-    """The id of the address at this number on this street, made if it's new.
-
-    Keyed like the register load, so asking twice returns the same address.
-    """
-    found = conn.execute(STREET, (street_id,)).fetchone()
-    if found is None:
+    """Id of the address at this number on this street, made if it's new."""
+    st = conn.execute(STREET, (street_id,)).fetchone()
+    if st is None:
         return None
-    name, folded, municipality, midpoint = found
+    name, folded, municipality, midpoint = st
 
     near = conn.execute(
         NEIGHBOURS, {"fold": folded, "municipality": municipality, "street_id": street_id}
@@ -149,7 +136,7 @@ def propose(conn: psycopg.Connection[TupleRow], street_id: int, street_no: str) 
         "fold": folded, "municipality": municipality, "street_id": street_id,
         "number": int(digits.group()) if digits else 0,
     }).fetchone()
-    # the street's midpoint, only when it has no filed address to stand next to
+    # stand next to the nearest number, midpoint if there are none
     geom = midpoint if anchor is None else anchor[0]
 
     key = folded if locality is None else f"{folded} {fold(locality)}"
@@ -157,7 +144,6 @@ def propose(conn: psycopg.Connection[TupleRow], street_id: int, street_no: str) 
         "street": name, "fold": folded, "number": street_no,
         "locality": locality, "postcode": postcode, "municipality": municipality,
         "key": key, "latin": from_greek(key), "geom": geom,
-        # known here, no need for 065: someone asked for this number on this street
         "street_id": street_id,
     }
 
@@ -166,9 +152,8 @@ def propose(conn: psycopg.Connection[TupleRow], street_id: int, street_no: str) 
         held = conn.execute(EXISTING, fields).fetchone()
         return None if held is None else int(held[0])
 
-    address_id = int(row[0])
-    conn.execute(COVER_AREA, (address_id,))
-    conn.execute(COVER_CELL, (address_id,))
-    # the build stores the street's locality, and a new door may shift it
-    conn.execute(LOCALITY, (street_id, street_id))
-    return address_id
+    aid = int(row[0])
+    conn.execute(COVER_AREA, (aid,))
+    conn.execute(COVER_CELL, (aid,))
+    conn.execute(LOCALITY, (street_id, street_id))  # a new door may shift it
+    return aid

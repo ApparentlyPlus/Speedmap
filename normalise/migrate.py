@@ -15,8 +15,7 @@ from db.connect import connect
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 
-# fixed key, so two runners at once take turns instead of racing
-LOCK_KEY = 8104729
+LOCK_KEY = 8104729  # advisory lock, two runners take turns
 
 BOOTSTRAP = """
 create table if not exists schema_migration (
@@ -51,12 +50,12 @@ def applied(conn: psycopg.Connection[TupleRow]) -> dict[str, str]:
     return dict(rows)
 
 
-def drifted(applied_now: dict[str, str], all_migrations: list[Migration]) -> list[str]:
-    return [m.version for m in all_migrations if m.version in applied_now and applied_now[m.version] != m.checksum]
+def drifted(done: dict[str, str], ms: list[Migration]) -> list[str]:
+    return [m.version for m in ms if m.version in done and done[m.version] != m.checksum]
 
 
-def pending(applied_now: dict[str, str], all_migrations: list[Migration]) -> list[Migration]:
-    return [m for m in all_migrations if m.version not in applied_now]
+def pending(done: dict[str, str], ms: list[Migration]) -> list[Migration]:
+    return [m for m in ms if m.version not in done]
 
 
 def migrate(conn: psycopg.Connection[TupleRow], *, dry_run: bool = False) -> list[str]:
@@ -64,30 +63,25 @@ def migrate(conn: psycopg.Connection[TupleRow], *, dry_run: bool = False) -> lis
     conn.commit()
     conn.execute("select pg_advisory_lock(%s)", (LOCK_KEY,))
     try:
-        all_migrations = discover()
-        applied_now = applied(conn)
+        ms = discover()
+        done = applied(conn)
 
-        drift = drifted(applied_now, all_migrations)
+        drift = drifted(done, ms)
         if drift:
             raise SystemExit(f"already applied but changed on disk: {', '.join(drift)}")
 
-        pending_now = pending(applied_now, all_migrations)
+        todo = pending(done, ms)
         if dry_run:
-            return [m.version for m in pending_now]
+            return [m.version for m in todo]
 
-        for migration in pending_now:
-            conn.execute(migration.sql())
-            conn.execute(
-                "insert into schema_migration (version, checksum) values (%s, %s)",
-                (migration.version, migration.checksum),
-            )
+        for m in todo:
+            conn.execute(m.sql())
+            conn.execute("insert into schema_migration (version, checksum) values (%s, %s)", (m.version, m.checksum))
             conn.commit()
-            print(f"applied {migration.version}")
-
-        return [m.version for m in pending_now]
+            print(f"applied {m.version}")
+        return [m.version for m in todo]
     finally:
-        # A migration that failed leaves the transaction aborted, and the unlock then failed
-        # too, with an error on top of the one that mattered.
+        # a failed migration leaves the transaction aborted and the unlock would fail too
         conn.rollback()
         conn.execute("select pg_advisory_unlock(%s)", (LOCK_KEY,))
         conn.commit()
@@ -100,11 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     with connect(args.dsn) as conn:
-        pending_now = migrate(conn, dry_run=args.status)
+        todo = migrate(conn, dry_run=args.status)
 
     if args.status:
-        print("\n".join(pending_now) if pending_now else "up to date")
-    elif not pending_now:
+        print("\n".join(todo) if todo else "up to date")
+    elif not todo:
         print("up to date")
     return 0
 

@@ -1,8 +1,4 @@
-"""Load a scrape of Telekom's availability checker.
-
-The scrape also carries cadastral parcel polygons, which nothing here reads and which make up
-almost all of its thirty gigabytes.
-"""
+"""Load a scrape of Telekom's availability checker."""
 
 from __future__ import annotations
 
@@ -45,41 +41,34 @@ class Checked:
 
 
 def point_wkt(lat: float | None, lon: float | None) -> str | None:
-    """WKT for a checked address, or None if the scrape never placed it."""
     if lat is None or lon is None:
         return None
     return f"POINT({lon} {lat})"
 
 
 def checked(path: Path) -> Iterator[Checked]:
-    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    # most of the 30 GB is parcel polygons, which READ skips
+    db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     try:
-        for row in connection.execute(READ):
-            (rid, nomos, dimos, area, kind, street, number, plans, stamp, lat, lon, prec, kaek) = row
-            yield Checked(
-                rid, nomos, dimos, area, kind, street, number, plans, stamp,
-                point_wkt(lat, lon), prec, kaek,
-            )
+        for rid, nomos, dimos, area, kind, street, no, plans, stamp, lat, lon, prec, kaek in db.execute(READ):
+            yield Checked(rid, nomos, dimos, area, kind, street, no, plans, stamp, point_wkt(lat, lon), prec, kaek)
     finally:
-        connection.close()
+        db.close()
 
 
 def write(conn: psycopg.Connection[TupleRow], found: Iterator[Checked]) -> int:
-    """Replace the table wholesale, since a scrape is a snapshot."""
+    # a scrape is a snapshot, replace the lot
     conn.execute("truncate raw_cosmote")
-    written = 0
+    n = 0
     with conn.cursor().copy(
         "copy raw_cosmote (id, nomos, dimos, area, street_type, street, street_no, plans, "
         "observed_at, geom, geocode_precision, kaek) from stdin"
     ) as copy:
-        for row in found:
-            copy.write_row((
-                row.id, row.nomos, row.dimos, row.area, row.street_type, row.street,
-                row.street_no, row.plans, row.observed_at, row.wkt,
-                row.geocode_precision, row.kaek,
-            ))
-            written += 1
-    return written
+        for c in found:
+            copy.write_row((c.id, c.nomos, c.dimos, c.area, c.street_type, c.street, c.street_no, c.plans,
+                            c.observed_at, c.wkt, c.geocode_precision, c.kaek))
+            n += 1
+    return n
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -91,9 +80,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"{args.scrape} not found")
 
     with connect() as conn:
-        written = write(conn, checked(args.scrape))
+        n = write(conn, checked(args.scrape))
         conn.commit()
-    print(f"  cosmote: {written} rows loaded")
+    print(f"  cosmote: {n} rows loaded")
     return 0
 
 

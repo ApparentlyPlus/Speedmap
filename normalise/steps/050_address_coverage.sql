@@ -1,11 +1,4 @@
--- A point match is a filing against this building. An area match means the address falls in a
--- cabinet. built_by tags our rows, since 070 and 100 write here too.
---
--- Compared, not replaced. This used to delete all its rows and insert them again, about ten
--- million rows plus their index entries per build, nearly all identical. On the Pi that write
--- volume was the build. Now the new set is computed once, rows that left it are deleted, and
--- only new or changed rows are written. 070 and 100 do the same. The table ends up exactly
--- as delete-and-insert left it.
+-- point = filed on this building, area = inside a cabinet. Diffed, delete+insert was ~10M rows
 with fresh as (
     select distinct on (address_id, provider_id, technology)
         address_id, provider_id, technology, infra_provider_id,
@@ -21,8 +14,7 @@ with fresh as (
         from address a
         join coverage_area ca on st_contains(ca.geom_2d, a.geom::geometry)
     ) src
-    -- Every column, so ties break the same way every build. A filing at the door beats the
-    -- cabinet the door sits in. That used to rest on matched_by's spelling, and 'area' sorts first.
+    -- every column for stable ties, door before cabinet
     order by address_id, provider_id, technology, matched_by = 'point' desc,
              speed_band_id desc nulls last,
              normal_band_id desc nulls last, infra_provider_id nulls last,

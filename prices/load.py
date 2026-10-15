@@ -1,8 +1,4 @@
-"""Record today's catalogue from every provider that publishes one.
-
-One that can't be read is reported and skipped. A missing catalogue mustn't empty the ones
-already recorded, and yesterday's price beats none.
-"""
+"""Record today's catalogue from every provider that publishes one."""
 
 from __future__ import annotations
 
@@ -26,22 +22,22 @@ def main(argv: list[str] | None = None) -> int:
     failed = 0
     with connect() as conn:
         for provider, fetch in SOURCES.items():
+            # skip a broken one, yesterday's price beats none
             try:
                 tariffs = fetch()
-            except Exception as error:
-                print(f"  {provider}: {error}")
+            except Exception as e:
+                print(f"  {provider}: {e}")
                 failed += 1
                 continue
-            written = write(conn, provider, tariffs, args.on)
+            n = write(conn, provider, tariffs, args.on)
             conn.commit()
-            print(f"  {provider}: {written} plans priced")
+            print(f"  {provider}: {n} plans priced")
 
-        # Recorded by hand off a page or rate card, and dated by when it was read: a June figure
-        # says nothing about September.
-        for provider, tariffs, observed_on in published.sections():
-            written = write(conn, provider, tariffs, observed_on, source="published")
+        # hand recorded, dated by when the page was read
+        for provider, tariffs, day in published.sections():
+            n = write(conn, provider, tariffs, day, source="published")
             conn.commit()
-            print(f"  {provider}: {written} plans published {observed_on}")
+            print(f"  {provider}: {n} plans published {day}")
     return 1 if failed == len(SOURCES) else 0
 
 

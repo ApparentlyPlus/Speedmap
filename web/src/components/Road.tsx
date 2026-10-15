@@ -1,4 +1,4 @@
-/** The answer screen for a street (Place is the one for a door). */
+// the answer screen for a street (Place is the one for a door)
 
 import { useEffect, useState } from "react";
 import type { Geometry } from "geojson";
@@ -34,8 +34,7 @@ export function Road({
       .then((road) => {
         if (!stop.signal.aborted) setFound(road);
       })
-      // An abort means we were asked about another street. Treating it as a failure put
-      // "not indexed" next to offers it had in fact found.
+      // an abort means another street was asked for, not a failure
       .catch(() => {
         if (!stop.signal.aborted) setFailed(true);
       });
@@ -45,7 +44,7 @@ export function Road({
   const middle = found === null ? null : centre(found.bbox);
   const bare = found !== null && found.offers.length === 0; // an empty list is a real answer
   const operators = found === null ? [] : byOperator(found.offers);
-  // the best a household can buy here: a wholesaler's fiber isn't on sale to anyone
+  // best a household can buy, wholesale fiber isn't on sale
   const sold = operators.filter((operator) => !WHOLESALE.has(operator.provider));
   const speeds = (sold.length > 0 ? sold : operators).flatMap((operator) => operator.lines.map(speedOf));
   const filed = speeds.filter((speed): speed is number => speed !== null);
@@ -61,7 +60,7 @@ export function Road({
       <button className="back split-back" type="button" onClick={onBack}>
         <span aria-hidden="true">←</span> {text.back}
       </button>
-      {/* no house: a street isn't one door */}
+      {/* no house, a street isn't one door */}
       <header className="split-title split-road-head">
         <h1 className="split-name">{result.name}</h1>
         <p className="split-where">{result.municipality}</p>
@@ -79,7 +78,7 @@ export function Road({
 
       {found !== null && operators.length > 0 && (
         <>
-          {/* the answer first: how fast this street goes, before who sells it */}
+          {/* how fast, before who sells it */}
           {best !== null && (
             <p className="road-best">
               <span className="road-best-speed" style={{ color: colourFor(mbps(best)) }}>
@@ -93,7 +92,7 @@ export function Road({
           <ol className="road-ops">
             {operators.map((operator, rank) => {
               const top = speedOf(operator.lines[0] as StreetOffer);
-              // whose network it rides on, said once and not under every line
+              // whose network, said once
               const over = [...new Set(
                 operator.lines
                   .map((line) => line.infra_provider)
@@ -121,7 +120,7 @@ export function Road({
                     </span>
                   )}
                   <div className="road-more">
-                    {/* every line it sells here, in a row: the same four on every card read as noise */}
+                    {/* every line in one row, the same four on every card was noise */}
                     <p className="road-lines">
                       {operator.lines.map((offer) => (
                         <span className="road-line" key={offer.technology}>
@@ -157,21 +156,17 @@ export function Road({
 
 type StreetOffer = StreetDetail["offers"][number];
 
-/** An offer's retail speed, or null where nothing was filed. */
 function speedOf(offer: StreetOffer): number | null {
   return offer.sold_mbps === null || offer.sold_mbps === undefined
     ? null
     : Number(offer.sold_mbps);
 }
 
-/** Operators that sell to other operators and not to a household. */
+// sell to other operators, not households
 const WHOLESALE = new Set(STREETS_INFRASTRUCTURE);
 
-/**
- * One card per operator, fastest first, and in each the lines fastest first. A row per line
- * type had Telekom four times down the list, split up by whoever sorted between them.
- * Wholesalers go last, however fast, since nobody can buy from them.
- */
+// A card per operator, fastest first, lines fastest first inside. A row per line had Telekom
+// four times down the list. Wholesalers last however fast.
 function byOperator(offers: readonly StreetOffer[]): {
   provider: string;
   name: string;
@@ -185,8 +180,7 @@ function byOperator(offers: readonly StreetOffer[]): {
   return [...groups.entries()]
     .map(([provider, lines]) => {
       const sorted = [...lines].sort((a, b) => (speedOf(b) ?? -1) - (speedOf(a) ?? -1));
-      // the brand people know, as everywhere else on the site: the register spells some in
-      // capitals and runs United Fiber together
+      // the brand, the register spells some in capitals and runs United Fiber together
       return { provider, name: brandOf(provider).name, lines: sorted };
     })
     .sort(
@@ -197,7 +191,7 @@ function byOperator(offers: readonly StreetOffer[]): {
     );
 }
 
-/** A street has no point of its own, so stand in the middle of its box. */
+// no point of its own, so the middle of its box
 function centre(bbox: readonly number[]): [number, number] | null {
   const [west, south, east, north] = bbox;
   if (west === undefined || south === undefined || east === undefined || north === undefined) {

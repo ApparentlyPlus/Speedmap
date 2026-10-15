@@ -1,8 +1,4 @@
-"""Generate both sides of the tile contract from schema/tiles.yaml.
-
-Field names in a vector tile are an API with no enforcement: a renderer asking for a field the
-builder stopped writing gets undefined, paints its fallback, and says nothing.
-"""
+"""Generate both sides of the tile contract from schema/tiles.yaml, a missing field fails silently otherwise."""
 
 from __future__ import annotations
 
@@ -14,9 +10,7 @@ from typing import Any
 
 import yaml
 
-# both generated files get linted, so descriptions are wrapped here and never emitted as
-# one long line
-WIDTH = 92
+WIDTH = 92  # the output gets linted
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "schema" / "tiles.yaml"
@@ -25,8 +19,6 @@ TYPESCRIPT_OUT = ROOT / "web" / "src" / "map" / "tiles.ts"
 
 BANNER = "Generated from schema/tiles.yaml. Edit the schema and regenerate, never this file."
 
-# A schema unit becomes a type unit. Several prototype bugs were a number of the right
-# shape and the wrong unit, and nothing objected.
 BRANDED = {"mbps": "Mbps"}
 
 PYTHON_TYPES = {"integer": "int", "number": "float", "string": "str"}
@@ -34,7 +26,6 @@ TYPESCRIPT_TYPES = {"integer": "number", "number": "number", "string": "string"}
 
 
 def wrapped(text: str, prefix: str) -> list[str]:
-    """A description wrapped to the line length, each line with its own comment marker."""
     flat = " ".join(str(text).split())
     return [prefix + line for line in textwrap.wrap(flat, WIDTH - len(prefix))]
 
@@ -60,24 +51,16 @@ def python_source(schema: dict[str, Any]) -> str:
         by_provider = {str(spec["provider"]): field for field, spec in fields.items() if "provider" in spec}
         if by_provider:
             lines += [
-                "# The operator each per-operator field belongs to. The builder pivots the",
-                "# provider table through this, so an operator with no field here is not",
-                "# written rather than written under a guessed name.",
+                "# operator code -> field, an operator missing here isn't written",
                 f"{upper}_BY_PROVIDER: Final[dict[str, str]] = {{",
             ]
             lines += [f'    "{code}": "{field}",' for code, field in by_provider.items()]
             lines += ["}", ""]
 
-        wholesale = [
-            str(spec["provider"])
-            for spec in fields.values()
-            if spec.get("role") == "infrastructure"
-        ]
+        wholesale = [str(spec["provider"]) for spec in fields.values() if spec.get("role") == "infrastructure"]
         if wholesale:
             lines += [
-                "# The operators here who retail nothing to a household: wholesale builders,",
-                "# and anyone who files services and publishes no tariff. Drawn like the rest",
-                "# and listed apart, because they are not a supplier anyone can choose.",
+                "# drawn but listed apart, nobody can buy from them directly",
                 f"{upper}_INFRASTRUCTURE: Final[tuple[str, ...]] = (",
             ]
             lines += [f'    "{code}",' for code in wholesale]
@@ -91,8 +74,7 @@ def python_source(schema: dict[str, Any]) -> str:
     lines += ["LAYERS: Final = (", *[f'    "{name}",' for name in schema["layers"]], ")", ""]
 
     lines += [
-        "# What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then",
-        "# layer, then the fields of it the style reads.",
+        "# archive -> layer -> fields the style reads, for tools/slim_basemap.py",
         "BASEMAP: Final[dict[str, dict[str, tuple[str, ...]]]] = {",
     ]
     for archive, layers in schema["basemap"].items():
@@ -138,7 +120,7 @@ def typescript_source(schema: dict[str, Any]) -> str:
         by_provider = {str(spec["provider"]): field for field, spec in fields.items() if "provider" in spec}
         if by_provider:
             lines += [
-                "/** The field each operator's speed is written under, for the filter. */",
+                "/** operator code -> field, for the filter */",
                 f"export const {name.upper()}_BY_PROVIDER: Readonly<",
                 f"  Record<string, keyof {typed}>",
                 "> = {",
@@ -146,28 +128,17 @@ def typescript_source(schema: dict[str, Any]) -> str:
             lines += [f'  {code}: "{field}",' for code, field in by_provider.items()]
             lines += ["};", ""]
 
-        wholesale = [
-            str(spec["provider"])
-            for spec in fields.values()
-            if spec.get("role") == "infrastructure"
-        ]
+        wholesale = [str(spec["provider"]) for spec in fields.values() if spec.get("role") == "infrastructure"]
         if wholesale:
             lines += [
-                "/**",
-                " * The operators here who retail nothing to a household: wholesale builders,",
-                " * and anyone who files services and publishes no tariff. Drawn like the rest",
-                " * and listed apart, because they are not a supplier anyone can choose.",
-                " */",
+                "// drawn but listed apart, nobody can buy from them directly",
                 f"export const {name.upper()}_INFRASTRUCTURE: readonly string[] = [",
             ]
             lines += [f'  "{code}",' for code in wholesale]
             lines += ["];", ""]
 
     lines += [
-        "/**",
-        " * What tools/slim_basemap.py keeps of the archives built elsewhere: archive, then",
-        " * layer, then the fields of it the style reads.",
-        " */",
+        "// archive -> layer -> fields the style reads, for tools/slim_basemap.py",
         "export const BASEMAP: Readonly<",
         "  Record<string, Readonly<Record<string, readonly string[]>>>",
         "> = {",
@@ -183,20 +154,13 @@ def typescript_source(schema: dict[str, Any]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--check", action="store_true",
-        help="fail if the generated files are not what the schema says",
-    )
-    asked = parser.parse_args()
+    parser.add_argument("--check", action="store_true", help="fail if the generated files are not what the schema says")
+    args = parser.parse_args()
 
     schema = load()
     wanted = {PYTHON_OUT: python_source(schema), TYPESCRIPT_OUT: typescript_source(schema)}
-
-    stale = [
-        path for path, body in wanted.items()
-        if not path.exists() or path.read_text(encoding="utf-8") != body
-    ]
-    if asked.check:
+    stale = [p for p, body in wanted.items() if not p.exists() or p.read_text(encoding="utf-8") != body]
+    if args.check:
         for path in stale:
             print(f"stale: {path.relative_to(ROOT)}", file=sys.stderr)
         if stale:

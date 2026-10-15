@@ -64,6 +64,22 @@ export type Strings = {
   readonly fewer: string;
   readonly groupEnough: string;
   readonly groupSlower: string;
+  readonly privacyTitle: string;
+  readonly privacyIntro: string;
+  readonly privacyKeepHead: string;
+  readonly privacyLog: string;
+  readonly privacyThrottle: string;
+  readonly privacyReport: string;
+  readonly privacyBrowser: string;
+  readonly privacyOthersHead: string;
+  readonly privacyCloudflare: string;
+  readonly privacyOperators: string;
+  readonly privacyLinks: string;
+  readonly privacyRightsHead: string;
+  readonly privacyRights: string;
+  readonly privacyWhoHead: string;
+  readonly privacyWho: string;
+  readonly privacyContact: string;
   readonly creditsLink: string;
   readonly creditsHome: string;
   readonly creditsTitle: string;
@@ -154,6 +170,22 @@ export const el: Strings = {
   fewer: "λιγότερα",
   groupEnough: "Φτάνουν για ένα σπιτικό",
   groupSlower: "Πιο αργά απ' όσο θέλει ένα σπιτικό",
+  privacyTitle: "Τι κρατάμε για εσάς",
+  privacyIntro: "Σχεδόν τίποτα. Δεν έχει λογαριασμούς, cookies ή διαφημίσεις, και η σελίδα δεν φορτώνει τίποτα από άλλους: ούτε στατιστικά, ούτε γραμματοσειρές, ούτε χάρτη.",
+  privacyKeepHead: "Τι κρατάμε",
+  privacyLog: "Ο server σημειώνει κάθε αίτημα: την ώρα, τι ζητήθηκε και ποιος browser το ζήτησε. Ό,τι πληκτρολογείτε στην αναζήτηση σβήνεται πριν γραφτεί. Η διεύθυνση που ανοίξατε φαίνεται στο αίτημα, γι' αυτό η IP σας γράφεται χωρίς το τελευταίο της κομμάτι: φτάνει για να δούμε ένα δίκτυο που μας βομβαρδίζει, όχι για να δείξει ένα σπίτι. Το αρχείο σβήνεται μετά από 14 ημέρες και το διαβάζουμε μόνο για βλάβες και κατάχρηση.",
+  privacyThrottle: "Για να μη μας χρησιμοποιεί κάποιο script, μετράμε πόσα αιτήματα κάνει κάθε IP. Η μέτρηση ζει μόνο στη μνήμη, δεν γράφεται πουθενά και ξεχνιέται μέσα σε μία ώρα.",
+  privacyReport: "Αν μας γράψετε ότι κάτι είναι λάθος, κρατάμε το κείμενο και τη διεύθυνση που αφορά, όχι ποιος το έστειλε. Μη γράφετε εκεί προσωπικά στοιχεία.",
+  privacyBrowser: "Στον browser σας δεν μένει τίποτα, εκτός από μία ημερομηνία και ώρα που κρατάμε όσο είναι ανοιχτή η καρτέλα: πότε ξαναφόρτωσε η σελίδα μετά από ενημέρωση, για να μην το κάνει ξανά και ξανά.",
+  privacyOthersHead: "Τι βλέπουν άλλοι",
+  privacyCloudflare: "Η σελίδα περνάει από το Cloudflare, που τη φέρνει γρήγορα και την προστατεύει από επιθέσεις. Όπως κάθε τέτοια υπηρεσία, το Cloudflare βλέπει την IP σας και τι ζητάτε, και το χειρίζεται με τους δικούς του όρους.",
+  privacyOperators: "Όταν ανοίγετε μια διεύθυνση, μπορεί να ρωτήσουμε τους παρόχους αν φτάνει γραμμή εκεί. Ρωτάει ο δικός μας server, οπότε ο πάροχος βλέπει τη διεύθυνση αλλά όχι εσάς.",
+  privacyLinks: "Οι σύνδεσμοι προς τους παρόχους και το Skroutz ανοίγουν τις δικές τους σελίδες, με τους δικούς τους όρους. Από εμάς μαθαίνουν μόνο ότι ήρθατε από το speedmap.gr.",
+  privacyRightsHead: "Τα δικαιώματά σας",
+  privacyRights: "Αφού δεν κρατάμε ολόκληρη IP ούτε τίποτα άλλο που να σας ταυτίζει, συνήθως δεν έχουμε τι να σας δείξουμε. Μπορείτε όμως να ρωτήσετε, ή να ζητήσετε να σβηστεί μια αναφορά που στείλατε. Αν θεωρείτε ότι δεν το χειριστήκαμε σωστά, μπορείτε να απευθυνθείτε στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα (dpa.gr).",
+  privacyWhoHead: "Ποιος το τρέχει",
+  privacyWho: "Το speedmap.gr είναι προσωπικό, μη εμπορικό έργο του ApparentlyPlus.",
+  privacyContact: "Γράψτε στο {email}.",
   creditsLink: "Πηγές",
   creditsHome: "Αρχική",
   creditsTitle: "Πηγές και άδειες",
@@ -290,6 +322,22 @@ export const en: Strings = {
   fewer: "fewer",
   groupEnough: "Enough for a household",
   groupSlower: "Slower than a household wants",
+  privacyTitle: "What we keep about you",
+  privacyIntro: "Next to nothing. There are no accounts, cookies or ads, and the page loads nothing from anyone else: no analytics, no fonts, no map.",
+  privacyKeepHead: "What we keep",
+  privacyLog: "The server notes every request: the time, what was asked for and which browser asked. What you type into the search is removed before it is written. The address you open does show in the request, so your IP is written without its last part: enough to see one network hammering us, not enough to point at a house. The log is deleted after 14 days, and we read it only for faults and abuse.",
+  privacyThrottle: "To stop scripts from using us, we count how many requests each IP makes. The count lives in memory only, is never written down and is forgotten within an hour.",
+  privacyReport: "If you tell us something looks wrong, we keep what you wrote and the address it is about, not who sent it. Please don't put personal details in it.",
+  privacyBrowser: "Nothing stays in your browser except one time we keep while the tab is open: when the page last reloaded itself after an update, so it doesn't do it over and over.",
+  privacyOthersHead: "What others see",
+  privacyCloudflare: "The site is served through Cloudflare, which makes it fast and shields it from attacks. Like any such service, Cloudflare sees your IP and what you ask for, and handles that under its own terms.",
+  privacyOperators: "When you open an address, we may ask the operators whether a line reaches it. Our server asks, so the operator sees the address but not you.",
+  privacyLinks: "Links to operators and to Skroutz open their own pages, under their own terms. All they learn from us is that you came from speedmap.gr.",
+  privacyRightsHead: "Your rights",
+  privacyRights: "Since we keep no whole IP and nothing else that identifies you, there is usually nothing to show you. You can still ask, or ask us to delete a report you sent. If you think we got it wrong, you can complain to the Hellenic Data Protection Authority (dpa.gr).",
+  privacyWhoHead: "Who runs it",
+  privacyWho: "speedmap.gr is a personal, non-commercial project by ApparentlyPlus.",
+  privacyContact: "Write to {email}.",
   creditsLink: "Sources",
   creditsHome: "Home",
   creditsTitle: "Sources and licences",

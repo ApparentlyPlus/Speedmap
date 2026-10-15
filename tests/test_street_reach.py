@@ -1,5 +1,3 @@
-"""Who reaches a street and how fast: one derivation, read two ways (they used to be two steps)."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -19,63 +17,53 @@ TOUCHED = (
     "raw_wiredservice, raw_geo_coverage_copper, address_coverage, street, street_provider"
 )
 
-# a cabinet in Greek Grid about 500 m a side, and a street inside it
+# ~500 m cabinet in Greek Grid
 CABINET_2100 = (
     '{"type": "MultiPolygon", "coordinates": '
     "[[[[500000.0, 4520000.0], [500500.0, 4520000.0], "
     "[500500.0, 4520500.0], [500000.0, 4520000.0]]]]}"
 )
 
-# inside that cabinet once reprojected, as a line, since a street is a line
 INSIDE_LINE = "MULTILINESTRING((24.0050 40.8340, 24.0060 40.8350))"
 OUTSIDE_LINE = "MULTILINESTRING((25.0000 37.0000, 25.0010 37.0010))"
 
 
-@pytest.fixture
-def reachable(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow]]:
-    db.execute(f"truncate {TOUCHED} cascade")
-    db.execute(
-        "insert into provider (code, display_name, kind) values ('TEST', 'Test', 'altnet') "
-        "on conflict (code) do nothing"
-    )
-    db.execute(
-        "insert into source (name, url) values ('register', 'https://example.invalid') "
-        "on conflict (name) do nothing"
-    )
-    # a municipality the street and its doors both belong to
-    db.execute(
+def _reset(conn: psycopg.Connection[TupleRow]) -> None:
+    conn.execute(f"truncate {TOUCHED} cascade")
+    conn.execute("insert into provider (code, display_name, kind) values ('TEST', 'Test', 'altnet') on conflict (code) do nothing")
+    conn.execute("insert into source (name, url) values ('register', 'https://example.invalid') on conflict (name) do nothing")
+    conn.execute(
         "insert into municipality (id, kallikratis_code, name, geom) values "
         "(1, '0000', 'ΔΗΜΟΣ ΤΕΣΤ', %s) on conflict (id) do nothing",
         ("SRID=4326;MULTIPOLYGON(((24.0 40.8, 24.1 40.8, 24.1 40.9, 24.0 40.8)))",),
     )
-    db.commit()
+    conn.commit()
+
+
+@pytest.fixture
+def reachable(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[TupleRow]]:
+    _reset(db)
     yield db
     db.execute(f"truncate {TOUCHED} cascade")
     db.commit()
 
 
-def steps() -> list[Step]:
-    """065 as well as 110.
-
-    110 reads `address.street_id` instead of matching names, so running it without 065 would
-    test a street with nothing attached and pass by finding nothing. Discovery returns steps
-    in filename order, which is the order they run in.
-    """
+# 110 reads address.street_id, so without 065 it'd find nothing and pass
+def _steps() -> list[Step]:
     wanted = {PIN_STEP, REACH_STEP, SPEED_STEP}
     return [s for s in discover() if s.name in wanted]
 
 
-def provider_id(conn: psycopg.Connection[TupleRow]) -> int:
+def _provider(conn: psycopg.Connection[TupleRow]) -> int:
     row = conn.execute("select id from provider where code = 'TEST'").fetchone()
     assert row is not None
     return int(row[0])
 
 
-def seed_street(conn: psycopg.Connection[TupleRow], geom: str = INSIDE_LINE) -> int:
+def _street(conn: psycopg.Connection[TupleRow], geom: str = INSIDE_LINE) -> int:
     row = conn.execute(
         "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom, "
-        "municipality_id) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'TEST', 'ΤΕΣΤ', 'residential', 1, %s, 1) "
-        "returning id",
+        "municipality_id) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'TEST', 'ΤΕΣΤ', 'residential', 1, %s, 1) returning id",
         (f"SRID=4326;{geom}",),
     ).fetchone()
     conn.commit()
@@ -83,60 +71,38 @@ def seed_street(conn: psycopg.Connection[TupleRow], geom: str = INSIDE_LINE) -> 
     return int(row[0])
 
 
-def seed_area(
-    conn: psycopg.Connection[TupleRow],
-    *,
-    band: int | None = 6,
-    family: str = "copper",
-    technology: str = "VECT_VDSL",
-    scale: float = 1.0,
-) -> None:
-    """A filed cabinet. `scale` blows it up past the cap, into a district."""
+def _area(conn: psycopg.Connection[TupleRow], *, band: int | None = 6, family: str = "copper",
+          technology: str = "VECT_VDSL", scale: float = 1.0) -> None:
+    # scale blows it up past the cap into a district
     conn.execute(
         "insert into coverage_area (source, source_ref, provider_id, technology, family, "
         "speed_band_id, assertion, geom) values ('register', %s, %s, %s, %s, %s, 'declared', "
         "st_multi(st_scale(st_transform(st_setsrid(st_geomfromgeojson(%s), 2100), 4326), "
         "st_point(%s, %s), 'POINT(24.005 40.834)'::geometry))::geography)",
-        (f"cab-{technology}-{scale}", provider_id(conn), technology, family, band,
-         CABINET_2100, scale, scale),
+        (f"cab-{technology}-{scale}", _provider(conn), technology, family, band, CABINET_2100, scale, scale),
     )
     conn.commit()
 
 
-def seed_door(conn: psycopg.Connection[TupleRow], *, band: int | None, family: str = "fiber",
-              technology: str = "FTTH") -> None:
-    """An address on the street, with a filing against it."""
+def _door(conn: psycopg.Connection[TupleRow], *, band: int | None, family: str = "fiber",
+          technology: str = "FTTH") -> None:
     conn.execute(
-        "insert into address (street, street_fold, geom, search_key, latin_key, "
-        "municipality_id) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'SRID=4326;POINT(24.0055 40.8345)', "
-        "'ΤΕΣΤ', 'TEST', 1)"
+        "insert into address (street, street_fold, geom, search_key, latin_key, municipality_id) "
+        "values ('ΤΕΣΤ', 'ΤΕΣΤ', 'SRID=4326;POINT(24.0055 40.8345)', 'ΤΕΣΤ', 'TEST', 1)"
     )
     conn.execute(
         "insert into address_coverage (address_id, provider_id, technology, family, "
         "matched_by, speed_band_id, built_by) select a.id, %s, %s, %s, 'point', %s, '050' "
         "from address a where a.street_fold = 'ΤΕΣΤ'",
-        (provider_id(conn), technology, family, band),
+        (_provider(conn), technology, family, band),
     )
     conn.commit()
 
 
-def seed_builder_point(
-    conn: psycopg.Connection[TupleRow],
-    *,
-    lon: float = 24.0055,
-    lat: float = 40.8345,
-    prempass: int = 12,
-    addressed: bool = False,
-) -> None:
-    """Built fiber the register placed and never named a street for.
-
-    `addressed` links it to a door, as for a filing 025 could place. The third route must then
-    leave it alone, or it gets counted twice.
-    """
-    conn.execute(
-        "update provider set builds_own_network = true, register_id = 903 "
-        "where code = 'TEST'"
-    )
+def _built(conn: psycopg.Connection[TupleRow], *, lon: float = 24.0055, lat: float = 40.8345, prempass: int = 12,
+           addressed: bool = False) -> None:
+    # fiber with no street name. addressed links it to a door like 025 would
+    conn.execute("update provider set builds_own_network = true, register_id = 903 where code = 'TEST'")
     conn.execute(
         "insert into raw_coverpoint (coverid, infrprov, prempass, address, point) values "
         "('built-1', 903, %s, '64007,ΤΕΣΤ, ,Δ. ΤΕΣΤ', st_setsrid(st_point(%s, %s), 4326))",
@@ -144,285 +110,165 @@ def seed_builder_point(
     )
     if addressed:
         conn.execute(
-            "insert into address (street, street_fold, geom, search_key, latin_key, "
-            "municipality_id) values ('ΤΕΣΤ', 'ΤΕΣΤ', 'SRID=4326;POINT(24.0055 40.8345)', "
-            "'ΤΕΣΤ', 'TEST', 1)"
+            "insert into address (street, street_fold, geom, search_key, latin_key, municipality_id) "
+            "values ('ΤΕΣΤ', 'ΤΕΣΤ', 'SRID=4326;POINT(24.0055 40.8345)', 'ΤΕΣΤ', 'TEST', 1)"
         )
         conn.execute(
-            "insert into address_point (address_id, coverid) "
-            "select a.id, 'built-1' from address a where a.street_fold = 'ΤΕΣΤ'"
+            "insert into address_point (address_id, coverid) select a.id, 'built-1' from address a "
+            "where a.street_fold = 'ΤΕΣΤ'"
         )
     conn.commit()
 
 
-def reach(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, float | None]]:
+def _reach(conn: psycopg.Connection[TupleRow]) -> list[tuple[str, float | None]]:
     rows = conn.execute(
-        "select p.code, sp.mbps from street_provider sp "
-        "join provider p on p.id = sp.provider_id order by p.code"
+        "select p.code, sp.mbps from street_provider sp join provider p on p.id = sp.provider_id order by p.code"
     ).fetchall()
     return [(str(code), None if mbps is None else float(mbps)) for code, mbps in rows]
 
 
-def figure(conn: psycopg.Connection[TupleRow]) -> float | None:
+def _best(conn: psycopg.Connection[TupleRow]) -> float | None:
     row = conn.execute("select best_mbps from street").fetchone()
     assert row is not None
     return None if row[0] is None else float(row[0])
 
 
-def test_a_street_with_no_door_is_reached_by_the_cabinet_it_crosses(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
-    """Half the streets have no address filed and people still live on them.
-
-    Vectoring retails at 100, and band 6 (100-300 Mbps) caps it at 300, which cuts nothing.
-    """
-    seed_street(reachable)
-    seed_area(reachable, band=6)
-    run(reachable, steps())
-    assert reach(reachable) == [("TEST", 100.0)]
+def _figure(conn: psycopg.Connection[TupleRow], band: int | None, technology: str) -> float | None:
+    _reset(conn)
+    _street(conn)
+    _area(conn, band=band, technology=technology)
+    run(conn, _steps())
+    return _best(conn)
 
 
-def test_a_street_with_no_door_is_painted_by_it_too(reachable: psycopg.Connection[TupleRow]) -> None:
-    """The colour and the filter come from one row, so they can't disagree."""
-    seed_street(reachable)
-    seed_area(reachable, band=6)
-    run(reachable, steps())
-    assert figure(reachable) == 100.0
+def test_routes(reachable: psycopg.Connection[TupleRow]) -> None:
+    # half the streets have no door filed, the cabinet still reaches them
+    _street(reachable)
+    _area(reachable, band=6)
+    run(reachable, _steps())
+    assert _reach(reachable) == [("TEST", 100.0)]
+    assert _best(reachable) == 100.0
+
+    _reset(reachable)
+    _street(reachable, OUTSIDE_LINE)
+    _area(reachable, band=6)
+    run(reachable, _steps())
+    assert _reach(reachable) == []
+    assert _best(reachable) is None
+
+    # INALAN files 112,739 doors and no areas
+    _reset(reachable)
+    _street(reachable)
+    _door(reachable, band=8)
+    run(reachable, _steps())
+    assert _reach(reachable) == [("TEST", 1000.0)]
+
+    _reset(reachable)
+    _street(reachable)
+    _area(reachable, band=6)
+    _door(reachable, band=8)
+    run(reachable, _steps())
+    assert _reach(reachable) == [("TEST", 1000.0)]
+    assert _best(reachable) == 1000.0
+    run(reachable, _steps())
+    assert _reach(reachable) == [("TEST", 1000.0)]
 
 
-def test_a_street_outside_the_cabinet_is_reached_by_nobody(reachable: psycopg.Connection[TupleRow]) -> None:
-    seed_street(reachable, OUTSIDE_LINE)
-    seed_area(reachable, band=6)
-    run(reachable, steps())
-    assert reach(reachable) == []
-    assert figure(reachable) is None
+def test_routes_excluded(reachable: psycopg.Connection[TupleRow]) -> None:
+    # Λίμνης Κορώνειας only crosses 36.8 km2 filings
+    _street(reachable)
+    _area(reachable, band=6, scale=40.0)
+    run(reachable, _steps())
+    assert _reach(reachable) == []
+    assert _best(reachable) is None
+    assert reachable.execute("select cabinet_m2()").fetchone() == (5_000_000.0,)
+
+    # 5G would put 40,775 of 40,796 streets at exactly 1000
+    _reset(reachable)
+    _street(reachable)
+    _door(reachable, band=7, family="wireless", technology="FWA_5G")
+    run(reachable, _steps())
+    assert _reach(reachable) == []
+    assert _best(reachable) is None
 
 
-def test_a_door_reaches_a_street_its_cabinets_do_not(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Builders file doors and no polygons. INALAN has 112,739 doors and not one area."""
-    seed_street(reachable)
-    seed_door(reachable, band=8)
-    run(reachable, steps())
-    assert reach(reachable) == [("TEST", 1000.0)]
-
-
-def test_both_routes_are_asked_and_the_best_wins(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Both routes are asked, and the faster line wins."""
-    seed_street(reachable)
-    seed_area(reachable, band=6)
-    seed_door(reachable, band=8)
-    run(reachable, steps())
-    assert reach(reachable) == [("TEST", 1000.0)]
-    assert figure(reachable) == 1000.0
-
-
-def test_a_district_sized_filing_does_not_name_a_street(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Λίμνης Κορώνειας crosses only three filings of 36.8 km2. It was drawn at 100 and reported
-    as nothing at all, along with 3,188 others."""
-    seed_street(reachable)
-    seed_area(reachable, band=6, scale=40.0)
-    run(reachable, steps())
-    assert reach(reachable) == []
-    assert figure(reachable) is None
-
-
-def test_the_cap_is_the_one_the_panel_uses(db: psycopg.Connection[TupleRow]) -> None:
-    """The cap lived in two files, copied by hand, until migration 0046. The API asks for it by name."""
-    row = db.execute("select cabinet_m2()").fetchone()
-    assert row == (5_000_000.0,)
-
-
-def test_mobile_does_not_reach_a_street(reachable: psycopg.Connection[TupleRow]) -> None:
-    """5G reaches nearly every address with a 300-1000 band. Counted, it put 40,775 of 40,796
-    streets with a figure at exactly 1000."""
-    seed_street(reachable)
-    seed_door(reachable, band=7, family="wireless", technology="FWA_5G")
-    run(reachable, steps())
-    assert reach(reachable) == []
-    assert figure(reachable) is None
-
-
-def test_a_withdrawn_filing_stops_reaching_the_street(reachable: psycopg.Connection[TupleRow]) -> None:
-    """The step recomputes from scratch.
-
-    Both statements used to only write, so a street that qualified under a looser rule kept
-    that figure forever.
-    """
-    street_id = seed_street(reachable)
-    seed_area(reachable, band=6)
-    run(reachable, steps())
-    assert figure(reachable) == 100.0
+def test_withdrawn(reachable: psycopg.Connection[TupleRow]) -> None:
+    street_id = _street(reachable)
+    _area(reachable, band=6)
+    run(reachable, _steps())
+    assert _best(reachable) == 100.0
 
     reachable.execute("delete from coverage_area")
     reachable.commit()
-    run(reachable, steps())
-    assert reach(reachable) == []
-    assert figure(reachable) is None
-    # the street is untouched, only what was claimed about it is gone
-    assert reachable.execute(
-        "select count(*) from street where id = %s", (street_id,)
-    ).fetchone() == (1,)
+    run(reachable, _steps())
+    assert _reach(reachable) == []
+    assert _best(reachable) is None
+    assert reachable.execute("select count(*) from street where id = %s", (street_id,)).fetchone() == (1,)
 
 
-def test_rebuilding_does_not_double_the_operators(reachable: psycopg.Connection[TupleRow]) -> None:
-    seed_street(reachable)
-    seed_area(reachable, band=6)
-    seed_door(reachable, band=8)
-    run(reachable, steps())
-    run(reachable, steps())
-    assert reach(reachable) == [("TEST", 1000.0)]
+def test_figures(reachable: psycopg.Connection[TupleRow]) -> None:
+    # sold speed, not the register's band and not max_plausible_mbps
+    assert _figure(reachable, band=6, technology="VECT_VDSL") == 100.0
+    # band 3 (2-10) caps it, band 8 (>= 1000) lifts nothing
+    assert _figure(reachable, band=3, technology="VECT_VDSL") == 10.0
+    assert _figure(reachable, band=8, technology="VECT_VDSL") == 100.0
+    # 70.8% of fiber filings have no band, least() skips nulls
+    assert _figure(reachable, band=None, technology="VECT_VDSL") == 100.0
+    # ADSL filed at 100-300 reached 1,061 streets
+    assert _figure(reachable, band=6, technology="ADSL") == 24.0
+    assert _figure(reachable, band=7, technology="VDSL") == 50.0
 
-
-def test_the_figure_is_what_the_line_is_sold_at(reachable: psycopg.Connection[TupleRow]) -> None:
-    """The technology sets the figure, and the register's own speeds aren't consulted.
-
-    max_plausible_mbps isn't used either. It's a physics ceiling nobody sells: every vectored
-    plan in Greece is exactly 100, whatever vectoring can do.
-    """
-    seed_street(reachable)
-    seed_area(reachable, band=6, technology="VECT_VDSL")
-    run(reachable, steps())
-    assert figure(reachable) == 100.0
-
-
-def test_the_filing_can_lower_the_figure_but_never_lift_it(reachable: psycopg.Connection[TupleRow]) -> None:
-    """The technology sets the figure and the filing caps it: least(sold, the band's top).
-
-    An operator filing a low band is telling us this particular line is bad, which beats the
-    national retail figure.
-    """
-    seed_street(reachable)
-    # band 3 is 2-10 Mbps, below vectoring's retail speed, so it pulls the figure down
-    seed_area(reachable, band=3, technology="VECT_VDSL")
-    run(reachable, steps())
-    assert figure(reachable) == 10.0
-
-    # band 8 is >= 1000, far above, and lifts nothing
-    reachable.execute("delete from coverage_area")
-    reachable.commit()
-    seed_area(reachable, band=8, technology="VECT_VDSL")
-    run(reachable, steps())
-    assert figure(reachable) == 100.0
-
-
-def test_an_unfiled_band_caps_nothing(reachable: psycopg.Connection[TupleRow]) -> None:
-    """70.8% of the million fiber filings carry no band, so this is the common path.
-
-    least() ignores nulls. That quietly invented 24 Mbps from nothing in 130, and is exactly
-    right here: no band filed, nothing caps the line.
-    """
-    seed_street(reachable)
-    seed_area(reachable, band=None, technology="VECT_VDSL")
-    run(reachable, steps())
-    assert figure(reachable) == 100.0
-
-
-def test_the_open_topped_band_caps_nothing_either(reachable: psycopg.Connection[TupleRow]) -> None:
-    """">= 1000 Mbps" has no ceiling, and a null ceiling isn't a cap of zero.
-
-    Every fiber filing with a band has this one, so getting it wrong zeroes the fiber map.
-    """
-    seed_street(reachable)
-    seed_door(reachable, band=8, family="fiber", technology="FTTH")
-    run(reachable, steps())
-    assert figure(reachable) == 1000.0
-
-
-def test_adsl_is_twenty_four(reachable: psycopg.Connection[TupleRow]) -> None:
-    """The register files ADSL at 100-300 Mbps, and five rows at a gigabit.
-
-    Physically impossible, faithfully carried, and it reached 1,061 ADSL-only streets.
-    """
-    seed_street(reachable)
-    seed_area(reachable, band=6, technology="ADSL")
-    run(reachable, steps())
-    assert figure(reachable) == 24.0
-
-
-def test_plain_vdsl_is_fifty(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Every VDSL plan on file is 50 (Telekom 50, Vodafone 50), whatever the cable could do."""
-    seed_street(reachable)
-    seed_area(reachable, band=7, technology="VDSL")
-    run(reachable, steps())
-    assert figure(reachable) == 50.0
-
-
-def test_fiber_is_a_gigabit(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Plans run 100 to 3000, and the register's top band is open-ended at 1000."""
-    seed_street(reachable)
-    seed_door(reachable, band=None, family="fiber", technology="FTTH")
-    run(reachable, steps())
-    assert figure(reachable) == 1000.0
-
-
-def test_fiber_with_no_band_is_still_fiber(reachable: psycopg.Connection[TupleRow]) -> None:
-    """The case that decided it.
-
-    758,885 of 1,071,133 FTTH filings carry no speed band, so 11,880 streets with fiber down
-    them were painted as copper.
-    """
-    seed_street(reachable)
-    seed_area(reachable, band=6, technology="VECT_VDSL")
-    seed_door(reachable, band=None, family="fiber", technology="FTTH")
-    run(reachable, steps())
-    assert figure(reachable) == 1000.0
-
-
-def test_the_best_line_wins(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Fiber beats vectoring beats VDSL beats ADSL, by their own figures."""
-    seed_street(reachable)
-    for tech in ("ADSL", "VDSL", "VECT_VDSL"):
-        seed_area(reachable, band=None, technology=tech)
-    run(reachable, steps())
-    assert figure(reachable) == 100.0
-
-
-def test_only_four_figures_are_retailed(reachable: psycopg.Connection[TupleRow]) -> None:
-    """Every speed a street can be retailed at, and so every band the legend can show.
-
-    A filing can only cap a figure below its line's retail speed, so nothing lands in a band
-    above one of these.
-    """
     sold = reachable.execute(
-        "select distinct sold_mbps from technology "
-        "where family in ('copper', 'fiber') and sold_mbps is not null order by 1"
+        "select distinct sold_mbps from technology where family in ('copper', 'fiber') and sold_mbps is not null order by 1"
     ).fetchall()
     assert [float(row[0]) for row in sold] == [24.0, 50.0, 100.0, 1000.0]
 
 
-def test_built_fiber_reaches_the_street_it_stands_on(reachable: psycopg.Connection[TupleRow]) -> None:
-    """A filing with no street name and no door nearby still reaches the road it's on.
+def test_figures_fiber(reachable: psycopg.Connection[TupleRow]) -> None:
+    _street(reachable)
+    _door(reachable, band=8, family="fiber", technology="FTTH")
+    run(reachable, _steps())
+    assert _best(reachable) == 1000.0
 
-    Where the address index is thin route one finds nothing: Πύλου-Νέστορος has 4,789 fiber
-    points and 50 addresses. OSM knows the road regardless.
-    """
-    seed_street(reachable)
-    seed_builder_point(reachable)
-    run(reachable, steps())
-    assert reach(reachable) == [("TEST", 1000.0)]
+    _reset(reachable)
+    _street(reachable)
+    _door(reachable, band=None, family="fiber", technology="FTTH")
+    run(reachable, _steps())
+    assert _best(reachable) == 1000.0
+
+    # 758,885 of 1,071,133 FTTH filings have no band
+    _reset(reachable)
+    _street(reachable)
+    _area(reachable, band=6, technology="VECT_VDSL")
+    _door(reachable, band=None, family="fiber", technology="FTTH")
+    run(reachable, _steps())
+    assert _best(reachable) == 1000.0
+
+    _reset(reachable)
+    _street(reachable)
+    for tech in ("ADSL", "VDSL", "VECT_VDSL"):
+        _area(reachable, band=None, technology=tech)
+    run(reachable, _steps())
+    assert _best(reachable) == 100.0
 
 
-def test_built_fiber_too_far_from_any_street_reaches_nothing(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
-    """Beyond 100 m, being the nearest street is no evidence the fiber serves it."""
-    seed_street(reachable)
-    # about 900 m east of the street: inside the municipality, outside the cut
-    seed_builder_point(reachable, lon=24.0160, lat=40.8345)
-    run(reachable, steps())
-    assert reach(reachable) == []
+def test_built(reachable: psycopg.Connection[TupleRow]) -> None:
+    # Πύλου-Νέστορος has 4,789 fiber points and 50 addresses
+    _street(reachable)
+    _built(reachable)
+    run(reachable, _steps())
+    assert _reach(reachable) == [("TEST", 1000.0)]
 
+    # ~900 m east, past the 100 m cut
+    _reset(reachable)
+    _street(reachable)
+    _built(reachable, lon=24.0160, lat=40.8345)
+    run(reachable, _steps())
+    assert _reach(reachable) == []
 
-def test_built_fiber_already_on_a_door_is_not_counted_twice(
-    reachable: psycopg.Connection[TupleRow],
-) -> None:
-    """Route three is only for filings the address layer couldn't place.
-
-    This door carries no filing of its own, so route one has nothing to report, and the empty
-    result is the whole assertion: route three saw a placed coverpoint and left it. Drop the
-    `not exists` and this returns a gigabit.
-    """
-    seed_street(reachable)
-    seed_builder_point(reachable, addressed=True)
-    run(reachable, steps())
-    assert reach(reachable) == []
+    # already on a door, route three leaves it alone. Drop the not exists and this is a gigabit
+    _reset(reachable)
+    _street(reachable)
+    _built(reachable, addressed=True)
+    run(reachable, _steps())
+    assert _reach(reachable) == []

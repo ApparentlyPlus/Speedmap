@@ -1,5 +1,3 @@
-"""Gathering what the decision needs, for one address, across providers."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -28,14 +26,13 @@ def street(db: psycopg.Connection[TupleRow]) -> Iterator[psycopg.Connection[Tupl
     db.commit()
 
 
-def provider(conn: psycopg.Connection[TupleRow], code: str) -> int:
+def _provider(conn: psycopg.Connection[TupleRow], code: str) -> int:
     row = conn.execute("select id from provider where code = %s", (code,)).fetchone()
     assert row is not None
     return int(row[0])
 
 
-def place(conn: psycopg.Connection[TupleRow], numbers: list[str]) -> list[int]:
-    """A street of addresses in one municipality, returned in the order given."""
+def _place(conn: psycopg.Connection[TupleRow], numbers: list[str]) -> list[int]:
     from normalise.build import discover, run
     from tests.test_build import seed_dimos
 
@@ -57,71 +54,66 @@ def place(conn: psycopg.Connection[TupleRow], numbers: list[str]) -> list[int]:
     return ids
 
 
-def give_fiber(conn: psycopg.Connection[TupleRow], address_id: int, code: str) -> None:
+def _fiber(conn: psycopg.Connection[TupleRow], address_id: int, code: str) -> None:
     conn.execute(
         "insert into address_coverage (address_id, provider_id, technology, family, matched_by) "
         "values (%s, %s, 'FTTH', 'fiber', 'point')",
-        (address_id, provider(conn, code)),
+        (address_id, _provider(conn, code)),
     )
     conn.commit()
 
 
-def make_wholesale(conn: psycopg.Connection[TupleRow], infra: str, seller: str) -> None:
-    """Fifty filings, the minimum the view counts as an agreement and not a data error."""
+def _wholesale(conn: psycopg.Connection[TupleRow], infra: str, seller: str) -> None:
+    # 50 is the least the view takes as a deal and not a typo
     conn.execute(
         "insert into coverage (source, source_ref, provider_id, infra_provider_id, technology, "
         "family, assertion) select 'register', 'w' || g, %s, %s, 'FTTH', 'fiber', 'declared' "
         "from generate_series(1, 50) g",
-        (provider(conn, seller), provider(conn, infra)),
+        (_provider(conn, seller), _provider(conn, infra)),
     )
     conn.execute("refresh materialized view wholesale")
     conn.commit()
 
 
-def test_fiber_on_the_street_infers_for_its_owner(street: psycopg.Connection[TupleRow]) -> None:
-    here, neighbour = place(street, ["10", "12"])
-    give_fiber(street, neighbour, "VODAFONE")
-    assert verdicts(street, here, RETAIL, now=NOW)["VODAFONE"] == INFERRED
+def _reset(conn: psycopg.Connection[TupleRow]) -> None:
+    conn.execute(f"truncate {TABLES} cascade")
+    conn.execute("refresh materialized view wholesale")
+    conn.commit()
 
 
-def test_a_provider_without_the_street_is_unknown(street: psycopg.Connection[TupleRow]) -> None:
-    here, neighbour = place(street, ["10", "12"])
-    give_fiber(street, neighbour, "VODAFONE")
-    assert verdicts(street, here, RETAIL, now=NOW)["NOVA"] == UNKNOWN
+def test_verdicts_street(street: psycopg.Connection[TupleRow]) -> None:
+    here, neighbour = _place(street, ["10", "12"])
+    _fiber(street, neighbour, "VODAFONE")
+    found = verdicts(street, here, RETAIL, now=NOW)
+    assert found["VODAFONE"] == INFERRED
+    assert found["NOVA"] == UNKNOWN
 
-
-def test_a_reseller_inherits_the_street(street: psycopg.Connection[TupleRow]) -> None:
-    """Nova sells over Telekom, so Telekom fiber on this street is Nova fiber on this street."""
-    here, neighbour = place(street, ["10", "12"])
-    give_fiber(street, neighbour, "TELEKOM")
-    make_wholesale(street, "TELEKOM", "NOVA")
-    assert verdicts(street, here, RETAIL, now=NOW)["NOVA"] == INFERRED
-
-
-def test_inheritance_does_not_run_backwards(street: psycopg.Connection[TupleRow]) -> None:
-    """Nova reselling over Telekom says nothing about Telekom reselling over Nova."""
-    here, neighbour = place(street, ["10", "12"])
-    give_fiber(street, neighbour, "NOVA")
-    make_wholesale(street, "TELEKOM", "NOVA")
-    assert verdicts(street, here, RETAIL, now=NOW)["TELEKOM"] == UNKNOWN
-
-
-def test_an_answer_for_this_door_beats_the_street(street: psycopg.Connection[TupleRow]) -> None:
-    here, neighbour = place(street, ["10", "12"])
-    give_fiber(street, neighbour, "VODAFONE")
     street.execute(
         "insert into availability (address_id, provider_id, technology, serviceable, source, "
-        "assertion, observed_at, expires_at) values (%s, %s, 'FTTH', true, 'isp-live', "
-        "'declared', %s, %s)",
-        (here, provider(street, "VODAFONE"), NOW, NOW + timedelta(days=30)),
+        "assertion, observed_at, expires_at) values (%s, %s, 'FTTH', true, 'isp-live', 'declared', %s, %s)",
+        (here, _provider(street, "VODAFONE"), NOW, NOW + timedelta(days=30)),
     )
     street.commit()
     assert verdicts(street, here, RETAIL, now=NOW)["VODAFONE"] == FRESH
 
 
-def test_only_the_scanned_provider_can_refuse(street: psycopg.Connection[TupleRow]) -> None:
-    """checked_to belongs to the operator that was walked. Nobody else's silence is a no."""
-    (here,) = place(street, ["7"])
+def test_verdicts_wholesale(street: psycopg.Connection[TupleRow]) -> None:
+    # Nova resells Telekom's lines
+    here, neighbour = _place(street, ["10", "12"])
+    _fiber(street, neighbour, "TELEKOM")
+    _wholesale(street, "TELEKOM", "NOVA")
+    assert verdicts(street, here, RETAIL, now=NOW)["NOVA"] == INFERRED
+
+    # and not the other way round
+    _reset(street)
+    here, neighbour = _place(street, ["10", "12"])
+    _fiber(street, neighbour, "NOVA")
+    _wholesale(street, "TELEKOM", "NOVA")
+    assert verdicts(street, here, RETAIL, now=NOW)["TELEKOM"] == UNKNOWN
+
+
+def test_verdicts_scan(street: psycopg.Connection[TupleRow]) -> None:
+    (here,) = _place(street, ["7"])
     street.execute("update address set checked_to = 14 where id = %s", (here,))
     street.commit()
     found = verdicts(street, here, RETAIL, now=NOW)

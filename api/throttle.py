@@ -1,13 +1,4 @@
-"""How often one caller may ask, per kind of request.
-
-Caddy can't rate-limit without a plugin it doesn't ship with, so it happens here. The Pi runs
-one API process, so a counter in memory is the whole picture, and a restart forgetting it is
-harmless: the limits are about a minute or an hour, not a day.
-
-Live checks are the one that matters. Each asks an operator on our behalf, and a loop of them
-from one visitor is how an operator would decide we're the bot. The rest are generous enough
-that only a script would meet them.
-"""
+"""Per caller rate limits. In memory is fine, the Pi runs one API process."""
 
 from __future__ import annotations
 
@@ -27,10 +18,8 @@ class Limit:
     per_s: int
 
 
-# A reader opening an address sets off a live check per operator, three at most, so this is
-# about ten addresses in ten minutes.
-PROBE = Limit("probe", 30, 600)
-ASK = Limit("ask", 20, 3600)  # addresses made because someone typed a number we didn't have
+PROBE = Limit("probe", 30, 600)  # the one that matters, ~10 addresses in 10 minutes
+ASK = Limit("ask", 20, 3600)
 REPORT = Limit("report", 5, 3600)
 SEARCH = Limit("search", 240, 60)  # a keystroke each, after the debounce
 READ = Limit("read", 600, 60)
@@ -55,7 +44,7 @@ class Throttle:
         self.swept = clock()
 
     def wait(self, caller: str, limit: Limit) -> int:
-        """Seconds until this caller may ask again, 0 when they may now. Counts the ask."""
+        """Seconds to wait, 0 if they may ask now (which counts)."""
         now = self.clock()
         if now - self.swept > 300:
             self.sweep(now)
@@ -68,8 +57,7 @@ class Throttle:
         return 0
 
     def sweep(self, now: float) -> None:
-        """Forget callers with nothing left in their window, so the table can't only grow."""
-        longest = max(one.per_s for one in (PROBE, ASK, REPORT, SEARCH, READ))
+        longest = max(x.per_s for x in (PROBE, ASK, REPORT, SEARCH, READ))
         self.seen = {key: s for key, s in self.seen.items() if s and s[-1] > now - longest}
         self.swept = now
 
@@ -78,8 +66,7 @@ throttle = Throttle()
 
 
 async def throttled(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    """Middleware. The caller is the address Caddy forwarded for, which uvicorn's
-    --proxy-headers puts in request.client."""
+    # uvicorn --proxy-headers puts Caddy's forwarded address in request.client
     caller = request.client.host if request.client is not None else "unknown"
     wait = throttle.wait(caller, limit_for(request.method, request.url.path))
     if wait:

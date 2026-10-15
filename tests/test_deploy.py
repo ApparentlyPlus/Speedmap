@@ -1,8 +1,3 @@
-"""The systemd units that run all this unattended.
-
-A unit file is code nobody runs in development and everybody depends on in production.
-"""
-
 from __future__ import annotations
 
 import configparser
@@ -11,7 +6,6 @@ import re
 from pathlib import Path
 
 import psycopg
-import pytest
 from psycopg.rows import TupleRow
 
 DEPLOY = Path(__file__).resolve().parent.parent / "deploy"
@@ -19,150 +13,77 @@ DEPLOY = Path(__file__).resolve().parent.parent / "deploy"
 UNITS = sorted(DEPLOY.glob("*.service")) + sorted(DEPLOY.glob("*.timer"))
 TIMERS = sorted(DEPLOY.glob("*.timer"))
 SERVICES = sorted(DEPLOY.glob("*.service"))
+CADDYFILE = (DEPLOY / "Caddyfile").read_text(encoding="utf-8")
 
 
-def parsed(path: Path) -> configparser.ConfigParser:
-    # units allow a key more than once, and ExecStart repeats to run steps in order
-    # and % is systemd's (%n, %i), not ConfigParser's
+def _unit(path: Path) -> configparser.ConfigParser:
+    # repeated keys are fine in systemd, and % is theirs (%n, %i)
     unit = configparser.ConfigParser(strict=False, interpolation=None)
     unit.optionxform = str  # type: ignore[method-assign, assignment]
     unit.read_string(path.read_text(encoding="utf-8"))
     return unit
 
 
-@pytest.mark.parametrize("path", UNITS, ids=lambda p: p.name)
-def test_a_unit_parses(path: Path) -> None:
-    assert parsed(path).sections()
+def test_units() -> None:
+    for path in UNITS:
+        assert _unit(path).sections(), path.name
+
+    for path in TIMERS:
+        assert path.with_suffix(".service").exists(), path.name
+        # a Pi that was off at 02:30 still runs it
+        assert _unit(path)["Timer"]["Persistent"] == "true", path.name
+        assert _unit(path)["Timer"]["OnCalendar"], path.name
+
+    for path in SERVICES:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            found = re.search(r"ExecStart=.*-m\s+([\w.]+)", line)
+            if found is not None:
+                assert importlib.util.find_spec(found.group(1)) is not None, found.group(1)
+        assert _unit(path)["Service"]["User"] == "speedmap", path.name
+
+    for path in SERVICES:
+        if "@" not in path.name:
+            assert _unit(path)["Unit"]["OnFailure"] == "speedmap-alert@%n.service", path.name
+
+    alert = _unit(DEPLOY / "speedmap-alert@.service")["Service"]
+    assert "-m alert --failed %i" in alert["ExecStart"]
+    assert alert["SupplementaryGroups"] == "systemd-journal"
+
+    # or every reader is 127.0.0.1 and they all share one limit
+    command = _unit(DEPLOY / "speedmap-api.service")["Service"]["ExecStart"]
+    assert "--proxy-headers" in command
+    assert "--forwarded-allow-ips 127.0.0.1" in command
+
+    for name in ["speedmap-register.service", "speedmap-ookla.service"]:
+        steps = [line for line in (DEPLOY / name).read_text().splitlines() if line.startswith("ExecStart=")]
+        assert steps[-1].endswith("-m publish.run --out /srv/speedmap/tiles/speedmap.pmtiles")
 
 
-@pytest.mark.parametrize("path", TIMERS, ids=lambda p: p.name)
-def test_a_timer_has_the_service_it_starts(path: Path) -> None:
-    """A timer names its service by filename. Rename one and it fires into nothing."""
-    assert path.with_suffix(".service").exists()
-
-
-@pytest.mark.parametrize("path", TIMERS, ids=lambda p: p.name)
-def test_a_missed_run_catches_up(path: Path) -> None:
-    """A Pi that was off at half two still sweeps when it comes back. The addresses nobody
-    visits are the ones that otherwise never get refreshed."""
-    assert parsed(path)["Timer"]["Persistent"] == "true"
-
-
-@pytest.mark.parametrize("path", TIMERS, ids=lambda p: p.name)
-def test_a_timer_says_when(path: Path) -> None:
-    assert parsed(path)["Timer"]["OnCalendar"]
-
-
-@pytest.mark.parametrize("path", SERVICES, ids=lambda p: p.name)
-def test_a_service_runs_something_that_exists(path: Path) -> None:
-    """Every python -m in a unit names a module in this repo, or the job does nothing and
-    reports success every night for months."""
-    for line in path.read_text(encoding="utf-8").splitlines():
-        found = re.search(r"ExecStart=.*-m\s+([\w.]+)", line)
-        if found is not None:
-            assert importlib.util.find_spec(found.group(1)) is not None, found.group(1)
-
-
-@pytest.mark.parametrize("path", SERVICES, ids=lambda p: p.name)
-def test_a_job_is_not_run_as_root(path: Path) -> None:
-    assert parsed(path)["Service"]["User"] == "speedmap"
-
-
-def test_the_backup_covers_what_cannot_be_rebuilt(db: psycopg.Connection[TupleRow]) -> None:
-    """Everything else is the register verbatim or derived from it. These five are operator
-    answers, prices on the day we read them, and what people told us was wrong."""
+def test_backup(db: psycopg.Connection[TupleRow]) -> None:
+    # the only tables that can't be rebuilt from the register
     script = (DEPLOY / "backup.sh").read_text(encoding="utf-8")
     named = set(re.findall(r"--table=(\w+)", script))
     assert named == {"availability", "probe_attempt", "plan", "plan_price", "report"}
+    q = "select table_name from information_schema.tables where table_schema = 'public'"
+    assert named <= {str(name) for (name,) in db.execute(q).fetchall()}
 
-    stored = {
-        str(name) for (name,) in db.execute(
-            "select table_name from information_schema.tables where table_schema = 'public'"
-        ).fetchall()
-    }
-    assert named <= stored
-
-
-def test_the_backup_renames_only_once_whole() -> None:
-    """An interrupted dump can never pass for a finished one."""
-    script = (DEPLOY / "backup.sh").read_text(encoding="utf-8")
     assert "--file=\"$out.partial\"" in script
     assert 'mv "$out.partial" "$out"' in script
     assert "set -euo pipefail" in script
 
 
-# the one process in front of everything
+def test_caddyfile() -> None:
+    assert "try_files {path} /index.html" in CADDYFILE
+    assert "handle_path /api/*" in CADDYFILE
+    assert "reverse_proxy 127.0.0.1:8000" in CADDYFILE
+    # a probe can take 2 to 8 seconds
+    assert re.search(r"response_header_timeout\s+\d+s", CADDYFILE)
+    assert "immutable" in CADDYFILE
+    assert 'header Cache-Control "no-cache"' in CADDYFILE
 
-
-CADDYFILE = DEPLOY / "Caddyfile"
-
-
-def caddyfile() -> str:
-    return CADDYFILE.read_text(encoding="utf-8")
-
-
-def test_every_route_is_served_by_the_one_document() -> None:
-    """Four routes, one file. Arriving at /map directly, or reloading on it, has to serve the
-    app and never a 404 for a file that doesn't exist."""
-    assert "try_files {path} /index.html" in caddyfile()
-
-
-def test_the_api_is_on_the_same_origin() -> None:
-    """Same origin means no CORS to configure and nothing to get wrong about credentials."""
-    body = caddyfile()
-    assert "handle_path /api/*" in body
-    assert "reverse_proxy 127.0.0.1:8000" in body
-
-
-def test_a_probe_is_given_longer_than_a_page() -> None:
-    """A live probe waits on the operator's own checker, which takes two to eight seconds and
-    occasionally never answers."""
-    assert re.search(r"response_header_timeout\s+\d+s", caddyfile())
-
-
-def test_hashed_assets_are_held_and_pages_are_not() -> None:
-    body = caddyfile()
-    assert "immutable" in body
-    assert 'header Cache-Control "no-cache"' in body
-
-
-def test_the_policy_allows_what_the_map_actually_needs() -> None:
-    """MapLibre runs a worker created from a blob and reads its canvas back as a blob. A
-    policy forbidding either gives a blank map and no error."""
-    policy = next(line for line in caddyfile().splitlines() if "Content-Security-Policy" in line)
+    # MapLibre needs blob: workers and images or the map is blank with no error
+    policy = next(line for line in CADDYFILE.splitlines() if "Content-Security-Policy" in line)
     assert "worker-src 'self' blob:" in policy
     assert "blob:" in policy.split("img-src")[1].split(";")[0]
-
-
-def test_nothing_is_loaded_from_anywhere_else() -> None:
-    """No external basemap, fonts or analytics, so the policy shouldn't leave a hole for
-    something that was removed."""
-    policy = next(line for line in caddyfile().splitlines() if "Content-Security-Policy" in line)
     assert "default-src 'self'" in policy
     assert "http://" not in policy
-
-
-@pytest.mark.parametrize("path", sorted(p for p in DEPLOY.glob("*.service") if "@" not in p.name), ids=lambda p: p.name)
-def test_a_failure_reaches_the_owner(path: Path) -> None:
-    """Every unit pushes its failures to the owner's phone. Nobody reads the Pi's journal."""
-    assert parsed(path)["Unit"]["OnFailure"] == "speedmap-alert@%n.service"
-
-
-def test_the_alert_unit_can_read_the_log_it_sends() -> None:
-    unit = parsed(DEPLOY / "speedmap-alert@.service")["Service"]
-    assert "-m alert --failed %i" in unit["ExecStart"]
-    assert unit["SupplementaryGroups"] == "systemd-journal"
-
-
-def test_the_api_sees_the_reader_and_not_caddy() -> None:
-    """Without the forwarded address every reader is 127.0.0.1 and shares one limit."""
-    command = parsed(DEPLOY / "speedmap-api.service")["Service"]["ExecStart"]
-    assert "--proxy-headers" in command
-    assert "--forwarded-allow-ips 127.0.0.1" in command
-
-
-@pytest.mark.parametrize("name", ["speedmap-register.service", "speedmap-ookla.service"])
-def test_new_data_is_recut_into_the_map(name: str) -> None:
-    """The last step after loading is cutting the tiles Caddy serves, so the map can't lag."""
-    steps = [line for line in (DEPLOY / name).read_text().splitlines() if line.startswith("ExecStart=")]
-    assert steps[-1].endswith("-m publish.run --out /srv/speedmap/tiles/speedmap.pmtiles")

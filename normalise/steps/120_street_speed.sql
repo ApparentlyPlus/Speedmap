@@ -1,8 +1,4 @@
--- The best anyone sells down this street, for the map colour and the search dot. Read off
--- street_provider so the colour and the operator filter agree.
---
--- The update clears too. It used to only write, so a street kept a figure granted under an
--- older, looser rule forever.
+-- best speed per street, from street_provider so it matches the operator filter
 update street s
 set best_mbps = top.mbps
 from (

@@ -8,8 +8,7 @@ import sys
 
 from alert import alert
 
-# the end of the unit's log is usually the reason, and a notification has room for a few lines
-TAIL = 6
+TAIL = 6  # log lines that fit in a notification
 
 
 def main(argv: list[str] | None = None) -> int:

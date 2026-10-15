@@ -1,7 +1,4 @@
-/**
- * The landing page: one question, one field, one quiet way out. The tagline sits at the
- * optical centre, a little above the true middle, since text centred at 50% reads low.
- */
+// The landing page. Tagline at the optical centre, a bit above the middle.
 
 import { Component, Suspense, lazy, useEffect, useState } from "react";
 
@@ -12,16 +9,12 @@ import { Waiting } from "../components/Waiting";
 import { languageOf, strings } from "../i18n";
 import { RouterList, Routers } from "./routers";
 
-/*
- * The answer screens carry the map and the house, most of the site's script. We start
- * fetching them on the first keystroke, so the chunk is usually here by the time a
- * suggestion is picked, and the search field never waits on it.
- */
+// answer screens are most of the script, fetched from the first keystroke
 const results = (): Promise<typeof import("./results")> => import("./results");
 const Place = lazy(() => results().then((m) => ({ default: m.Place })));
 const Road = lazy(() => results().then((m) => ({ default: m.Road })));
 
-/* The flyover carries MapLibre, so it comes after the field: typing never waits on the map. */
+// MapLibre is in here, so it loads after the field
 const Flyover = lazy(() => import("../components/Flyover").then((m) => ({ default: m.Flyover })));
 
 let warmed = false;
@@ -34,11 +27,11 @@ function warm(): void {
 export function Landing(): React.ReactElement {
   const language = languageOf(window.location.pathname);
   const text = strings(language);
-  // three states, one route, no reload, so the network animation never restarts
+  // one route and no reload, so the network animation never restarts
   const [picked, setPicked] = useState<Result | null>(null);
   const [making, setMaking] = useState(false);
   const [failed, setFailed] = useState(false);
-  // the router page, opened over an answer: its own address in history, so back returns here
+  // its own history entry, back returns to the answer
   const [routers, setRouters] = useState(false);
 
   useEffect(() => {
@@ -53,7 +46,7 @@ export function Landing(): React.ReactElement {
     window.scrollTo(0, 0);
   };
 
-  // A proposed row is an unfiled door on a known street, so there's no address to open yet.
+  // proposed = unfiled door on a known street, nothing to open yet
   const pick = (result: Result): void => {
     const street = result.street_id;
     if (result.kind !== "proposed" || street === null || street === undefined) {
@@ -66,19 +59,17 @@ export function Landing(): React.ReactElement {
       .finally(() => setMaking(false));
   };
 
-  // forward again after a new search: the answer is gone, so it's the page on its own
+  // forward again after a new search, the answer's gone
   if (routers && picked === null) return <Routers />;
 
   if (picked !== null) {
-    // a street and a door are different questions, and only the door has a price
     const shown =
       picked.kind === "street" ? (
         <Road result={picked} language={language} onBack={() => setPicked(null)} />
       ) : (
         <Place result={picked} language={language} onBack={() => setPicked(null)} onRouters={openRouters} />
       );
-    // The answer stays mounted under the router page, hidden, so coming back finds it where it
-    // was: the same scroll, no second fetch, no descent played again.
+    // kept mounted and hidden under the router page, back finds it as it was
     return (
       <main className={routers ? "credits routers" : "landing landing-open"} lang={language}>
         {!routers && <Network />}
@@ -101,7 +92,6 @@ export function Landing(): React.ReactElement {
 
   return (
     <main className="landing" lang={language}>
-      {/* the map this site is about, drifting over one city after another */}
       <Suspense fallback={null}>
         <Flyover />
       </Suspense>
@@ -121,10 +111,7 @@ export function Landing(): React.ReactElement {
   );
 }
 
-/**
- * The answer screens' chunk failing even after main.tsx reloaded for it. Without this the
- * rejection took down the whole tree and left a blank page.
- */
+// the chunk failed even after main.tsx's reload, without this the page goes blank
 class Unloaded extends Component<
   { readonly said: string; readonly children: React.ReactNode },
   { failed: boolean }

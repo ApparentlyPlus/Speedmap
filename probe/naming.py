@@ -1,8 +1,4 @@
-"""How the operators spell an address, which isn't how Καλλικράτης does.
-
-Both operators that want an address in words want the same ones: prefectures and
-pre-Καλλικράτης municipalities.
-"""
+"""The operators' spelling of an address: prefectures and pre-Καλλικράτης municipalities."""
 
 from __future__ import annotations
 
@@ -18,8 +14,7 @@ where municipality_id = %s and street_fold = %s
 limit 1
 """
 
-# The spellings nearest this address, ordered by distance off the gist index (what `<->`
-# reads): 24 ms over 1.3M rows, on a path already spending seconds on the network.
+# knn on the gist index, 24 ms over 1.3M rows
 NEAREST = """
 select distinct on (nomos, dimos, area)
        nomos, dimos, area, st_distance(geom, %(here)s) as metres
@@ -33,36 +28,28 @@ from (
 order by nomos, dimos, area, metres
 """
 
-# the scrape's street type, which is ΟΔΟΣ in all but one of 64,871 cases
-STREET_TYPE = "ΟΔΟΣ"
+STREET_TYPE = "ΟΔΟΣ"  # all but one of 64,871
 
-# how far a walked address can be and still lend its spelling to this one
 NEARBY_M = 500.0
 
-# Walked addresses to look at before deduplicating into spellings. Enough to cross a
-# district boundary and offer both sides, few enough to stay an index scan.
+# enough to cross a district boundary, few enough for an index scan
 LOOK = 40
 
-TRIES = 4  # spellings a verifying adapter tries before giving up
+TRIES = 4
 
 
 @dataclass(frozen=True)
 class Naming:
-    """One address, spelled the operators' way."""
-
     nomos: str
     dimos: str
     area: str | None
     street: str
     street_type: str | None
-    exact: bool = True  # True when the scrape walked this very street
-    # Metres to the neighbour it came from. None on an exact naming, which is about this
-    # street itself.
-    metres: float | None = None
+    exact: bool = True  # the scrape walked this very street
+    metres: float | None = None  # to the neighbour it was borrowed from
 
 
 def naming(conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str) -> Naming | None:
-    """Their spelling of this street, if the scrape walked it."""
     row = conn.execute(EXACT, (municipality_id, street_fold)).fetchone()
     if row is None:
         return None
@@ -75,34 +62,21 @@ def naming(conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold
     )
 
 
-def namings(
-    conn: psycopg.Connection[TupleRow],
-    municipality_id: int,
-    street_fold: str,
-    lat: float | None = None,
-    lon: float | None = None,
-) -> list[Naming]:
-    """Every spelling worth trying here, nearest first. Just one if the scrape walked it."""
+def namings(conn: psycopg.Connection[TupleRow], municipality_id: int, street_fold: str,
+            lat: float | None = None, lon: float | None = None) -> list[Naming]:
+    """Spellings worth trying, nearest first, or the exact one alone."""
     exact = naming(conn, municipality_id, street_fold)
     if exact is not None:
         return [exact]
     if lat is None or lon is None:
         return []
 
-    found = conn.execute(NEAREST, {
-        "municipality": municipality_id,
-        "here": f"SRID=4326;POINT({lon} {lat})",
-        "look": LOOK,
-    }).fetchall()
-    return sorted(
-        (
-            Naming(
-                nomos=str(nomos), dimos=str(dimos), area=str(area),
-                street=street_fold, street_type=STREET_TYPE,
-                exact=False, metres=float(metres),
-            )
-            for nomos, dimos, area, metres in found
-            if float(metres) <= NEARBY_M
-        ),
-        key=lambda n: n.metres if n.metres is not None else 0.0,
-    )[:TRIES]
+    rows = conn.execute(NEAREST, {"municipality": municipality_id, "here": f"SRID=4326;POINT({lon} {lat})",
+                                  "look": LOOK}).fetchall()
+    near = [
+        Naming(nomos=str(nomos), dimos=str(dimos), area=str(area), street=street_fold, street_type=STREET_TYPE,
+               exact=False, metres=float(m))
+        for nomos, dimos, area, m in rows
+        if float(m) <= NEARBY_M
+    ]
+    return sorted(near, key=lambda n: n.metres if n.metres is not None else 0.0)[:TRIES]

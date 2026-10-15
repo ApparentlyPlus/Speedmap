@@ -1,43 +1,34 @@
-# The field names inside a vector tile, written once so neither side can drift.
+# field names in the tiles, tools/codegen_tiles.py writes both sides from this
 
 version: 1
 
 layers:
   streets:
     description: >
-      One feature per street, carrying the best each operator reaches on it. Painted by
-      best_mbps and filtered by the per-operator fields, which is why both exist: a filter
-      over a single best paints a street in one operator's colour while claiming another's.
+      One feature per street. Painted by best_mbps, filtered by the per-operator fields.
     geometry: line
     fields:
       id:
         type: integer
         nullable: true
-        description: >
-          the street row this was built from. Absent below zoom 10, where streets are under a
-          pixel wide and features with identical fields are merged into one
+        description: street row id, absent below zoom 10 where identical streets get merged
       best_mbps:
         type: number
         nullable: true
         unit: mbps
-        description: the fastest anyone reaches here. Null is not filed, never zero
+        description: fastest anyone reaches here, null if nothing's filed
       nprov:
         type: integer
         nullable: true
-        description: >
-          how many operators reach this street at all, filed speed or not. Absent below zoom 10
-      # Three states: null is an operator that doesn't reach this street, -1 one that reaches
-      # it with no speed filed, and a number is the speed.
+        description: operators reaching it at all, absent below zoom 10
+      # null = doesn't reach, -1 = reaches with no speed filed
       p_telekom: {type: number, nullable: true, unit: mbps, provider: TELEKOM}
       p_vodafone: {type: number, nullable: true, unit: mbps, provider: VODAFONE}
       p_nova: {type: number, nullable: true, unit: mbps, provider: NOVA}
       p_dei: {type: number, nullable: true, unit: mbps, provider: DEI}
       p_inalan: {type: number, nullable: true, unit: mbps, provider: INALAN}
       p_hcn: {type: number, nullable: true, unit: mbps, provider: HCN}
-      # Operators nobody can buy from directly: wholesale builders, and Metadosis, which
-      # files services and publishes no tariff. Drawn, because fiber in the ground decides
-      # whether anyone can ever sell a gigabit here. Listed apart, because offering them as
-      # a choice of supplier offers something the reader can't take.
+      # wholesale only (Metadosis files services but has no tariff). Drawn, not offered
       p_metadosis: {type: number, nullable: true, unit: mbps, provider: METADOSIS, role: infrastructure}
       p_fibergrid: {type: number, nullable: true, unit: mbps, provider: FIBERGRID, role: infrastructure}
       p_unitedfiber: {type: number, nullable: true, unit: mbps, provider: UNITEDFIBER, role: infrastructure}
@@ -46,66 +37,60 @@ layers:
 
   regions:
     description: >
-      One feature per municipality, for the zooms where a street is a fraction of a pixel.
-      A map with no basemap and nothing drawn at low zoom is a black rectangle telling the
-      reader to zoom in, somewhere, with no clue where. The country has to have a shape
-      before it has streets. Fiber rather than the fastest anything: the fastest anything is
-      5G, which reaches nearly every address, and a map of it is one colour.
+      One feature per municipality, for the low zooms. Painted by fiber share, since 5G
+      reaches nearly everywhere and would make it one colour.
     geometry: polygon
     fields:
       id:
         type: integer
-        description: the municipality row this was built from
+        description: municipality row id
       name:
         type: string
       addresses:
         type: integer
-        description: filed addresses in it, which is the denominator of the share
+        description: filed addresses, the share's denominator
       fiber:
         type: integer
-        description: how many of them fiber reaches
+        description: addresses fiber reaches
       fiber_share:
         type: number
-        description: nought to one, and what the Filed view is painted by
+        description: 0 to 1, paints the Filed view
       best_mbps:
         type: number
         nullable: true
         unit: mbps
-        description: the band's assured speed, held to what the technology can carry
-      # One figure per view, since the choropleth sits under whichever view is on, and a
-      # filed claim under a measured map is the one mix this site won't make.
+        description: assured speed of the band, capped at what the technology carries
+      # one per view, never a filed figure under the measured map
       measured_mbps:
         type: number
         nullable: true
         unit: mbps
-        description: fixed-line speed tests here. Null is untested, which is most of Greece
+        description: fixed line speed tests, null if untested (most of Greece)
       measured_tests:
         type: integer
         nullable: true
-        description: how many tests that rests on, drawn as opacity rather than as deletion
+        description: tests behind it, drawn as opacity
       mobile_mbps:
         type: number
         nullable: true
         unit: mbps
-        description: the same for mobile, kept apart because the two measure different things
+        description: same for mobile
       mobile_tests:
         type: integer
         nullable: true
 
   cells:
     description: >
-      One feature per Ookla tile that has ever been tested, drawn as the square that was
-      measured rather than the centroid they publish. About 600 m across, and only a few per
-      cent of the country has any at all, so an empty view is the normal case and must never
-      be rendered as a failure.
+      One square per tested Ookla tile, ~600 m across. Most of the country has none, so an
+      empty view is normal.
     geometry: polygon
     fields:
       quadkey:
         type: string
-        description: the zoom 16 tile key, which is also its identity upstream
+        description: zoom 16 tile key
       family:
         type: string
-        description: fixed or mobile. The two measure differently and never mix
+        description: fixed or mobile, never mixed
       down_mbps:
         type: number
         unit: mbps
@@ -114,12 +99,9 @@ layers:
         unit: mbps
       tests:
         type: integer
-        description: measurements behind the figure, drawn as opacity and never as deletion
+        description: tests behind the figure, drawn as opacity
 
-# The two archives built elsewhere, by planetiler, cut down to what the style reads. Each
-# label carried about eighty translations and each building every Overture attribute, all
-# fetched and decoded on every zoom in. tools/slim_basemap.py keeps these layers and fields and
-# drops the rest. web/src/map/style.test.ts fails if the style reads anything not listed.
+# what slim_basemap.py keeps of the planetiler archives. style.test.ts fails if the style reads more
 basemap:
   greece.pmtiles:
     landcover: []
@@ -129,5 +111,5 @@ basemap:
     transportation_name: [name, "name:el"]
     place: [class, name, "name:el"]
   buildings.pmtiles:
-    # The height fallback reads the feature id, which isn't a field and is always kept
+    # the height fallback reads the feature id, always kept
     building: [height, num_floors, min_height]

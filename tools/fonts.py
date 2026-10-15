@@ -1,13 +1,4 @@
-"""Fetch the label glyphs once, so the map draws labels from our own origin.
-
-The style used to ask fonts.openmaptiles.org for them on every page. The CSP in deploy/Caddyfile
-blocks that (connect-src is 'self'), and the host now returns an HTML page for every glyph URL
-anyway, so no label was drawn from a real glyph.
-
-They come from the OpenMapTiles fonts release now, unpacked beside the tile archives and served
-with them. MapLibre asks for a stack in 256-code-point ranges as labels need them, so every
-range of each stack the style names is kept.
-"""
+"""Fetch the label glyphs from the OpenMapTiles release, to serve them beside the tiles (CSP is 'self')."""
 
 from __future__ import annotations
 
@@ -23,18 +14,14 @@ from db.settings import settings
 
 RELEASE = "https://github.com/openmaptiles/fonts/releases/download/v2.0/v2.0.zip"
 
-# the stacks web/src/map/style.ts names in text-font, one today
-STACKS = ("Noto Sans Regular",)
+STACKS = ("Noto Sans Regular",)  # text-font in style.ts
 
 RANGES = 256
 
-# A glyph range is a protobuf whose first field (the stack name) is length-delimited, tag
-# 0x0a. The HTML page a wrong URL returns starts with '<'.
-PROTOBUF = b"\x0a"
+PROTOBUF = b"\x0a"  # tag of the first field, an HTML error page starts with '<'
 
 
 def unpack(archive: zipfile.ZipFile, stack: str, into: pathlib.Path) -> int:
-    """Every range of one stack, all refused if any one isn't glyph data."""
     found = {
         name: archive.read(name)
         for name in archive.namelist()
@@ -56,18 +43,14 @@ def unpack(archive: zipfile.ZipFile, stack: str, into: pathlib.Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--into", type=pathlib.Path, default=pathlib.Path("tiles/fonts"),
-        help="beside the tile archives, which is where the style looks",
-    )
+    parser.add_argument("--into", type=pathlib.Path, default=pathlib.Path("tiles/fonts"),
+                        help="beside the tile archives, which is where the style looks")
     args = parser.parse_args(argv)
 
-    with httpx.Client(
-        headers={"User-Agent": settings.user_agent}, timeout=120, follow_redirects=True
-    ) as client:
-        answer = client.get(RELEASE)
-        answer.raise_for_status()
-    with zipfile.ZipFile(io.BytesIO(answer.content)) as archive:
+    with httpx.Client(headers={"User-Agent": settings.user_agent}, timeout=120, follow_redirects=True) as client:
+        r = client.get(RELEASE)
+        r.raise_for_status()
+    with zipfile.ZipFile(io.BytesIO(r.content)) as archive:
         for stack in STACKS:
             print(f"  {stack}: {unpack(archive, stack, args.into)} ranges")
     return 0

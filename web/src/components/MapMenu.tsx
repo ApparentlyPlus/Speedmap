@@ -1,14 +1,5 @@
-/**
- * The map's menu, and the card for whatever was pressed on the map. One surface in the corner
- * beside the search bar: shut, it's a button the bar's own height, and it grows out of that
- * button into the filters, a street or a measured square, and back into it.
- *
- * Its size is measured. Left to CSS, animating to height: auto guessed at sizes the content
- * hadn't reached, the content vanished the instant it shut, and the button shrank and slid while
- * the panel grew round it. Now the content is laid out at full size from the start, the surface
- * animates between two measured boxes and uncovers it, the button never moves, and the content
- * stays until the surface has closed over it.
- */
+// The map's menu and the card for whatever was pressed, one surface that grows out of its
+// button. Sizes are measured, animating to height: auto didn't work.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -19,23 +10,19 @@ import { VIEWS, type View } from "../map/style";
 import { STREETS_BY_PROVIDER, STREETS_INFRASTRUCTURE, type Cell } from "../map/tiles";
 import { UNSERVED, bandsPainted, colourFor, mbps } from "../tokens";
 
-/** What was pressed on the map, which the menu shows in place of itself. */
 export type Picked =
   | { readonly kind: "street"; readonly street: StreetDetail }
   | { readonly kind: "cell"; readonly cell: Cell };
 
 type Mode = "menu" | Picked["kind"];
 
-/** The button, which is also the shut surface: the search bar's height. */
+// the button, which is also the shut surface
 const KNOB = 46;
 
-/** As long as the surface takes to shut, so the content isn't pulled out from under it. */
+// as long as shutting takes, so the content isn't pulled out from under it
 const CLOSE_MS = 340;
 
-/**
- * Suppliers you can buy from, and networks you can't. Read off the tile contract, so a provider
- * added to the schema lands in the right group without touching this file.
- */
+// suppliers and wholesalers, read off the tile contract
 const WHOLESALE = new Set(STREETS_INFRASTRUCTURE);
 const RETAILERS = Object.keys(STREETS_BY_PROVIDER).filter((code) => !WHOLESALE.has(code));
 const NETWORKS = Object.keys(STREETS_BY_PROVIDER).filter((code) => WHOLESALE.has(code));
@@ -65,7 +52,6 @@ export function MapMenu({
   const text = strings(filters.language);
   const target: Mode | null = open ? "menu" : picked === null ? null : picked.kind;
 
-  // what's drawn inside lags the target on the way shut
   const [shown, setShown] = useState<Mode | null>(target);
   const kept = useRef<Picked | null>(picked);
   if (picked !== null) kept.current = picked;
@@ -164,9 +150,7 @@ function Choices(props: Filters): React.ReactElement {
         <>
           <h2 className="map-choices-head">{text.operator}</h2>
           <Operators {...props} codes={RETAILERS} anyone />
-          {/* Wholesale builders, plus Metadosis (files services, publishes no tariff). Beside
-              Telekom and Vodafone they looked like suppliers you could pick, and leaving them out
-              would hide the fiber that decides whether anyone sells a gigabit here. */}
+          {/* wholesalers plus Metadosis, listed apart since nobody can buy from them */}
           <h2 className="map-choices-head" title={text.infrastructureHint}>
             {text.infrastructure}
           </h2>
@@ -174,7 +158,7 @@ function Choices(props: Filters): React.ReactElement {
         </>
       )}
 
-      {/* a switch, since it's an overlay that's on or off and not one of the choices above */}
+      {/* a switch, it's an overlay and not one of the choices */}
       <label className="map-switch" title={text.regionsHint}>
         <input type="checkbox" checked={regions} onChange={(event) => setRegions(event.target.checked)} />
         <span className="map-switch-track" aria-hidden="true" />
@@ -226,7 +210,7 @@ function Operators({
               onClick={() => setProvider(on ? null : code)}
             >
               <span className="map-op-dot" aria-hidden="true" />
-              {/* the brand people know: nobody shops at "OTE" when the bill says Telekom */}
+              {/* nobody shops at "OTE" when the bill says Telekom */}
               {brand.name}
             </button>
           </li>
@@ -236,10 +220,7 @@ function Operators({
   );
 }
 
-/**
- * The ramp as one bar, labelled at the bands this view paints. Coverage never lands between
- * 100 and 1000, so it shows four bands and not the seven the measured views can use.
- */
+// The ramp as one bar. Coverage never lands between 100 and 1000, so four bands there
 function Legend({ language, view }: { readonly language: Language; readonly view: View }) {
   const text = strings(language);
   const bands = [...bandsPainted(view !== "coverage")].reverse();
@@ -256,8 +237,7 @@ function Legend({ language, view }: { readonly language: Language; readonly view
           <span key={band.name}>{band.name.replace(" Mbps", "")}</span>
         ))}
       </div>
-      {/* Coverage: no line reaches the street, dark because it's absence and not a slow
-          street. Measured: nobody has run a speed test here, which is most of Greece. */}
+      {/* coverage: nothing reaches it. measured: never tested, which is most of Greece */}
       <p className="map-legend-none">
         <span style={{ background: UNSERVED }} aria-hidden="true" />
         {view === "coverage" ? text.unreached : text.untested}
@@ -268,11 +248,8 @@ function Legend({ language, view }: { readonly language: Language; readonly view
 
 type Line = StreetDetail["offers"][number];
 
-/**
- * One row per operator and each operator's lines fastest first. Retailers come before the
- * wholesalers, however fast: a wholesaler's gigabit topped the list on Ερμού, and nobody can
- * buy from them.
- */
+// operators, each one's lines fastest first. Retailers before wholesalers however fast,
+// a wholesaler's gigabit topped the list on Ερμού
 function byOperator(offers: readonly Line[]): { code: string; lines: Line[] }[] {
   const groups = new Map<string, Line[]>();
   for (const offer of offers) groups.set(offer.provider, [...(groups.get(offer.provider) ?? []), offer]);
@@ -305,16 +282,14 @@ function StreetCard({ language, street }: { readonly language: Language; readonl
                 {op.lines.map((line) => (
                   <span key={line.technology}>
                     {text.technology[line.technology] ?? line.technology}
-                    {/* who built it, when that isn't the seller: three retailers over one
-                        cabinet is one line resold, and read as three networks without this */}
+                    {/* the builder when it isn't the seller, three resellers on one cabinet is one line */}
                     {line.infra_provider !== null && line.infra_provider !== line.provider && (
                       <span className="map-card-over">
                         {" "}
                         {text.over} {line.infra_provider}
                       </span>
                     )}
-                    {/* the retail speed held to the filing, which is what the street is painted
-                        with. The register's own band is missing on seven fiber filings in ten */}
+                    {/* what the street is painted with, the register's band is missing on 7/10 fiber filings */}
                     {line.sold_mbps === null || line.sold_mbps === undefined ? (
                       <b className="map-card-unfiled">{text.unfiled}</b>
                     ) : (
@@ -333,7 +308,7 @@ function StreetCard({ language, street }: { readonly language: Language; readonl
   );
 }
 
-/** A measured square, straight off the tile: it carries everything shown, so no request. */
+// straight off the tile, no request
 function CellCard({ language, cell }: { readonly language: Language; readonly cell: Cell }) {
   const text = strings(language);
   return (

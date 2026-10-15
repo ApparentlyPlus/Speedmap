@@ -35,7 +35,6 @@ class Finding:
 
 
 def _is_number(node: ast.expr) -> bool:
-    """True for a numeric literal, including a negated one."""
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.UAdd | ast.USub):
         return _is_number(node.operand)
     return (
@@ -57,7 +56,6 @@ class _Visitor(ast.NodeVisitor):
 
     def visit_BoolOp(self, node: ast.BoolOp) -> None:
         if isinstance(node.op, ast.Or):
-            # values[0] is the tested expression and anything after it is a default.
             for value in node.values[1:]:
                 if _is_number(value):
                     self.findings.append(
@@ -96,15 +94,13 @@ class _Visitor(ast.NodeVisitor):
 
 
 def _suppressed_lines(source: str) -> set[int]:
-    """Lines carrying a `# allow-fallback: <reason>` comment with a real reason."""
     suppressed: set[int] = set()
     try:
         tokens = tokenize.generate_tokens(iter(source.splitlines(keepends=True)).__next__)
-        for token in tokens:
-            if token.type is tokenize.COMMENT and SUPPRESS in token.string:
-                reason = token.string.split(SUPPRESS, 1)[1].strip()
-                if reason:
-                    suppressed.add(token.start[0])
+        for tok in tokens:
+            # needs an actual reason after the colon
+            if tok.type is tokenize.COMMENT and SUPPRESS in tok.string and tok.string.split(SUPPRESS, 1)[1].strip():
+                suppressed.add(tok.start[0])
     except (tokenize.TokenError, IndentationError):
         pass
     return suppressed

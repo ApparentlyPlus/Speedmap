@@ -1,4 +1,4 @@
-/** A skeleton of the answer, shown while it loads. */
+// skeleton while the answer loads
 
 const ROWS = [0, 1, 2];
 

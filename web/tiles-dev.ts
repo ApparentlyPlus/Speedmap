@@ -1,7 +1,4 @@
-/**
- * Serves the tile archives in development the way Caddy does in production: one file, read
- * with range requests.
- */
+// serves the tile archives in dev like Caddy does in prod: one file, range requests
 
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -19,7 +16,7 @@ export function tiles(directories: readonly string[]): Plugin {
       if (!asked.startsWith(PREFIX)) return next();
 
       const wanted = decodeURIComponent(asked.split("?")[0] ?? "").slice(PREFIX.length);
-      // an archive, the outline, or a glyph range under fonts/, only from a named directory
+      // an archive, the outline or a glyph range, only from a named directory
       const glyph = /^fonts\/[^/]+\/\d+-\d+\.pbf$/.test(wanted);
       const name = glyph ? wanted : path.basename(wanted);
       if (!glyph && !name.endsWith(".pmtiles") && !name.endsWith(".json")) {
@@ -48,9 +45,8 @@ export function tiles(directories: readonly string[]): Plugin {
       response.setHeader("Content-Type", "application/octet-stream");
       response.setHeader("Accept-Ranges", "bytes");
 
-      // Tens of MB read a few kB at a time. Without an ETag the browser drops every range and
-      // asks again. Revalidated each time, because re-cutting tiles with the page open would
-      // otherwise splice two archives together.
+      // ETag or the browser drops every range. Revalidated each time, re-cutting tiles with the
+      // page open would splice two archives
       const stamp = fs.statSync(file);
       const tag = `"${stamp.size.toString(16)}-${stamp.mtimeMs.toString(16)}"`;
       response.setHeader("ETag", tag);
@@ -60,13 +56,12 @@ export function tiles(directories: readonly string[]): Plugin {
         return response.end();
       }
 
-      // PMTiles only reads by range: header, then directory, then one tile
       const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
       if (range === null) {
         response.setHeader("Content-Length", size);
         return fs.createReadStream(file).pipe(response);
       }
-      // bytes=-N is the last N bytes, not the first N
+      // bytes=-N is the last N bytes
       const start = range[1] === "" ? Math.max(0, size - Number(range[2])) : Number(range[1]);
       const end = range[1] === "" || range[2] === "" ? size - 1 : Math.min(Number(range[2]), size - 1);
       if (start > end) {
@@ -81,7 +76,7 @@ export function tiles(directories: readonly string[]): Plugin {
     };
   };
 
-  // same middleware for `npm run preview`, or a built page has no tiles and shows only sea
+  // for `npm run preview` too, or a built page shows only sea
   return {
     name: "speedmap-tiles",
     configureServer(server) {

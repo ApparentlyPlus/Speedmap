@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { extentOf, focusOf, momentOf, pathOf, sliceOf, turnable } from "./trace";
 
-/** A street in two pieces with a gap between, which is the normal case. */
+// two pieces with a gap, the normal case
 const BROKEN = pathOf({
   type: "MultiLineString",
   coordinates: [[[0, 0], [0, 1]], [[0, 2], [0, 3]]],
@@ -16,7 +16,6 @@ const STRAIGHT = pathOf({
 describe("measuring a street", () => {
   it("counts every piece it is drawn in", () => {
     expect(BROKEN?.parts).toHaveLength(2);
-    // two equal pieces, so the second starts halfway along
     expect(BROKEN?.starts[1]).toBeCloseTo(0.5);
   });
 
@@ -27,8 +26,7 @@ describe("measuring a street", () => {
 
 describe("the light that runs along a street", () => {
   it("is one light, not one per piece", () => {
-    // The bug this replaced: a gradient restarted on every line of a multi-line street, so a
-    // road through six junctions lit six lights at once.
+    // a gradient per line lit six lights at once on a road through six junctions
     for (let step = 0; step <= 200; step++) {
       const { lines } = momentOf(BROKEN!, step / 200);
       expect(lines.length).toBeLessThanOrEqual(2); // at most two, and only while straddling the gap
@@ -36,7 +34,7 @@ describe("the light that runs along a street", () => {
   });
 
   it("never draws the gap between two pieces", () => {
-    // everything drawn lies on the street, nothing between y=1 and y=2
+    // nothing between y=1 and y=2
     for (let step = 0; step <= 200; step++) {
       for (const line of momentOf(BROKEN!, step / 200).lines) {
         for (const point of line) {
@@ -55,16 +53,13 @@ describe("the light that runs along a street", () => {
   });
 
   it("comes back on at the start as it leaves the end", () => {
-    // early in the pass the light straddles the join, partly at the start and partly still
-    // leaving the end
+    // straddles the join early in the pass
     const straddling = momentOf(STRAIGHT!, 0.02).lines.flat().map((point) => point[1] ?? 0);
     expect(Math.min(...straddling)).toBeLessThan(0.5);
     expect(Math.max(...straddling)).toBeGreaterThan(3.5);
   });
 
   it("is always the same length of street, wherever it is", () => {
-    // nothing lost at the join, so the light doesn't shrink into the end or grow out of the
-    // start
     const length = (progress: number): number =>
       momentOf(STRAIGHT!, progress)
         .lines.flatMap((line) =>
@@ -98,14 +93,12 @@ describe("the box a street occupies", () => {
 
 describe("the box worth pointing a camera at", () => {
   it("frames the longest road of the name, not all of them", () => {
-    // Μακεδονίας in Κατερίνη is nine unconnected stretches over 13 km. Framing all of them
-    // frames the town and shows nobody the street.
+    // Μακεδονίας in Κατερίνη is nine stretches over 13km, framing all of them frames the town
     const found = focusOf({
       type: "MultiLineString",
       coordinates: [[[22.45, 40.27], [22.46, 40.27]], [[22.6, 40.27], [22.6001, 40.2701]]],
     });
     expect(found).not.toBeNull();
-    // the long western stretch, without the scrap far to the east
     expect(found![1][0]).toBeLessThan(22.5);
   });
 
@@ -124,8 +117,7 @@ describe("the box worth pointing a camera at", () => {
 
 describe("a box that holds the street whichever way the camera points", () => {
   it("squares off a street that is longer than it is wide", () => {
-    // a road framed corner to corner at one bearing hangs out of frame a quarter turn later,
-    // which looks like bad centring once the view turns
+    // framed corner to corner at one bearing, it hangs out of frame a quarter turn later
     const [[west, south], [east, north]] = turnable([[23.0, 37.9], [23.4, 37.92]]);
     const lift = Math.cos(37.91 * (Math.PI / 180));
     expect((east - west) * lift).toBeCloseTo(north - south, 6);
