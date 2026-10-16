@@ -10,11 +10,13 @@ from psycopg.rows import TupleRow
 from normalise.greeklish import from_greek
 from normalise.text import fold
 
-# skip doors 065 pinned to another road with the same name across town
+# 065's pin, else the name, never a namesake across town
 SAME_ROAD = """
-a.street_fold = %(fold)s
-  and a.municipality_id is not distinct from %(municipality)s
-  and (a.street_id = %(street_id)s or a.street_id is null)
+(a.street_id = %(street_id)s or (
+    a.street_id is null
+    and a.street_fold = %(fold)s
+    and a.municipality_id is not distinct from %(municipality)s
+))
 """
 
 NEIGHBOURS = f"""
