@@ -1,269 +1,175 @@
-# Speedmap
+<h1 align="center">Speedmap: What Broadband Actually Reaches Your Door in Greece</h1>
 
-Speedmap shows what broadband is available at an address in Greece. It joins EETT's national coverage register to an address index built from the same register and street geometry from OpenStreetMap, then draws every street in the country coloured by the best line that reaches it. Where an operator publishes a tariff the result carries a price, and where someone has run a speed test nearby, a measurement.
+<p align="center">
+  <a href="https://github.com/ApparentlyPlus/Speedmap/actions/workflows/python.yml"><img src="https://github.com/ApparentlyPlus/Speedmap/actions/workflows/python.yml/badge.svg" alt="Speedmap Python"></a>
+  <a href="https://github.com/ApparentlyPlus/Speedmap/actions/workflows/web.yml"><img src="https://github.com/ApparentlyPlus/Speedmap/actions/workflows/web.yml/badge.svg" alt="Speedmap Web"></a>
+  <a href="#license-and-attribution"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.14-3776ab" alt="Python 3.14">
+  <img src="https://img.shields.io/badge/postgres-18%20%2B%20PostGIS-336791" alt="Postgres 18 + PostGIS">
+</p>
 
-The database holds 1,796,105 addresses, 91,672 streets across 333 municipalities, and 14.6M coverage rows, at roughly 18 GB.
+Speedmap shows which broadband lines reach an address in Greece, how fast they really are, and what they cost. It takes EETT's national coverage register, builds an address index and a street layer out of it with OpenStreetMap, and draws every street in the country in the colour of the best line that reaches it. Type an address and you get the operators that can serve it, ranked, priced, and checked live against their own availability checkers.
 
-## Data Sources
+The register is the only complete source of who reaches where, but it was never meant to be read by a person. It files speed *classes* instead of speeds, leaves the class empty on most fiber, lists one company under four names, and files a third of some networks with a postcode and no street. Most of this repository is about turning that into a map that is honest about what it knows.
 
-| Source | Provides | Volume |
-|---|---|---|
-| EETT register (`broadband-assist.gov.gr`) | Filed services: who reaches where, on which technology, at which speed class | 1,362,340 services, 24 operators |
-| OpenStreetMap | Street geometry, grouped into connected runs of a named road per municipality | 91,672 streets |
-| Ookla open data | Measured download and upload speeds, per 600 m tile | 133,026 cells |
-| Operator availability checkers | Live serviceability for Telekom, Vodafone and Nova | on demand |
-| Published tariffs | Monthly price, setup fee, contract length, data cap | 74 plans, 25 providers |
+> [!NOTE]
+> This is a personal, non-commercial project. The code is MIT, but the data it loads is not mine to relicense, and some of it is explicitly non-commercial. Read [License and Attribution](#license-and-attribution) before doing anything with a build of it.
 
-The register is an unauthenticated PostgREST API. Its page cap is 500 and it truncates silently rather than erroring, so the loader steps by 500 and records its resume key per dataset.
+## Table of Contents
 
-## How The Speed Figure Is Derived
+- [How It Works](#how-it-works)
+- [Getting Started](#getting-started)
+- [API](#api)
+- [The Map](#the-map)
+- [Testing](#testing)
+- [Development](#development)
+- [Known Limitations](#known-limitations)
+- [License and Attribution](#license-and-attribution)
 
-The register files speed *classes*. The finest value it has is a band such as "100-300 Mbps". It also leaves the band empty on most filings, including 70.8% of the 1,071,133 fiber rows.
+## How It Works
 
-So the figure is anchored on the technology, and the band only caps it:
+### Data Sources
+
+| Source | Provides |
+|---|---|
+| EETT register (`broadband-assist.gov.gr`) | Who files a service or has built past a door, on which technology, at which speed class |
+| OpenStreetMap | Street geometry, grouped into connected runs of a named road per municipality |
+| Ookla open data | Measured speeds per ~600 m tile |
+| Operator availability checkers | Live answers from Telekom, Vodafone and Nova |
+| Published tariffs | Monthly price, setup fee, contract length, data cap |
+
+### The Speed Figure
+
+The register leaves the speed band empty on 70.8% of fiber filings, so the figure is anchored on the technology and the band can only cap it:
 
 ```
-best_mbps = least(technology.sold_mbps, the filed band's ceiling)
+best_mbps = least(technology.sold_mbps, ceiling of the filed band)
 ```
 
-`sold_mbps` is what operators actually retail on each kind of line, taken from the scraped tariffs:
+`sold_mbps` is what operators actually retail on each kind of line: 24 for ADSL, 50 for VDSL, 100 for vectored VDSL and 1000 for FTTH. The cap uses the register's *normally available* speed (`a4a_nordown`), which can pull a figure down but never lift it. Mobile and fixed wireless are kept out of street figures, since 5G reaches nearly everything and would paint the whole country one colour.
 
-| Technology | sold_mbps | Basis |
-|---|---|---|
-| ADSL | 24 | The single ADSL plan on file |
-| VDSL | 50 | Every VDSL plan on file is 50 |
-| Vectored VDSL | 100 | Telekom, Vodafone and Nova all retail 100 |
-| DOCSIS | 300 | No coax is filed in Greece. Set so a future filing reports something |
-| FTTH | 1000 | Plans run 100 to 3000 |
+### Pipeline
 
-The cap uses `a4a_nordown`, the register's normally available speed, rather than `a4a_maxdown`. It is filed in exactly the rows `maxdown` is and is never higher, so it can only lower a figure. Using it roughly doubles the number of streets identifiable as being on 10 Mbps or less.
-
-A filing can pull a figure down but never lift it. Resulting distribution across the 84,795 streets that have a figure:
-
-| Mbps | Streets | Share |
-|---|---|---|
-| 1000 | 47,867 | 56.5% |
-| 100 | 23,227 | 27.4% |
-| 50 | 5,562 | 6.6% |
-| 30 | 3,581 | 4.2% |
-| 24 | 603 | 0.7% |
-| 10 or less | 3,955 | 4.7% |
-
-## Pipeline
-
-Raw register tables land in `raw_*` and are never modified. Everything else is derived by re-runnable steps in `normalise/steps/`, executed in filename order by `make build`:
+Raw register tables land in `raw_*` and are never modified. Everything else is rebuilt by `make build` from re-runnable steps in `normalise/steps/`, in filename order:
 
 | Step | Produces |
 |---|---|
-| `010_municipality` | The 333 Kallikratis municipalities, reprojected to 4326 |
-| `020_address` | The address index, parsed from the register's points |
-| `025_address_point_nearby` | Places filings with an empty field (mostly postcode only) by position |
-| `030_coverage` | Point-located services (fiber, coax) |
-| `040_coverage_area` | Copper cabinet polygons, reprojected from Greek Grid |
-| `045_cosmote` | Telekom's scraped answers, and the addresses only the scrape knows |
-| `050_address_coverage` | What reaches each address, by point match or cabinet containment |
-| `060_street` | OSM ways grouped into connected runs of a named road |
-| `065_address_street` | Pins each address to the nearest road of its name |
-| `066_street_locality` | Each street's most common locality, for telling runs of one name apart |
-| `070_wireless` | Fixed wireless, matched to the 100 m register grid by arithmetic |
-| `090_wholesale` | Refreshes the seller-to-infrastructure view |
-| `100_builder_coverage` | Anyone who passes premises but files no retail service there |
-| `110_street_reach` | Which operators reach each street, how, and at what speed |
-| `120_street_speed` | The street's own figure, taken from `110` |
-| `130_municipality_coverage` | Per-municipality fiber share and measured averages |
+| `010` | Municipalities, reprojected to 4326 |
+| `020`, `025` | The address index, and filings with no street placed by position |
+| `030`, `040` | Point coverage (fiber, coax) and copper cabinet areas |
+| `045` | The Telekom scrape, and addresses only it knows |
+| `050` | What reaches each address |
+| `060`, `065`, `066` | OSM streets, each address pinned to its street, each street's locality |
+| `070` | Fixed wireless from the register's 100 m grid |
+| `090`, `100` | Wholesale relationships, and fiber built past a door but never filed as a service |
+| `110`, `120` | Who reaches each street and its speed |
+| `130` | Per-municipality fiber share and measured averages |
 
-Each step ends with exactly its current output, so a withdrawn filing disappears instead of lingering. The big ones (`025`, `050`, `070`, `100`) get there by comparing: rows that left the new set are deleted and only new or changed rows are written, which on an unchanged register is almost nothing. `address_coverage` is written by three steps, so rows carry a `built_by` column saying which one owns them. Ties are broken explicitly everywhere, so the same register builds the same map, tile for tile.
+A street is reached three ways: doors filed on it, cabinets it runs through, and built fiber beside it. Each step diffs against what it built last time, so an unchanged register rebuilds almost nothing and the same register always builds the same map. Schema changes are checksummed migrations in `normalise/migrations/`, applied by `make migrate`, and can't be edited once applied.
 
-The register keeps two books and both are read. A service filing says an operator sells a line at a point. An infrastructure filing says one has built past a door. Reading only the first understates anyone who builds a lot and files little: Telekom passes 1.09 million doors and files 36,012 services, so the map credited it with 23,041 fiber addresses to Vodafone's 601,473, a count of filings that said little about fiber. `100_builder_coverage` credits premises passed to whoever passed them, incumbent and altnet alike.
+## Getting Started
 
-Operators carry a `role`. A `retail` operator is one a household can buy from. The `infrastructure` ones cannot be bought from directly: wholesale builders who pass premises for others to sell over, plus Metadosis, which files services and publishes no tariff. Both colour the map, since fiber in the ground decides whether anyone will ever sell a gigabit down the street, but they are listed apart so the panel stops offering suppliers nobody can choose.
-
-The register also files one company under four names. OTE, OTE UltraFast and two rural concessions are all Telekom to anyone buying a line. The alias rows stay in `provider`, because `register_id` is how `raw_*` is joined, and every step resolves through `credited_to` before storing an id.
-
-A street's reach comes from three routes unioned: filings against addresses pinned to the street, cabinet polygons the street intersects, and built fiber standing beside it. Builders file addresses and no polygons, and roughly half of all streets have no filed address, so either of the first two alone loses a different half. Cabinet polygons are capped at 5,000,000 m² by `cabinet_m2()`, because larger filings are exchange regions and say nothing about an individual street.
-
-The third route exists because 307,300 builder filings name a postcode and no street at all, and 624,750 more sit on doors that `065` couldn't pin to any street, Telekom's 343,930 and every one of OTE UltraFast's 50,064 among them. Joining those by address text collapses them: each filing in a postcode matches the same row, and OTE UltraFast's whole network landed on 327 addresses. `025_address_point_nearby` rescues the ones standing within 30 m of a door the address index holds, capped at twenty doors. The rest are placed against street geometry directly, within `built_fiber_m()`, because OSM is dense exactly where the address index is thin: Πύλου-Νέστορος holds 4,789 fiber points and 50 addresses for the whole municipality. Only the nearest street, since a filing passing fifty premises fronts onto more than one road and never says which. 440 streets rest on this route alone, with their evidence a median 10 m away.
-
-Mobile and fixed wireless are excluded from street and municipality figures. 5G reaches nearly every address and files a 300-1000 band where it does, which flattens the map to a single value.
-
-Schema changes are ordered, checksummed migrations in `normalise/migrations/` (65 of them), applied by `make migrate`. A migration is immutable once applied: editing one, even to reword a comment, drifts its checksum and blocks the next `make migrate` until the row is re-stamped by hand.
-
-## API
-
-FastAPI, read-only except for three endpoints. Runs on `:8000`.
-
-| Method | Path | Returns |
-|---|---|---|
-| `GET` | `/health` | Row counts, to confirm the database is built |
-| `GET` | `/search` | Addresses and streets, Greek or Greeklish |
-| `GET` | `/addresses/{id}` | One address, with every filed offer |
-| `GET` | `/addresses/{id}/options` | What is buyable there, ranked, with costs |
-| `POST` | `/addresses/{id}/probe` | Asks one operator live |
-| `GET` | `/streets/{id}` | One street, its geometry and the offers along it |
-| `POST` | `/streets/{id}/addresses` | Creates an address the register never filed |
-| `POST` | `/reports` | Records that something looks wrong |
-| `GET` | `/health/adapters` | Per-operator checker state |
-
-A street's offers are the rows `110_street_reach` stores in `street_offer`, the same rows the map's colour is derived from, so the two can't disagree. `matched_by` says which route found each one: `point` for a filing against a door, `area` for a cabinet, `built` for fiber in the ground the register never gave an address. They used to be two separate queries. `110` learned the third route and the panel didn't, and Χανιά - Θέρισο drew at a gigabit above "no road here with declared coverage". Reading the stored rows also took the panel from about 180 ms to one index lookup.
-
-Search runs three widening tiers: literal prefix, word-start, then trigram similarity. The fuzzy tier matches against a materialised view of the 126,151 distinct address spellings, not all 1.8M rows, which keeps it near 45 ms instead of 750 ms. The other tiers pick the page of ids from a covering index first, then read only those rows.
-
-`schema/openapi.json` is generated from the application and checked by `make lint`. The frontend's types are generated from it in turn.
-
-## Map
-
-MapLibre GL reading PMTiles archives by range request. Three vector layers, cut by tippecanoe at zoom 4 to 14 into two archives:
-
-`speedmap.pmtiles`
-
-- `streets`: one feature per street from zoom 10, carrying the overall figure plus a per-operator field, so the map can be filtered to a single operator without repainting a colour that operator can't sell. Below zoom 10 streets that look the same are merged into one feature, without id, and cut at a quarter of the detail. A field carries `role: infrastructure` in `schema/tiles.yaml` when its operator retails nothing, and the panel reads that instead of keeping its own list.
-- `regions`: one feature per municipality, for zooms below 11 where a street is a fraction of a pixel.
-
-`cells.pmtiles`
-
-- `cells`: Ookla tiles as the square that was measured, clipped to the country. About 4% of Greece has any measurement, so an empty view is normal.
-
-The squares sit apart because the map draws them or the streets, never both. Sharing an archive meant every zoom out fetched and decompressed squares the coverage view does not draw, half of every tile at the country zooms. Now MapLibre asks for that archive only once the reader switches to Measured.
-
-Features are written in a fixed order. Tippecanoe writes them in the order it reads them and the renderer draws them in that order, so without an `order by` a rebuild can swap which of two crossing streets is on top, which is a visible change from no change at all.
-
-Field names are defined once in `schema/tiles.yaml` and generated into both the Python builder and the TypeScript renderer, so a renamed field breaks the build before it can silently render as `undefined`.
-
-MapLibre parses tiles on one worker unless it is told otherwise. `web/src/map/engine.ts` sets the pool to eight and registers one PMTiles protocol for the page.
-
-The basemap and building footprints are separate archives built with planetiler from an OSM extract and Overture footprints. They are not produced by this repository.
-
-## Local Development
-
-Requires Postgres 18 with PostGIS, Python 3.13, and Node. `tippecanoe` is needed only to cut tiles.
+You need Postgres 18 with PostGIS, Python 3.14 and Node 24. `tippecanoe` is only needed to cut tiles.
 
 ```bash
-make setup        # .venv and dependencies
-make bootstrap    # migrate, load the register, build derived tables
+make setup        # .venv, pinned by constraints.txt
+make bootstrap    # create the database, migrate, load everything, build
 make fonts        # label glyphs, served beside the tiles
+make tiles        # cut the map
 make api          # http://localhost:8000
-```
 
-`bootstrap` creates the database, so it is the one command that runs against a machine with
-nothing on it. Every stage is idempotent and declares what it comes after, and the order is
-asserted in `tests/test_bootstrap.py` so nobody has to remember it.
-
-What a clone reproduces, and what it does not:
-
-| Input | From | In a clone |
-|---|---|---|
-| The register | `broadband-assist.gov.gr`, paged and resumable | Yes, over several hours |
-| Street geometry | `download.geofabrik.de`, the Greece extract | Yes |
-| Measured speeds | Ookla's open S3 bucket | Yes |
-| Tariffs | `prices/published.yaml` and the operators' pages | Yes |
-| The Cosmote address scrape | Months of asking, several gigabytes | No. The stage skips and says what is lost: 326,249 addresses, and two checkers that can then only be asked about streets it walked |
-| `bin/tippecanoe`, `bin/tile-join` | Vendored, and gitignored along with everything else binary | No. Install tippecanoe, which ships both, or `make tiles` says which tool is missing |
-| `greece.pmtiles`, `buildings.pmtiles` | planetiler, over an OSM extract and Overture footprints | No, and nothing here builds them. The map draws its streets without them and logs which archive is absent. After copying a build in, `make slim` cuts each down to the layers and fields the style reads, listed in `schema/tiles.yaml` |
-
-A clone therefore reaches a loaded database and its own coverage tiles, drawn on a bare outline of
-the country until a planetiler build of the basemap and buildings is copied into `tiles/`.
-
-```bash
 cd web
 npm install
 npm run dev       # http://localhost:5173, proxies /api to :8000
 ```
 
-The dev server proxies the API so both run same-origin, matching production behind Caddy.
+`bootstrap` is idempotent and resumable, the register alone takes a few hours. A clone reproduces the register, the streets, the measurements and the tariffs. It does not reproduce two things:
 
-## Running on the Pi
+- **The Telekom address scrape** (`data/cosmote.db`), months of asking that a clone can't repeat. The stage is skipped and says what is lost: about 326k addresses, and two checkers that can then only be asked about streets the scrape walked.
+- **The basemap and buildings** (`greece.pmtiles`, `buildings.pmtiles`), built with planetiler outside this repo. Without them the map still draws every street, on a bare outline of the country. After copying a build into `tiles/`, `make slim` cuts it down to what the style reads.
 
-The Pi runs everything unattended: Caddy in front, the API, Postgres, and these jobs on systemd timers, all under `speedmap.slice` with one memory ceiling.
+## API
 
-| Timer | When | Does |
+FastAPI, read-only apart from reports, asked-for addresses and live probes. The OpenAPI document is generated into `schema/openapi.json`, and the frontend's types are generated from that.
+
+| Method | Path | Returns |
 |---|---|---|
-| `speedmap-backup` | daily 01:00 | Dumps what can't be rebuilt: answers, attempts, tariffs, reports |
-| `speedmap-canary` | daily 02:00 | Asks each operator about addresses with a known answer |
-| `speedmap-sweep` | daily 02:30 | Re-asks about answers close to expiring, 200 addresses a night |
-| `speedmap-prices` | Mondays 04:00 | Reads the operators' tariffs |
-| `speedmap-ookla` | Sundays 05:00 | Loads the newest quarter of speed tests, then recuts the tiles |
-| `speedmap-register` | quarterly, the 15th, 03:00 | Reloads the register, rebuilds, then recuts the tiles |
+| `GET` | `/search` | Addresses and streets, in Greek or Greeklish |
+| `GET` | `/addresses/{id}` | One address and everything filed at it |
+| `GET` | `/addresses/{id}/options` | What can be bought there, ranked and priced |
+| `POST` | `/addresses/{id}/probe` | Asks the operators live |
+| `GET` | `/streets/{id}` | One street, its shape and who reaches it |
+| `POST` | `/streets/{id}/addresses` | Makes an address the register never filed |
+| `POST` | `/reports` | Records that something looks wrong |
+| `GET` | `/health`, `/health/adapters` | Row counts, and how each operator's checker is doing |
 
-**Alerts.** Every unit has `OnFailure=speedmap-alert@%n.service`, which pushes the unit's name and the end of its log to an [ntfy](https://ntfy.sh) topic. Pick a long topic nobody would guess, subscribe to it in the ntfy app, and put its URL in `.env` as `SPEEDMAP_NTFY_URL`. Unset, alerts only go to the journal. The `speedmap` user needs to be in the `systemd-journal` group for the alert to quote the log. You're also told when an operator starts blocking us and when it answers again, once each, and the nightly canary warns when a disk the Pi writes to is down to its last tenth or 5 GB.
+Search widens in three tiers (prefix, word start, trigram), and the fuzzy tier runs over distinct spellings rather than all 1.8M addresses.
 
-**When an operator blocks us.** Telekom and Vodafone sit behind Imperva and Nova behind Cloudflare. When their bot protection answers instead of the operator, `probe/walls.py` recognises the page and the attempt is recorded with whose wall it was. The whole operator then rests, since a block is about us and not one address: 30 minutes, doubling with every block in a row, never more than 12 hours. Nothing asks it until then, and the next attempt after a rest is the test of whether the block has lifted. Readers see what the cache holds, with one line under the answer saying how old it is (`cachedFrom` in `web/src/strings.toml`). `/api/health/adapters` says who is blocking and until when. Separately, no operator is asked more than 12 times a minute, from the API and the sweep together, so a busy hour can't be what gets us blocked.
+## The Map
 
-**Limits per caller.** Caddy can't rate-limit without a plugin, so `api/throttle.py` does it, per address as forwarded by Caddy (which is why the API runs with `--proxy-headers`). A caller over a limit gets a 429 with `Retry-After`.
-
-| Request | Limit |
-|---|---|
-| Live checks (`POST /addresses/{id}/probe`) | 30 per 10 minutes |
-| Addresses made on request | 20 per hour |
-| Reports | 5 per hour |
-| Search | 240 per minute |
-| Everything else | 600 per minute |
-
-**Tiles.** The register and Ookla jobs end by cutting `speedmap.pmtiles` and `cells.pmtiles` straight into `/srv/speedmap/tiles`, so the map's colours always come from the rows the panels read. A full cut takes 15 seconds and about 470 MB on a desktop, a couple of minutes on a Pi 4. It needs tippecanoe, which ships `tile-join` too. Debian trixie packages 2.53 for arm64, but tiles identical to a desktop build need the desktop's version, 2.82.0, which has no release tag and is pinned here by commit. Build it once on the Pi and leave the binaries in `/opt/speedmap/bin`, where `publish/run.py` looks first:
-
-```bash
-git clone https://github.com/felt/tippecanoe.git /tmp/tippecanoe
-git -C /tmp/tippecanoe checkout 4f2621186acfec33b63ddf636f665623c0fef2dd
-make -C /tmp/tippecanoe -j4 && cp /tmp/tippecanoe/tippecanoe /tmp/tippecanoe/tile-join /opt/speedmap/bin/
-```
-
-The basemap and buildings archives still come from a desktop planetiler build. They change when OSM does, which for a map of who reaches which street is rarely.
-
-**Changing the wording.** Every piece of text the site shows is in `web/src/strings.toml`, Greek and English side by side. Edit it, run `make strings`, and rebuild the frontend. The command refuses a file where the two languages have different keys, or a sentence that lost a `{placeholder}` in one of them, and says which. The credits page's licence lines are the exception: they stay word for word in `web/src/credits.ts`.
-
-## Make Targets
-
-| Target | Purpose |
-|---|---|
-| `setup` | Create `.venv` and install dependencies |
-| `bootstrap` | Bare clone to loaded database |
-| `migrate` / `migrate-status` | Apply or list pending migrations |
-| `build` | Rebuild derived tables from `raw_*` |
-| `audit` | Run data invariants against the built database |
-| `tiles` | Cut the map tiles |
-| `fonts` | Fetch the label glyphs |
-| `strings` | Check `strings.toml` and rebuild the text the site reads |
-| `codegen` | Regenerate the tile contract, the strings and the OpenAPI document |
-| `api` | Run the API |
-| `check` | Lint, typecheck, and both test suites |
-| `db-check` / `progress` | Database reachability and register load progress |
+MapLibre reading PMTiles by range request, cut by tippecanoe into two archives: `speedmap.pmtiles` with the streets and municipalities, and `cells.pmtiles` with Ookla's measured squares, which only load once someone switches to the measured view. Field names are defined once in `schema/tiles.yaml` and generated into both the Python builder and the TypeScript renderer, so renaming one breaks the build instead of silently drawing nothing.
 
 ## Testing
 
-`make check` runs ruff, mypy in strict mode, a lint that bans numeric fallbacks, the two generated contracts, ESLint over the frontend, 779 Python tests and 56 frontend tests. Thirteen of the frontend tests drive a real browser through Playwright and skip unless a dev server is answering on `127.0.0.1:5173`. Vite binds to `localhost`, which on a dual-stack machine can mean `::1` alone: the address matters, because a skipped browser test reports as a pass and those thirteen cover the panel and the camera. Run `npm run dev -- --host 127.0.0.1` to be sure they execute.
+```bash
+make check
+```
 
-`make audit` is separate and runs the nine SQL invariants in `tests/invariants/` against the loaded database. The test suite runs the same files against an empty scratch database, which proves only that each one fires when a violation is planted beneath it. Running them against real data is a different check and has caught different problems.
+That runs ruff, mypy in strict mode, a lint against substituting numbers for missing values, the generated-file checks, and 223 Python tests against a scratch database built from the migrations. The frontend has 56 tests under Vitest, 13 of which drive a real browser and only run with a dev server on `127.0.0.1:5173` and tiles cut.
+
+`make audit` runs the nine SQL invariants in `tests/invariants/` against the real, built database. The test suite only proves that each of them fires on a planted violation.
+
+CI runs both halves on every push to `main`: the Python job against a PostGIS service container, the web job through typecheck, lint, tests and a production build.
+
+## Development
+
+### Repository Layout
+
+```
+ingest/      Register, OSM, Ookla and scrape loaders
+normalise/   Migrations, the build steps, Greek text folding and transliteration
+probe/       Live operator checkers, the nightly sweep and canaries
+prices/      Tariff catalogues
+ranking/     Cost, expected speed and ordering
+publish/     Tile layers and the tippecanoe cuts
+api/         FastAPI app and rate limits
+alert/       Push alerts and disk checks
+schema/      The tile contract and the OpenAPI document
+deploy/      systemd units, Caddyfile and backups for the production host
+tools/       Bootstrap, codegen, audit, lints
+tests/       pytest suite and SQL invariants
+web/         React + MapLibre frontend
+```
+
+### Workflow
+
+1. **Branches**: work happens on topic branches off `next`
+2. **Checks**: `make check` before anything is merged
+3. **CI**: GitHub Actions on `main`
+4. **Merge**: `next`, then `main`
+
+All of the site's text lives in `web/src/strings.toml`, Greek and English side by side. `make strings` checks that both languages have the same keys and placeholders and regenerates what the frontend reads. Run `make help` for the rest of the targets.
 
 ## Known Limitations
 
-- Addresses match streets about 63% of the time. `065_address_street` pins each one to the nearest road of its name in its municipality. Where no road of that name exists there's no geometry to show, the pin stays null, and built fiber on such a door is placed on its street by position instead.
-- A street is one connected run of road. Ways within about 55 m of each other are one street, which steps over a square or a dual carriageway without merging two roads a block apart. Where a name covers several runs, each is its own row: before this, one row held all of them, a cabinet reaching one coloured the lot, and 516 of those rows spanned more than 20 km.
-- The register files ADSL above its physical ceiling on 512 rows, including five at a gigabit. Those are held to 24 Mbps, so the map disagrees with the filing in those places.
-- The Cosmote address scrape covers 43% of streets, which limits which addresses the Telekom and Nova checkers can be asked about. Nova's adapter works around this by searching the operator's live street list. Telekom's can't. The scrape and its adapter keep the name of the site they read, `cosmote.gr`, and the operator they write to the database is `TELEKOM`.
-- A street figure describes the best line reaching the street. Line quality at a specific door isn't modelled, nor is distance from the cabinet. The measured view is the counterweight.
-- Prices are absent for operators that publish none, and three HCN plans have no setup fee published, so their totals are floors.
+- About 63% of addresses can be pinned to an OSM street. The rest have no matching road of their name.
+- A street figure is the best line reaching the street. Distance from the cabinet, and line quality at a particular door, aren't modelled. The measured view is the counterweight.
+- The register files ADSL above its physical ceiling on 512 rows, five of them at a gigabit. Those are held to 24 Mbps.
+- The Telekom scrape covers 43% of streets, which limits which addresses the Telekom and Nova checkers can be asked about.
+- Operators that publish no prices have none here, and where a setup fee is missing the total is a floor.
 
-## Attribution and Licensing
+## License and Attribution
 
-The code in this repository is MIT licensed. See `LICENSE`. That covers the code only. Every dataset it loads carries its own terms, and those terms travel with the data, so a clone of this repository is not a licence to republish what a build of it produces.
+The code is MIT, see [LICENSE](LICENSE). That covers the code only. Every dataset keeps its own terms, and a clone of this repository is not a licence to republish what a build of it produces.
 
-**OpenStreetMap.** Street geometry and the basemap archive come from an OSM extract, licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/). Credited in the map as:
+- **OpenStreetMap**, street geometry and the basemap, [ODbL](https://opendatacommons.org/licenses/odbl/): © OpenStreetMap contributors
+- **Overture Maps**, building footprints, ODbL: © OpenStreetMap contributors, Overture Maps Foundation, Microsoft, Esri Community Maps contributors, Google Open Buildings
+- **Ookla**, measured speeds, [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). The non-commercial term binds anything built from the tiles. Ookla specify the wording:
 
-> © OpenStreetMap contributors
+  > Speedtest® by Ookla® Global Fixed and Mobile Network Performance Maps. Based on analysis by Ookla of Speedtest Intelligence® data for Q2 2026. Provided by Ookla and accessed 10 September 2026. Ookla trademarks used under license and reprinted with permission.
 
-**Overture Maps.** Building footprints come from the Overture buildings theme, also ODbL, which conflates OSM with several other sources that ask to be named individually:
+- **EETT register**, coverage filings from `broadband-assist.gov.gr`, published by the General Secretariat of Telecommunications and Postal Services. Public, but not open data: its [terms](https://www.broadband-assist.gov.gr/public/terms.html) allow one local copy for personal, non-commercial use with attribution, and prohibit commercial use and modification.
+- **Tariffs and checker answers** belong to each operator, are cached only to run the site, and are attributed wherever they appear.
+- **Libraries**: [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) (BSD-3), [tippecanoe](https://github.com/felt/tippecanoe) (BSD-2), [planetiler](https://github.com/onthegomap/planetiler) (Apache 2.0), and the [OpenMapTiles fonts](https://github.com/openmaptiles/fonts) (mostly SIL OFL).
 
-> © OpenStreetMap contributors, Overture Maps Foundation, Microsoft, Esri Community Maps contributors, Google Open Buildings
-
-**Ookla.** The measured speeds come from Ookla's open dataset under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Ookla specify the wording, so it is reproduced verbatim, and the quarter and the access date in it are the ones this build actually used:
-
-> Speedtest® by Ookla® Global Fixed and Mobile Network Performance Maps. Based on analysis by Ookla of Speedtest Intelligence® data for Q2 2026. Provided by Ookla and accessed 10 September 2026. Ookla trademarks used under license and reprinted with permission.
-
-The NC term is the binding one here. Anything built from these tiles is non-commercial, and SA means a derived dataset carries the same licence forward.
-
-**EETT register.** The coverage filings come from the national register at `broadband-assist.gov.gr`, published by the General Secretariat of Telecommunications and Postal Services. It is a public endpoint but it is not open data. Its [terms](https://www.broadband-assist.gov.gr/public/terms.html) reserve the content to the Secretariat, allow one local copy for personal and non-commercial use with attribution kept, and prohibit commercial exploitation and modification. Treat this repository as a personal and non-commercial tool, and ask the Secretariat before doing anything else with the register.
-
-**Tariffs and checkers.** Plan prices and live serviceability answers are each operator's own material, read from their public pages. They are cached to run the site and attributed to the operator wherever they appear.
-
-**Libraries.** The map runs on [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) (BSD 3-Clause). Label glyphs come from the [OpenMapTiles fonts](https://github.com/openmaptiles/fonts) release, fetched once by `make fonts` and served beside the tiles. Each family keeps its upstream licence, mostly the SIL Open Font License. Tiles are cut with [tippecanoe](https://github.com/felt/tippecanoe) (BSD 2-Clause) and the basemap with [planetiler](https://github.com/onthegomap/planetiler) (Apache 2.0).
-
-All of the above is shown in the site at `/attribution`, one click from a corner of every map. The page is generated from `web/src/credits.ts`, which is the only list of sources the frontend keeps, so a source added there is credited and a source added anywhere else is not credited at all.
+The site shows all of this at `/attribution`, generated from `web/src/credits.ts`.

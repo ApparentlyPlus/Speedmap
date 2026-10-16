@@ -1,0 +1,66 @@
+name: Speedmap Web
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'schema/openapi.json', '.github/workflows/web.yml']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# nothing here writes to the repo
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, Lint, Test & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: API types match the schema
+        run: |
+          npm run --silent api:types
+          git diff --exit-code src/api/schema.ts || { echo "::error::src/api/schema.ts is stale, run make codegen"; exit 1; }
+
+      - name: Typecheck
+        run: npm run --silent typecheck
+
+      - name: Lint
+        run: npm run --silent lint
+
+      # the two browser suites need a dev server and cut tiles, so they skip here
+      - name: Test
+        run: npm run --silent test
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v7
+        with:
+          name: speedmap-web
+          path: web/dist
+          if-no-files-found: error

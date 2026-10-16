@@ -13,7 +13,7 @@ help:
 setup: # create .venv and install all dependencies
 	python3 -m venv .venv
 	$(PY) -m pip install --upgrade pip
-	$(PY) -m pip install -e '.[dev,pipeline]'
+	$(PY) -m pip install -e '.[dev,pipeline]' -c constraints.txt
 	@test -f .env || cp .env.example .env
 
 .PHONY: fmt
