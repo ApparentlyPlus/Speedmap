@@ -74,3 +74,10 @@ def test_locate() -> None:
     target = Target(address_id=1, lat=0, lon=0, street="ΑΧΑΡΝΩΝ", street_no="100",
                     municipality="ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ", postcode=None)
     assert nova.locate(target, "Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ") is None
+
+    # the register files 67,690 doors in lower case with accents
+    target = Target(address_id=1, lat=0, lon=0, street="Αχαρνών", street_no="100",
+                    municipality="ΔΗΜΟΣ ΑΘΗΝΑΙΩΝ", postcode="10434")
+    found = nova.locate(target, "Ν. ΑΤΤΙΚΗΣ", "Δ. ΑΘΗΝΑΙΩΝ")
+    assert found is not None
+    assert found["zipcode"] == "10434"

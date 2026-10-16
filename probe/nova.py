@@ -13,6 +13,7 @@ import psycopg
 from psycopg.rows import TupleRow
 
 from db.settings import settings
+from normalise.text import fold
 from probe.adapter import NotAskableError, Offer, Probed, ProbeError, Target
 from probe.descriptor import Descriptor
 from probe.naming import TRIES, namings
@@ -130,8 +131,9 @@ class Nova:
         return found
 
     def locate(self, target: Target, region: str, municipality: str) -> dict[str, Any] | None:
-        name = target.street.upper()
-        hits = [s for s in self.streets(region, municipality, name[:1]) if str(s.get("street", "")).upper() == name]
+        # folded both sides, upper() keeps the accent in Ερμού
+        name = fold(target.street)
+        hits = [s for s in self.streets(region, municipality, name[:1]) if fold(str(s.get("street", ""))) == name]
         if not hits:
             return None
         # ΑΧΑΡΝΩΝ spans three postcodes, the wrong one answers for the wrong end
