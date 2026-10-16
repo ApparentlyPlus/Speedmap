@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import json
 import subprocess
 import sys
 from decimal import Decimal
@@ -9,6 +11,8 @@ from pathlib import Path
 import psycopg
 import pytest
 from psycopg.rows import TupleRow
+
+from tools.openapi_schema import contract
 
 ADDRESS = (
     "insert into address (street, street_fold, geom, search_key, latin_key) "
@@ -370,6 +374,24 @@ def test_null_serviceable(tx: psycopg.Connection[TupleRow]) -> None:
             f"({address_id}, (select id from provider where code = 'X'), 'FTTH', "
             "'register', 'declared', now(), now() + interval '30 days')"
         )
+
+
+def test_openapi_contract() -> None:
+    held = json.loads((Path(__file__).resolve().parent.parent / "schema" / "openapi.json").read_text(encoding="utf-8"))
+    loose = copy.deepcopy(held)
+    for schema in loose["components"]["schemas"].values():
+        for field in schema.get("properties", {}).values():
+            field.pop("pattern", None)  # what a newer pydantic does to decimals
+            field.pop("description", None)
+    assert contract(loose) == contract(held)
+
+    renamed = copy.deepcopy(held)
+    fields = renamed["components"]["schemas"]["Health"]["properties"]
+    fields["rows"] = fields.pop("addresses")
+    assert contract(renamed) != contract(held)
+
+    # a field called title is a field, not a keyword
+    assert contract({"properties": {"title": {"type": "string"}}}) == {"properties": {"title": {"type": "string"}}}
 
 
 def test_openapi() -> None:

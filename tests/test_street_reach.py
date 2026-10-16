@@ -272,3 +272,22 @@ def test_built(reachable: psycopg.Connection[TupleRow]) -> None:
     _built(reachable, addressed=True)
     run(reachable, _steps())
     assert _reach(reachable) == []
+
+
+def test_pin_word_order(reachable: psycopg.Connection[TupleRow]) -> None:
+    # the register files ΠΑΠΑΝΑΣΤΑΣΙΟΥ ΑΛΕΞΑΝΔΡΟΥ, OSM has ΑΛΕΞΑΝΔΡΟΥ ΠΑΠΑΝΑΣΤΑΣΙΟΥ
+    row = reachable.execute(
+        "insert into street (name, name_fold, latin_key, sort_key, highway, ways, geom, municipality_id) "
+        "values ('Αλεξάνδρου Παπαναστασίου', 'ΑΛΕΞΑΝΔΡΟΥ ΠΑΠΑΝΑΣΤΑΣΙΟΥ', 'ALEXANDROU PAPANASTASIOU', "
+        "'ΑΛΕΞΑΝΔΡΟΥ ΠΑΠΑΝΑΣΤΑΣΙΟΥ', 'residential', 1, %s, 1) returning id",
+        (f"SRID=4326;{INSIDE_LINE}",),
+    ).fetchone()
+    assert row is not None
+    reachable.execute(
+        "insert into address (street, street_fold, geom, search_key, latin_key, municipality_id) "
+        "values ('Παπαναστασίου Αλεξάνδρου', 'ΠΑΠΑΝΑΣΤΑΣΙΟΥ ΑΛΕΞΑΝΔΡΟΥ', 'SRID=4326;POINT(24.0055 40.8345)', "
+        "'ΠΑΠΑΝΑΣΤΑΣΙΟΥ ΑΛΕΞΑΝΔΡΟΥ', 'PAPANASTASIOU ALEXANDROU', 1)"
+    )
+    reachable.commit()
+    run(reachable, _steps())
+    assert reachable.execute("select street_id from address").fetchall() == [(row[0],)]

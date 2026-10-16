@@ -29,11 +29,15 @@ GREEK_LETTERS = {
 # Ξ and Χ both go to X, merges nothing across all 30,272 streets
 
 LATIN_RULES = (
-    ("TH", THETA), ("8", THETA), ("9", THETA),
+    ("TH", THETA),
     ("CH", "X"), ("KS", "X"),
     ("OU", "U"), ("AI", "E"), ("EI", "I"), ("OI", "I"),
-    ("MP", "B"), ("NT", "D"), ("GK", "G"), ("GG", "G"),
+    # GG is NG like ΓΓ, aggelou is ΑΓΓΕΛΟΥ
+    ("MP", "B"), ("NT", "D"), ("GK", "G"), ("GG", "NG"),
 )
+
+# θ inside a word only, ermou 18 keeps its 8
+NUMBER = re.compile(r"\d+[A-Z]?")
 
 # a lone H is usually Χ (aharnon, ahilleas), trigrams catch the rest
 LATIN_LETTERS = {"C": "K", "Q": "K", "W": "O", "Y": "I", "J": "I", "H": "X"}
@@ -48,7 +52,10 @@ def from_greek(name: str) -> str:
 
 def from_latin(query: str) -> str:
     """Greeklish, reduced to the alphabet from_greek writes."""
-    s = strip_marks(query).upper()
+    s = " ".join(
+        w if NUMBER.fullmatch(w) else w.replace("8", THETA).replace("9", THETA)
+        for w in strip_marks(query).upper().split(" ")
+    )
     for a, b in LATIN_RULES:
         s = s.replace(a, b)
     return "".join(LATIN_LETTERS.get(c, c) for c in s).replace(THETA, "TH")

@@ -1,0 +1,102 @@
+name: Speedmap Python
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'alert/**'
+      - 'api/**'
+      - 'db/**'
+      - 'ingest/**'
+      - 'normalise/**'
+      - 'prices/**'
+      - 'probe/**'
+      - 'publish/**'
+      - 'ranking/**'
+      - 'schema/**'
+      - 'tools/**'
+      - 'tests/**'
+      - 'deploy/**'
+      - 'web/src/strings.toml'
+      - 'web/src/strings.ts'
+      - 'web/src/map/tiles.ts'
+      - 'pyproject.toml'
+      - 'constraints.txt'
+      - 'Makefile'
+      - '.github/workflows/python.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# nothing here writes to the repo
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, Types & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    # the tests connect to postgresql:///postgres, libpq fills in the rest from these
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: constraints.txt
+
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e '.[dev,pipeline]' -c constraints.txt
+
+      - name: Verify the database tests will actually run
+        run: |
+          set -euo pipefail
+          # conftest skips everything that needs Postgres if it can't connect, which would pass green
+          .venv/bin/python - <<'EOF'
+          import psycopg
+          with psycopg.connect("postgresql:///postgres", autocommit=True) as c:
+              print("  ok  ", c.execute("select version()").fetchone()[0])
+              for ext in ("postgis", "pg_trgm", "unaccent"):
+                  row = c.execute("select 1 from pg_available_extensions where name = %s", (ext,)).fetchone()
+                  print("  ok  " if row else "  MISS", ext)
+                  if not row:
+                      raise SystemExit(f"::error::{ext} is not available, the migrations would fail")
+          EOF
+
+      - name: Lint
+        run: make lint
+
+      - name: Typecheck
+        run: make typecheck
+
+      - name: Test
+        run: .venv/bin/python -m pytest -q -rs

@@ -14,7 +14,8 @@ EXACT = [
     ("ΑΓΙΟΥ ΙΩΑΝΝΟΥ", ["agiou ioannou", "agiu ioannu"]),
     ("ΗΛΙΑ", ["ilia"]),
     ("ΑΛΕΞΑΝΔΡΑΣ", ["alexandras", "aleksandras"]),
-    ("ΕΥΑΓΓΕΛΙΣΤΡΙΑΣ", ["evangelistrias"]),
+    ("ΕΥΑΓΓΕΛΙΣΤΡΙΑΣ", ["evangelistrias", "evaggelistrias"]),
+    ("ΑΓΓΕΛΟΥ", ["aggelou", "angelou"]),
     ("ΑΥΛΩΝΟΣ", ["avlonos"]),
     ("ΕΥΤΥΧΙΑ", ["eftixia"]),
     ("ΜΠΟΤΣΑΡΗ", ["botsari", "mpotsari"]),
@@ -34,6 +35,11 @@ def test_from_latin() -> None:
     assert from_latin("hlia") != from_greek("ΗΛΙΑ")
     assert from_latin("angelos") == from_greek("ΑΓΓΕΛΟΣ")
     assert from_latin("alexandras") == from_latin("aleksandras")
+
+    # a house number is not a θ
+    assert from_latin("ermou 18") == "ERMU 18"
+    assert from_latin("ermou 9a") == "ERMU 9A"
+    assert from_latin("8eotokou 9") == from_greek("ΘΕΟΤΟΚΟΥ") + " 9"
 
 
 def test_from_greek() -> None:
