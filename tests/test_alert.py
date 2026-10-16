@@ -25,6 +25,11 @@ def test_alert(monkeypatch: pytest.MonkeyPatch) -> None:
     assert alert("TELEKOM is blocking us", "resting", urgent=True) is True
     assert seen == {"url": TOPIC, "body": "resting", "title": "TELEKOM is blocking us", "priority": "high"}
 
+    # httpx only takes ascii headers
+    assert alert("Ερμού", "y") is True
+    httpx.Request("POST", TOPIC, headers={"Title": str(seen["title"])})
+    assert seen["title"] == "=?UTF-8?B?zpXPgc68zr/PjQ==?="
+
 
 def test_alert_down(monkeypatch: pytest.MonkeyPatch) -> None:
     def down(*args: object, **kwargs: object) -> httpx.Response:

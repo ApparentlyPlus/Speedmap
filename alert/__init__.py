@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 import threading
 
@@ -14,11 +15,18 @@ log = logging.getLogger("speedmap.alert")
 TIMEOUT_S = 5.0
 
 
+def header(text: str) -> str:
+    # httpx sends ascii, ntfy reads RFC 2047
+    if text.isascii():
+        return text
+    return f"=?UTF-8?B?{base64.b64encode(text.encode('utf-8')).decode('ascii')}?="
+
+
 def alert(title: str, message: str, *, urgent: bool = False) -> bool:
     log.warning("alert: %s: %s", title, message)
     if not settings.ntfy_url:
         return False
-    headers = {"Title": title.encode("utf-8").decode("latin-1", "replace"), "Tags": "speedmap"}
+    headers = {"Title": header(title), "Tags": "speedmap"}
     if urgent:
         headers["Priority"] = "high"
     # undeliverable alerts get logged and dropped, the caller has its own work to finish
